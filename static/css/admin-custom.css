@@ -1,0 +1,765 @@
+/* =============================================================================
+   GRADEFLOW ADMIN THEME
+   Overrides Django's default admin to match the Teal editorial design system.
+   ============================================================================= */
+
+/* =============================================================================
+   1. CSS VARIABLE OVERRIDES (Django 3.2+ uses CSS vars)
+   ============================================================================= */
+
+:root {
+    /* Primary palette — Teal */
+    --primary:              #0f766e;
+    --secondary:            #0d9488;
+    --accent:               #ccfbf1;
+    --primary-fg:           #ffffff;
+
+    /* Django admin variable overrides */
+    --header-color:         #0f766e;
+    --header-bg:            #0f766e;
+    --breadcrumbs-fg:       #ccfbf1;
+    --breadcrumbs-link-fg:  #ffffff;
+    --breadcrumbs-bg:       #115e59;
+    --link-fg:              #0f766e;
+    --link-hover-color:     #0d9488;
+    --link-selected-fg:     #0f766e;
+    --hairline-color:       #e7e8e9;
+    --border-color:         #edeeef;
+    --body-fg:              #191c1d;
+    --body-bg:              #f8f9fa;
+    --body-quiet-color:     #414754;
+    --body-loud-color:      #042f2e;
+
+    /* Buttons */
+    --button-fg:            #ffffff;
+    --button-bg:            #0f766e;
+    --button-hover-bg:      #115e59;
+    --default-button-bg:    #0d9488;
+    --default-button-hover-bg: #0f766e;
+    --close-button-bg:      #5c5f60;
+    --close-button-hover-bg:#414754;
+    --delete-button-bg:     #ba1a1a;
+    --delete-button-hover-bg:#93000a;
+
+    /* Messages */
+    --message-success-bg:   #d4f5e0;
+    --message-warning-bg:   #ffdcc2;
+    --message-error-bg:     #ffdad6;
+
+    /* Darkened backgrounds */
+    --darkened-bg:          rgba(0, 0, 0, 0.02);
+    --selected-bg:          #ccfbf1;
+    --selected-row:         #ccfbf1;
+
+    /* Fonts */
+    --font-family-primary:  'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, sans-serif;
+    --font-family-monospace: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
+}
+
+/* Django admin dark mode overrides */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --header-bg:            #0f766e;
+        --header-color:         #ffffff;
+        --breadcrumbs-bg:       #115e59;
+        --body-bg:              #121416;
+        --body-fg:              #e2e3e4;
+        --body-quiet-color:     #c1c6d6;
+        --body-loud-color:      #ccfbf1;
+        --link-fg:              #99f6e4;
+        --link-hover-color:     #ccfbf1;
+        --link-selected-fg:     #99f6e4;
+        --hairline-color:       #333537;
+        --border-color:         #43474f;
+        --darkened-bg:          rgba(0, 0, 0, 0.15);
+        --selected-bg:          #042f2e;
+        --selected-row:         #042f2e;
+        --button-bg:            #0d9488;
+        --button-hover-bg:      #0f766e;
+        --default-button-bg:    #0d9488;
+        --close-button-bg:      #444749;
+        --message-success-bg:   #0a3a1a;
+        --message-warning-bg:   #3d2100;
+        --message-error-bg:     #490002;
+    }
+}
+
+
+/* =============================================================================
+   2. TYPOGRAPHY — Use GradeFlow fonts
+   ============================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Manrope:wght@200..800&display=swap');
+
+body {
+    font-family: var(--font-family-primary) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, .module h2, .module caption, caption,
+#header h1, #branding h1 {
+    font-family: 'Manrope', var(--font-family-primary) !important;
+    letter-spacing: -0.01em;
+}
+
+
+/* =============================================================================
+   3. HEADER — Teal bar with polished typography
+   ============================================================================= */
+
+#header {
+    background: var(--header-bg) !important;
+    padding: 12px 24px !important;
+    box-shadow: 0 2px 12px rgba(15, 118, 110, 0.15);
+    border-bottom: none !important;
+}
+
+#branding h1 {
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    letter-spacing: -0.02em !important;
+}
+
+#branding h1 a:link, #branding h1 a:visited {
+    color: #ffffff !important;
+}
+
+#user-tools {
+    font-size: 0.8125rem !important;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+#user-tools a {
+    color: #ccfbf1 !important;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+#user-tools a:hover {
+    color: #ffffff !important;
+    border-bottom-color: rgba(255, 255, 255, 0.5);
+}
+
+
+/* =============================================================================
+   4. BREADCRUMBS
+   ============================================================================= */
+
+div.breadcrumbs {
+    background: var(--breadcrumbs-bg) !important;
+    padding: 10px 24px !important;
+    font-size: 0.8125rem !important;
+    font-weight: 500 !important;
+    border: none !important;
+}
+
+div.breadcrumbs a {
+    color: #ccfbf1 !important;
+}
+
+div.breadcrumbs a:hover {
+    color: #ffffff !important;
+}
+
+
+/* =============================================================================
+   5. CONTENT AREA — Rounded, airy
+   ============================================================================= */
+
+#content {
+    padding: 24px !important;
+}
+
+#content h1 {
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+    color: var(--body-fg);
+    margin-bottom: 20px;
+}
+
+
+/* =============================================================================
+   6. MODULES (App groups) — Card-style
+   ============================================================================= */
+
+.module {
+    border: none !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(25, 28, 29, 0.06);
+    margin-bottom: 20px !important;
+    background: var(--body-bg);
+}
+
+.module h2, .module caption {
+    background: var(--primary) !important;
+    color: #ffffff !important;
+    padding: 12px 16px !important;
+    font-size: 0.8125rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    border-bottom: none !important;
+    border-radius: 12px 12px 0 0;
+}
+
+/* Rows */
+.module table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.module table tbody tr:hover {
+    background-color: var(--accent) !important;
+}
+
+.module table tbody td,
+.module table tbody th {
+    padding: 10px 16px !important;
+    border-bottom: 1px solid var(--hairline-color) !important;
+    font-size: 0.875rem;
+}
+
+.module table tbody tr:last-child td,
+.module table tbody tr:last-child th {
+    border-bottom: none !important;
+}
+
+
+/* =============================================================================
+   7. BUTTONS — Pill-shaped, teal
+   ============================================================================= */
+
+input[type="submit"],
+input[type="button"],
+.submit-row input,
+.button, a.button {
+    background: var(--button-bg) !important;
+    color: var(--button-fg) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 10px 20px !important;
+    font-weight: 600 !important;
+    font-size: 0.875rem !important;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+
+input[type="submit"]:hover,
+.button:hover, a.button:hover {
+    background: var(--button-hover-bg) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 118, 110, 0.2);
+}
+
+input[type="submit"]:active,
+.button:active, a.button:active {
+    transform: translateY(0);
+}
+
+.default,
+input.default {
+    background: var(--default-button-bg) !important;
+}
+
+.default:hover,
+input.default:hover {
+    background: var(--default-button-hover-bg) !important;
+}
+
+a.deletelink,
+.deletelink {
+    background: var(--delete-button-bg) !important;
+    border-radius: 8px !important;
+    padding: 10px 16px !important;
+    color: #ffffff !important;
+}
+
+a.deletelink:hover,
+.deletelink:hover {
+    background: var(--delete-button-hover-bg) !important;
+}
+
+/* Submit row */
+.submit-row {
+    background: var(--body-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    overflow: visible !important;
+}
+
+
+/* =============================================================================
+   8. FORMS — Clean inputs
+   ============================================================================= */
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+input[type="number"],
+input[type="tel"],
+textarea, select {
+    border: 1px solid #b0b5bd !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    font-size: 0.875rem !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    font-family: var(--font-family-primary) !important;
+    background-color: #ffffff !important;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+textarea:focus, select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1) !important;
+    outline: none !important;
+}
+
+/* Fieldset */
+fieldset {
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    margin-bottom: 16px;
+}
+
+fieldset h2 {
+    color: var(--body-fg) !important;
+    background: none !important;
+    padding: 0 !important;
+    font-size: 1rem !important;
+    margin-bottom: 12px;
+    border-bottom: 2px solid var(--accent) !important;
+    padding-bottom: 8px !important;
+    border-radius: 0 !important;
+}
+
+/* Inline groups */
+.inline-group h2 {
+    background: var(--primary) !important;
+    color: #ffffff !important;
+    padding: 8px 12px !important;
+    border-radius: 8px 8px 0 0 !important;
+    border-bottom: none !important;
+}
+
+
+/* =============================================================================
+   9. CHANGELIST — Table styling
+   ============================================================================= */
+
+#changelist {
+    padding: 0;
+}
+
+#changelist .results table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+#changelist table thead th {
+    background: var(--primary) !important;
+    color: #ffffff !important;
+    padding: 10px 14px !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    border: none !important;
+}
+
+#changelist table thead th a:link,
+#changelist table thead th a:visited {
+    color: #ffffff !important;
+}
+
+#changelist table thead th.sorted {
+    background: #115e59 !important;
+}
+
+#changelist table tbody td {
+    padding: 10px 14px !important;
+    font-size: 0.875rem !important;
+    border-bottom: 1px solid var(--hairline-color) !important;
+    border-left: none !important;
+    border-right: none !important;
+    transition: background-color 0.15s;
+}
+
+#changelist table tbody tr:hover td {
+    background-color: var(--accent) !important;
+}
+
+#changelist table tbody tr.selected td {
+    background-color: var(--selected-row) !important;
+}
+
+/* Action bar */
+#changelist .actions {
+    background: var(--body-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    padding: 12px 16px !important;
+    margin-bottom: 16px;
+}
+
+#changelist .actions select {
+    border-radius: 8px !important;
+}
+
+/* Filters */
+#changelist-filter {
+    background: var(--body-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+}
+
+#changelist-filter h2 {
+    font-size: 0.8125rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: var(--primary) !important;
+    background: none !important;
+    padding: 0 0 8px 0 !important;
+    border-bottom: 2px solid var(--accent) !important;
+    margin-bottom: 12px !important;
+    border-radius: 0 !important;
+}
+
+#changelist-filter h3 {
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    color: var(--body-fg) !important;
+    margin: 12px 0 4px !important;
+}
+
+#changelist-filter li {
+    padding: 4px 0;
+}
+
+#changelist-filter li a {
+    font-size: 0.8125rem;
+    color: var(--link-fg);
+    text-decoration: none;
+    border-radius: 6px;
+    padding: 2px 8px;
+    transition: background-color 0.15s;
+}
+
+#changelist-filter li a:hover {
+    background-color: var(--accent);
+}
+
+#changelist-filter li.selected a {
+    color: var(--primary);
+    font-weight: 700;
+    background-color: var(--accent);
+}
+
+/* Search bar */
+#changelist-search {
+    border: none !important;
+    background: none !important;
+    padding: 0 0 16px 0 !important;
+}
+
+#changelist-search #searchbar {
+    border-radius: 8px !important;
+    border: 1px solid #b0b5bd !important;
+    padding: 10px 14px !important;
+    font-size: 0.875rem !important;
+    width: 100%;
+    max-width: 400px;
+    background-color: #ffffff !important;
+}
+
+#changelist-search #searchbar:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1) !important;
+}
+
+/* Paginator */
+.paginator {
+    border: none !important;
+    background: none !important;
+    padding: 16px 0 !important;
+    font-size: 0.8125rem;
+    color: var(--body-quiet-color);
+}
+
+.paginator a:link, .paginator a:visited {
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--primary) !important;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.paginator a:hover {
+    background: var(--primary);
+    color: #ffffff !important;
+}
+
+
+/* =============================================================================
+   10. MESSAGES — Rounded, tonal
+   ============================================================================= */
+
+.messagelist li {
+    border-radius: 10px !important;
+    margin: 8px 0 !important;
+    padding: 12px 16px !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    border: none !important;
+}
+
+.messagelist li.success {
+    background: var(--message-success-bg) !important;
+    color: #0a5c28;
+}
+
+.messagelist li.warning {
+    background: var(--message-warning-bg) !important;
+    color: #6e3800;
+}
+
+.messagelist li.error {
+    background: var(--message-error-bg) !important;
+    color: #93000a;
+}
+
+
+/* =============================================================================
+   11. RECENT ACTIONS — Card style
+   ============================================================================= */
+
+#recent-actions-module {
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+}
+
+#recent-actions-module h2 {
+    background: none !important;
+    color: var(--primary) !important;
+    padding: 14px 16px !important;
+    font-size: 0.875rem !important;
+    border-bottom: 2px solid var(--accent) !important;
+    border-radius: 0 !important;
+}
+
+#recent-actions-module .actionlist li {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--hairline-color);
+    font-size: 0.8125rem;
+}
+
+#recent-actions-module .actionlist li:last-child {
+    border-bottom: none;
+}
+
+#recent-actions-module .actionlist li a {
+    color: var(--link-fg);
+    font-weight: 500;
+}
+
+
+/* =============================================================================
+   12. LINKS — Teal color
+   ============================================================================= */
+
+a:link, a:visited {
+    color: var(--link-fg);
+    transition: color 0.15s;
+}
+
+a:hover {
+    color: var(--link-hover-color);
+}
+
+/* Add/change links */
+.addlink, .changelink, .viewlink {
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+}
+
+.addlink::before {
+    color: var(--primary) !important;
+}
+
+
+/* =============================================================================
+   13. DARK MODE TOGGLE — Hide native, show ours
+   ============================================================================= */
+
+/* Keep dark mode in sync */
+[data-theme="dark"] {
+    --header-bg:            #0f766e;
+    --breadcrumbs-bg:       #115e59;
+    --body-bg:              #121416;
+    --body-fg:              #e2e3e4;
+    --body-quiet-color:     #c1c6d6;
+    --link-fg:              #99f6e4;
+    --link-hover-color:     #ccfbf1;
+    --hairline-color:       #333537;
+    --border-color:         #43474f;
+    --accent:               #042f2e;
+    --selected-bg:          #042f2e;
+    --selected-row:         #042f2e;
+    --darkened-bg:          rgba(0, 0, 0, 0.15);
+    --button-bg:            #0d9488;
+    --button-hover-bg:      #0f766e;
+}
+
+
+/* =============================================================================
+   14. LOGIN PAGE — Match GradeFlow login style
+   ============================================================================= */
+
+body.login {
+    background: var(--body-bg) !important;
+}
+
+body.login #header {
+    background: var(--primary) !important;
+}
+
+body.login #content {
+    max-width: 420px;
+    margin: 60px auto;
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 32px !important;
+    box-shadow: 0 12px 32px rgba(25, 28, 29, 0.06);
+}
+
+body.login .submit-row {
+    border: none !important;
+    background: none !important;
+    padding: 8px 0 0 !important;
+}
+
+body.login input[type="submit"] {
+    width: 100%;
+    padding: 12px !important;
+    font-size: 0.9375rem !important;
+    border-radius: 10px !important;
+}
+
+
+/* =============================================================================
+   15. MISC POLISH
+   ============================================================================= */
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--body-quiet-color);
+}
+
+/* Smooth transitions everywhere */
+*, *::before, *::after {
+    transition-property: background-color, border-color, color, box-shadow;
+    transition-duration: 0ms;
+}
+
+/* Selection */
+::selection {
+    background-color: var(--accent);
+    color: var(--body-loud-color);
+}
+
+/* Related widget wrapper */
+.related-widget-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Help text */
+.help, p.help {
+    font-size: 0.75rem !important;
+    color: var(--body-quiet-color) !important;
+    font-style: normal !important;
+}
+
+/* Object tools (action buttons) */
+.object-tools a:link,
+.object-tools a:visited {
+    background: var(--primary) !important;
+    color: #ffffff !important;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+}
+
+.object-tools a:hover {
+    background: var(--button-hover-bg) !important;
+}
+
+/* Calendar / date widgets */
+.calendarbox, .clockbox {
+    border-radius: 12px !important;
+    box-shadow: 0 8px 24px rgba(25, 28, 29, 0.12) !important;
+    border: 1px solid var(--border-color) !important;
+    overflow: hidden;
+}
+
+.calendar caption {
+    background: var(--primary) !important;
+    color: #ffffff !important;
+}
+
+.calendar td a {
+    border-radius: 6px !important;
+}
+
+.calendar td.today a {
+    background: var(--accent) !important;
+    color: var(--primary) !important;
+    font-weight: 700;
+}
+
+/* Tabs */
+.changeform-tabs-item a {
+    border-radius: 8px 8px 0 0 !important;
+}
+
+.changeform-tabs-item a.active {
+    background: var(--body-bg) !important;
+    color: var(--primary) !important;
+    font-weight: 600;
+}
+
+/* Checkbox */
+input[type="checkbox"] {
+    accent-color: var(--primary);
+}

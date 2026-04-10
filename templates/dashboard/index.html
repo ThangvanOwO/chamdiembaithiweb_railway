@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Welcome -->
+    <div style="margin-bottom: var(--space-8);">
+        <h2 class="display-sm">Xin chào, {{ user.get_full_name|default:user.email }}!</h2>
+        <p class="body-lg text-on-surface-var" style="margin-top: var(--space-2);">
+            Tổng quan hoạt động chấm điểm của bạn
+        </p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid paper-slide-stagger">
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-primary">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+                    <path d="M4 3h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M7 7h6M7 10h6M7 13h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div class="stat-value count-up">{{ stats.total_exams }}</div>
+            <div class="stat-label">Bài thi</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-success">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M7 10l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="stat-value count-up">{{ stats.total_graded }}</div>
+            <div class="stat-label">Bài đã chấm</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-tertiary">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+                    <path d="M3 17l4-8 4 4 6-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="stat-value count-up">{{ stats.avg_score|default:"—" }}</div>
+            <div class="stat-label">Điểm trung bình</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-secondary">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+                    <rect x="2" y="8" width="4" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                    <rect x="8" y="4" width="4" height="13" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                    <rect x="14" y="2" width="4" height="15" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+            </div>
+            <div class="stat-value count-up">{{ stats.pass_rate|default:"—" }}{% if stats.pass_rate is not None %}%{% endif %}</div>
+            <div class="stat-label">Tỉ lệ đạt</div>
+        </div>
+    </div>
+
+    <div class="content-grid">
+        <!-- Left Column -->
+        <div>
+            <!-- Score Distribution Chart -->
+            <div class="card card-elevated" style="margin-bottom: var(--space-6);">
+                <div class="card-header">
+                    <span class="card-title">Phân bố điểm số</span>
+                </div>
+                <canvas id="distribution-chart" style="width: 100%; height: 240px;"></canvas>
+            </div>
+
+            <!-- Recent Submissions -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Bài chấm gần đây</span>
+                    <a href="{% url 'dashboard:history' %}" class="btn btn-tertiary btn-sm">Xem tất cả</a>
+                </div>
+                
+                {% if recent_submissions %}
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Học sinh</th>
+                            <th>Bài thi</th>
+                            <th>Điểm</th>
+                            <th>Xếp loại</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sub in recent_submissions %}
+                        <tr>
+                            <td class="title-sm">{{ sub.student_name|default:"—" }}</td>
+                            <td class="body-sm text-on-surface-var">{{ sub.exam.title|truncatechars:25 }}</td>
+                            <td>
+                                {% if sub.score_10 is not None %}
+                                <span class="title-sm">{{ sub.score_10 }}</span>
+                                {% else %}
+                                <span class="chip chip-pending">{{ sub.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if sub.status == 'completed' %}
+                                <span class="chip chip-{{ sub.grade_label }}">{{ sub.grade_text }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div style="text-align: center; padding: var(--space-8) 0; color: var(--on-surface-variant);">
+                    <p class="body-sm">Chưa có bài chấm nào</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div>
+            <!-- Quick Actions -->
+            <div class="card" style="margin-bottom: var(--space-6);">
+                <div class="card-header">
+                    <span class="card-title">Thao tác nhanh</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                    <a href="{% url 'grading:upload' %}" class="btn btn-primary btn-block" style="justify-content: flex-start;">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                            <path d="M10 3v10M6 7l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M3 13v2a2 2 0 002 2h10a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        Upload & Chấm điểm
+                    </a>
+                    <a href="{% url 'grading:exam_create' %}" class="btn btn-secondary btn-block" style="justify-content: flex-start;">
+                        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                            <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                        Thêm bài thi Thủ công
+                    </a>
+                    <a href="{% url 'dashboard:history' %}" class="btn btn-secondary btn-block" style="justify-content: flex-start;">
+                        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                            <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/>
+                            <path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        Xem lịch sử
+                    </a>
+                </div>
+            </div>
+
+            <!-- Recent Exams -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Bài thi gần đây</span>
+                    <a href="{% url 'grading:exams' %}" class="btn btn-tertiary btn-sm">Tất cả</a>
+                </div>
+                {% if recent_exams %}
+                <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+                    {% for exam in recent_exams %}
+                    <a href="{% url 'grading:results' exam.id %}" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2) 0;">
+                        <div>
+                            <div class="title-sm">{{ exam.title|truncatechars:30 }}</div>
+                            <div class="body-sm text-on-surface-var">{{ exam.num_questions }} câu · {{ exam.submission_count }} bài</div>
+                        </div>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="color: var(--on-surface-variant);">
+                            <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="body-sm text-on-surface-var" style="text-align: center; padding: var(--space-4) 0;">Chưa có bài thi</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const data = {{ distribution_json|safe }};
+    const labels = Object.keys(data);
+    const values = Object.values(data);
+    
+    const ctx = document.getElementById('distribution-chart');
+    if (ctx && values.some(v => v > 0)) {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: [
+                        '#1b7a3d',  // Giỏi - green
+                        '#005bbf',  // Khá - blue  
+                        '#8f4d00',  // TB - orange
+                        '#ba1a1a',  // Yếu - red
+                    ],
+                    borderRadius: 8,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1,
+                            font: { family: "'DM Sans', sans-serif", size: 12 },
+                            color: '#727785',
+                        },
+                        grid: { color: 'rgba(193, 198, 214, 0.15)' },
+                        border: { display: false },
+                    },
+                    x: {
+                        ticks: {
+                            font: { family: "'DM Sans', sans-serif", size: 12 },
+                            color: '#414754',
+                        },
+                        grid: { display: false },
+                        border: { display: false },
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+{% endblock %}

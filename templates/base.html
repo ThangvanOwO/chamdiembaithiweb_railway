@@ -1,0 +1,83 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GradeFlow — Hệ thống chấm điểm trắc nghiệm tự động dành cho giáo viên">
+    <meta name="theme-color" content="#0F766E">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>{% block title %}Chấm Điểm Trắc Nghiệm{% endblock %} — GradeFlow</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{% static 'img/gradeflow_logo.png' %}">
+
+    <!-- Google Fonts: Manrope (Display) + DM Sans (Body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+
+    <!-- Design System CSS -->
+    <link rel="stylesheet" href="{% static 'css/design-system.css' %}">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}">
+    <link rel="stylesheet" href="{% static 'css/layout.css' %}">
+    <link rel="stylesheet" href="{% static 'css/animations.css' %}">
+    <link rel="stylesheet" href="{% static 'css/polish.css' %}">
+
+    {% block extra_css %}{% endblock %}
+
+    <!-- Dark mode: apply before render to prevent flash -->
+    <script>
+        (function(){
+            var t = localStorage.getItem('gradeflow-theme');
+            if (t) document.documentElement.setAttribute('data-theme', t);
+            else if (window.matchMedia('(prefers-color-scheme: dark)').matches)
+                document.documentElement.setAttribute('data-theme', 'dark');
+        })();
+    </script>
+</head>
+<body x-data="{ sidebarOpen: true, toasts: [] }" class="app-body">
+
+    <!-- Page Loader (HTMX progress bar) -->
+    <div id="page-loader"></div>
+
+    {% if user.is_authenticated %}
+    <!-- Sidebar Navigation -->
+    {% include "partials/_sidebar.html" %}
+
+    <!-- Mobile Backdrop -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    {% endif %}
+
+    <!-- Main Content Area -->
+    <main class="main-content" :class="{ 'sidebar-collapsed': !sidebarOpen && {{ user.is_authenticated|yesno:'true,false' }} }">
+
+        {% if user.is_authenticated %}
+        <!-- Top Bar -->
+        {% include "partials/_navbar.html" %}
+        {% endif %}
+
+        <!-- Page Content -->
+        <div class="page-content">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Toast Container -->
+    {% include "partials/_toast.html" %}
+
+    <!-- JavaScript -->
+    <script src="{% static 'js/htmx.min.js' %}"></script>
+    <script src="{% static 'js/alpine.min.js' %}" defer></script>
+    <script src="{% static 'js/app.js' %}" defer></script>
+
+    <!-- HTMX Config -->
+    <script>
+        document.body.addEventListener('htmx:configRequest', function(event) {
+            event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

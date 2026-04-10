@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Hồ sơ{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Hồ sơ cá nhân</h2>
+            <p class="section-subtitle">Cập nhật thông tin giáo viên của bạn</p>
+        </div>
+    </div>
+
+    <div style="max-width: 640px;">
+        <div class="card card-elevated">
+            <!-- Avatar -->
+            <div style="display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-6);">
+                <div class="avatar avatar-lg">
+                    {{ user.first_name|default:user.email|truncatechars:1|upper }}
+                </div>
+                <div>
+                    <div class="title-lg">{{ user.get_full_name|default:user.email }}</div>
+                    <div class="body-sm text-on-surface-var">{{ user.email }}</div>
+                </div>
+            </div>
+
+            <!-- Profile Form -->
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
+                    <div class="form-group">
+                        <label class="form-label">Họ</label>
+                        {{ form.first_name }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tên</label>
+                        {{ form.last_name }}
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: var(--space-4);">
+                    <label class="form-label">Trường</label>
+                    {{ form.school }}
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
+                    <div class="form-group">
+                        <label class="form-label">Môn dạy</label>
+                        {{ form.subject }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Số điện thoại</label>
+                        {{ form.phone }}
+                    </div>
+                </div>
+
+                <div class="card-footer" style="padding-top: var(--space-6); margin-top: var(--space-4);">
+                    <button type="submit" class="btn btn-primary">
+                        Lưu thay đổi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Đăng nhập hệ thống chấm điểm trắc nghiệm tự động GradeFlow">
+    <meta name="theme-color" content="#005BBF">
+    <title>Đăng nhập — GradeFlow</title>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'><rect width='28' height='28' rx='8' fill='%23005BBF'/><path d='M8 14.5L12 18.5L20 10.5' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{% static 'css/design-system.css' %}">
+    <link rel="stylesheet" href="{% static 'css/components.css' %}">
+    <link rel="stylesheet" href="{% static 'css/layout.css' %}">
+    <link rel="stylesheet" href="{% static 'css/animations.css' %}">
+    <link rel="stylesheet" href="{% static 'css/polish.css' %}">
+
+    <script>
+        (function(){
+            var t = localStorage.getItem('gradeflow-theme');
+            if (t) document.documentElement.setAttribute('data-theme', t);
+            else if (window.matchMedia('(prefers-color-scheme: dark)').matches)
+                document.documentElement.setAttribute('data-theme', 'dark');
+        })();
+    </script>
+</head>
+<body>
+    <div class="auth-layout">
+        <!-- Left: Login Form -->
+        <div class="auth-left">
+            <div class="auth-card fade-in">
+                <!-- Logo -->
+                <div class="auth-logo">
+                    <img src="{% static 'img/gradeflow_logo.png' %}" alt="GradeFlow Logo" width="36" height="36" style="border-radius: 8px;">
+                    <span class="auth-logo-text">GradeFlow</span>
+                </div>
+
+                <!-- Title -->
+                <h1 class="auth-title">Đăng nhập</h1>
+                <p class="auth-subtitle">Chào mừng trở lại! Vui lòng đăng nhập để tiếp tục.</p>
+
+                <!-- Error messages -->
+                {% if messages %}
+                <div style="margin-bottom: var(--space-4);">
+                    {% for message in messages %}
+                    <div class="chip chip-poor" style="padding: var(--space-2) var(--space-4); font-size: 0.8125rem;">
+                        {{ message }}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Login Form -->
+                <form method="post" class="auth-form" id="login-form">
+                    {% csrf_token %}
+                    
+                    <div class="form-group">
+                        <label for="login-email" class="form-label">Email</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                        <span class="form-error">{{ form.email.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="login-password" class="form-label">Mật khẩu</label>
+                        {{ form.password }}
+                        {% if form.password.errors %}
+                        <span class="form-error">{{ form.password.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg btn-block hover-glow" id="login-submit">
+                        Đăng nhập
+                    </button>
+                </form>
+
+                <script>
+                    document.getElementById('login-form').addEventListener('submit', function() {
+                        var btn = document.getElementById('login-submit');
+                        btn.classList.add('is-loading');
+                        btn.disabled = true;
+                    });
+                </script>
+
+                <!-- Footer note -->
+                <p style="margin-top: var(--space-6); font-size: 0.75rem; color: var(--on-surface-variant); text-align: center;">
+                    Tài khoản được cấp bởi quản trị viên hệ thống.
+                    <br>Liên hệ admin nếu bạn chưa có tài khoản.
+                </p>
+            </div>
+        </div>
+
+        <!-- Right: Hero Banner -->
+        <div class="auth-right">
+            <div class="auth-hero fade-in" style="animation-delay: 0.2s;">
+                <!-- Hero Title -->
+                <h2 class="auth-hero-title">Hệ thống chấm điểm<br>tự động</h2>
+                <p class="auth-hero-desc" style="margin-bottom: var(--space-4);">
+                    Nhanh chóng · Chính xác · Tiện lợi
+                </p>
+
+                <!-- Floating Papers Animation -->
+                <div class="floating-papers-container" style="min-height: 300px; margin-top: var(--space-2);">
+                    <div class="paper paper-1">
+                        <div class="paper-line" style="width: 70%;"></div>
+                        <div class="paper-line" style="width: 50%;"></div>
+                        <div class="paper-line" style="width: 80%;"></div>
+                        <div class="paper-check">✓</div>
+                    </div>
+                    <div class="paper paper-2">
+                        <div class="paper-line" style="width: 60%;"></div>
+                        <div class="paper-line" style="width: 90%;"></div>
+                        <div class="paper-line" style="width: 40%;"></div>
+                        <div class="paper-check">✓</div>
+                    </div>
+                    <div class="paper paper-3">
+                        <div class="paper-line" style="width: 80%;"></div>
+                        <div class="paper-line" style="width: 60%;"></div>
+                        <div class="paper-line" style="width: 70%;"></div>
+                        <div class="paper-check">✓</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

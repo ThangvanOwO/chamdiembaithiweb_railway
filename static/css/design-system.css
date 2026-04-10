@@ -1,0 +1,372 @@
+/* =============================================================================
+   DESIGN SYSTEM — "The Academic Editorial"
+   GradeFlow — Chấm Điểm Trắc Nghiệm Online
+   
+   Philosophy: No-border surfaces, tonal layering, editorial typography.
+   Fonts: Manrope (display/headlines) + DM Sans (body/data)
+   ============================================================================= */
+
+/* =============================================================================
+   1. RESET & BASE
+   ============================================================================= */
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-body);
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--on-surface);
+    background-color: var(--surface);
+}
+
+img, svg {
+    display: block;
+    max-width: 100%;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
+
+input, textarea, select {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
+
+ul, ol {
+    list-style: none;
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+
+/* =============================================================================
+   2. DESIGN TOKENS (CSS Variables)
+   ============================================================================= */
+
+:root {
+    /* ── Surface Layers (No-Border Philosophy) ────────────────────────── */
+    --surface:                    #f8f9fa;
+    --surface-dim:                #d9dadb;
+    --surface-bright:             #f8f9fa;
+    --surface-container-lowest:   #ffffff;
+    --surface-container-low:      #f3f4f5;
+    --surface-container:          #edeeef;
+    --surface-container-high:     #e7e8e9;
+    --surface-container-highest:  #e1e3e4;
+
+    /* ── Primary (Teal) ────────────────────────────────────────────────── */
+    --primary:                    #0f766e;
+    --primary-container:          #0d9488;
+    --primary-fixed:              #ccfbf1;
+    --primary-fixed-dim:          #99f6e4;
+    --on-primary:                 #ffffff;
+    --on-primary-container:       #ffffff;
+    --on-primary-fixed:           #042f2e;
+    --on-primary-fixed-variant:   #115e59;
+
+    /* ── Secondary (Neutral) ──────────────────────────────────────────── */
+    --secondary:                  #5c5f60;
+    --secondary-container:        #dee0e1;
+    --on-secondary:               #ffffff;
+    --on-secondary-container:     #606364;
+
+    /* ── Tertiary (Orange — Alerts) ───────────────────────────────────── */
+    --tertiary:                   #8f4d00;
+    --tertiary-container:         #b36200;
+    --tertiary-fixed:             #ffdcc2;
+    --on-tertiary:                #ffffff;
+    --on-tertiary-container:      #ffffff;
+
+    /* ── Error ────────────────────────────────────────────────────────── */
+    --error:                      #ba1a1a;
+    --error-container:            #ffdad6;
+    --on-error:                   #ffffff;
+    --on-error-container:         #93000a;
+
+    /* ── Success (Custom — not in Material) ───────────────────────────── */
+    --success:                    #1b7a3d;
+    --success-container:          #d4f5e0;
+    --on-success:                 #ffffff;
+    --on-success-container:       #0a5c28;
+
+    /* ── On-Surface family ────────────────────────────────────────────── */
+    --on-surface:                 #191c1d;
+    --on-surface-variant:         #414754;
+    --inverse-surface:            #2e3132;
+    --inverse-on-surface:         #f0f1f2;
+    --inverse-primary:            #adc7ff;
+
+    /* ── Outline (Ghost Borders) ──────────────────────────────────────── */
+    --outline:                    #727785;
+    --outline-variant:            #c1c6d6;
+
+    /* ── Typography ───────────────────────────────────────────────────── */
+    --font-display:               'Manrope', sans-serif;
+    --font-body:                  'DM Sans', sans-serif;
+
+    /* ── Spacing Scale (8px grid) ─────────────────────────────────────── */
+    --space-1:   0.25rem;   /* 4px */
+    --space-2:   0.5rem;    /* 8px */
+    --space-3:   0.75rem;   /* 12px */
+    --space-4:   1rem;      /* 16px */
+    --space-5:   1.25rem;   /* 20px */
+    --space-6:   1.5rem;    /* 24px */
+    --space-8:   2rem;      /* 32px */
+    --space-10:  2.5rem;    /* 40px */
+    --space-12:  3rem;      /* 48px */
+    --space-16:  4rem;      /* 64px */
+    --space-20:  5rem;      /* 80px */
+
+    /* ── Border Radius ────────────────────────────────────────────────── */
+    --radius-xs:   0.25rem;
+    --radius-sm:   0.375rem;
+    --radius-md:   0.5rem;
+    --radius-lg:   0.75rem;
+    --radius-xl:   1rem;
+    --radius-2xl:  1.5rem;
+    --radius-full: 9999px;
+
+    /* ── Shadows (Ambient — No traditional box-shadow) ────────────────── */
+    --shadow-none:     none;
+    --shadow-ambient:  0px 12px 32px rgba(25, 28, 29, 0.06);
+    --shadow-glass:    0px 8px 24px rgba(0, 91, 191, 0.08);
+    --shadow-elevated: 0px 16px 48px rgba(25, 28, 29, 0.10);
+    --shadow-toast:    0px 8px 24px rgba(25, 28, 29, 0.12);
+
+    /* ── Transition ───────────────────────────────────────────────────── */
+    --ease-out:       cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+    --duration-fast:  150ms;
+    --duration-base:  250ms;
+    --duration-slow:  400ms;
+
+    /* ── Glassmorphism ────────────────────────────────────────────────── */
+    --glass-bg:       rgba(255, 255, 255, 0.80);
+    --glass-blur:     24px;
+    --glass-border:   rgba(193, 198, 214, 0.20);
+
+    /* ── Z-index scale ────────────────────────────────────────────────── */
+    --z-sidebar:   100;
+    --z-navbar:    90;
+    --z-dropdown:  200;
+    --z-modal:     300;
+    --z-toast:     400;
+}
+
+
+/* =============================================================================
+   3. TYPOGRAPHY SCALE
+   ============================================================================= */
+
+/* Display — Manrope, for hero sections */
+.display-lg {
+    font-family: var(--font-display);
+    font-size: 3.5rem;
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+}
+
+.display-md {
+    font-family: var(--font-display);
+    font-size: 2.75rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+}
+
+.display-sm {
+    font-family: var(--font-display);
+    font-size: 2.25rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+
+/* Headline — Manrope */
+.headline-lg {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+.headline-md {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.headline-sm {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+/* Title — DM Sans */
+.title-lg {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.title-md {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.title-sm {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+/* Body — DM Sans */
+.body-lg {
+    font-family: var(--font-body);
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.6;
+}
+
+.body-md {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.55;
+}
+
+.body-sm {
+    font-family: var(--font-body);
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+/* Label — DM Sans, uppercase subheaders */
+.label-lg {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.label-md {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.label-sm {
+    font-family: var(--font-body);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+
+/* =============================================================================
+   4. UTILITY CLASSES
+   ============================================================================= */
+
+/* Text colors */
+.text-primary        { color: var(--primary); }
+.text-secondary      { color: var(--secondary); }
+.text-on-surface     { color: var(--on-surface); }
+.text-on-surface-var { color: var(--on-surface-variant); }
+.text-error          { color: var(--error); }
+.text-success        { color: var(--success); }
+
+/* Background colors */
+.bg-surface          { background-color: var(--surface); }
+.bg-container-low    { background-color: var(--surface-container-low); }
+.bg-container        { background-color: var(--surface-container); }
+.bg-container-high   { background-color: var(--surface-container-high); }
+.bg-container-white  { background-color: var(--surface-container-lowest); }
+.bg-primary          { background-color: var(--primary); color: var(--on-primary); }
+
+/* Gradient */
+.gradient-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-container) 100%);
+}
+
+/* Spacing helpers */
+.mt-1 { margin-top: var(--space-1); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mt-6 { margin-top: var(--space-6); }
+.mt-8 { margin-top: var(--space-8); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-4 { margin-bottom: var(--space-4); }
+.mb-6 { margin-bottom: var(--space-6); }
+.mb-8 { margin-bottom: var(--space-8); }
+
+/* Flex utilities */
+.flex        { display: flex; }
+.flex-col    { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-2  { gap: var(--space-2); }
+.gap-3  { gap: var(--space-3); }
+.gap-4  { gap: var(--space-4); }
+.gap-6  { gap: var(--space-6); }
+
+/* Grid utilities */
+.grid { display: grid; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* Visibility */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

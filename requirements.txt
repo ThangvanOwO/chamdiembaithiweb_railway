@@ -1,0 +1,79 @@
+# ============================================================================
+# GradeFlow — Danh sách thư viện sử dụng
+# Hệ thống chấm điểm trắc nghiệm tự động
+# ============================================================================
+# Cài đặt: pip install -r requirements.txt
+# ============================================================================
+
+# -----------------------------------------------------------------------------
+# CORE FRAMEWORK
+# -----------------------------------------------------------------------------
+Django==5.2                     # Web framework chính (Python)
+
+# -----------------------------------------------------------------------------
+# DATABASE 
+# -----------------------------------------------------------------------------
+mysqlclient==2.2.8              # Kết nối MySQL/MariaDB (Linux native)
+
+# -----------------------------------------------------------------------------
+# AUTHENTICATION — Xác thực người dùng
+# -----------------------------------------------------------------------------
+django-allauth==65.15.1         # Đăng nhập bằng email/password (không social login)
+
+# -----------------------------------------------------------------------------
+# FRONTEND TOOLS — Hỗ trợ giao diện
+# -----------------------------------------------------------------------------
+django-htmx==1.27.0             # HTMX middleware — AJAX không cần viết JS
+                                # (Alpine.js được load qua CDN, không cần pip)
+
+# -----------------------------------------------------------------------------
+# ASYNC TASK QUEUE — Xử lý chấm điểm bất đồng bộ
+# -----------------------------------------------------------------------------
+celery==5.6.3                   # Task queue — chạy chấm điểm nền
+redis==7.4.0                    # Broker cho Celery (message queue)
+kombu==5.6.2                    # Transport layer cho Celery (tự cài kèm)
+amqp==5.3.1                     # AMQP protocol (dependency của Celery)
+billiard==4.2.4                 # Multiprocessing pool (dependency của Celery)
+vine==5.1.0                     # Promise/callback (dependency của Celery)
+
+# -----------------------------------------------------------------------------
+# IMAGE PROCESSING — Xử lý ảnh bài thi
+# -----------------------------------------------------------------------------
+pillow==12.2.0                  # Xử lý ảnh (upload, resize, validate)
+
+# -----------------------------------------------------------------------------
+# DATA IMPORT/EXPORT — Xuất kết quả
+# -----------------------------------------------------------------------------
+django-import-export==4.4.0     # Import/Export dữ liệu (Excel, CSV) trong Admin
+tablib==3.9.0                   # Thư viện xử lý dữ liệu dạng bảng (dependency)
+diff-match-patch==20241021      # So sánh văn bản (dependency của import-export)
+
+# -----------------------------------------------------------------------------
+# STATIC FILES — Phục vụ file tĩnh
+# -----------------------------------------------------------------------------
+whitenoise==6.12.0              # Serve static files trong production (không cần Nginx)
+
+# -----------------------------------------------------------------------------
+# UTILITIES — Tiện ích
+# -----------------------------------------------------------------------------
+asgiref==3.11.1                 # ASGI compatibility (Django async support)
+sqlparse==0.5.5                 # SQL formatter (Django dependency)
+python-dateutil==2.9.0.post0    # Xử lý ngày tháng nâng cao
+tzdata==2026.1                  # Dữ liệu timezone
+tzlocal==5.3.1                  # Xác định timezone local
+packaging==26.0                 # Version parsing utilities
+six==1.17.0                     # Python 2/3 compatibility (legacy dependency)
+
+# -----------------------------------------------------------------------------
+# CLI TOOLS — Hỗ trợ dòng lệnh (Celery CLI dependencies)
+# -----------------------------------------------------------------------------
+click==8.3.2                    # CLI framework
+click-didyoumean==0.3.1         # Gợi ý lệnh khi gõ sai
+click-plugins==1.1.1.2          # Plugin system cho Click
+click-repl==0.3.0               # REPL mode cho Click
+prompt_toolkit==3.0.52          # Interactive prompt (Celery shell)
+wcwidth==0.6.0                  # Tính độ rộng ký tự Unicode
+
+cd /home/haxodras/Workspaces/Chamdiemtudongweb
+source venv/bin/activate
+python manage.py runserver 0.0.0.0:8000

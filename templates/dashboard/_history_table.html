@@ -1,0 +1,67 @@
+<!-- History table partial — swapped via HTMX -->
+{% if submissions %}
+<div class="card">
+    <table class="data-table" id="history-table">
+        <thead>
+            <tr>
+                <th>Học sinh</th>
+                <th>Bài thi</th>
+                <th>Trạng thái</th>
+                <th>Điểm</th>
+                <th>Xếp loại</th>
+                <th>Thời gian</th>
+            </tr>
+        </thead>
+        <tbody class="paper-slide-stagger">
+            {% for sub in submissions %}
+            <tr>
+                <td>
+                    <div class="title-sm">{{ sub.student_name|default:"—" }}</div>
+                    {% if sub.student_id %}<div class="body-sm text-on-surface-var">{{ sub.student_id }}</div>{% endif %}
+                </td>
+                <td class="body-sm">
+                    <a href="{% url 'grading:results' sub.exam.id %}" class="text-primary" style="font-weight: 500;">
+                        {{ sub.exam.title|truncatechars:30 }}
+                    </a>
+                </td>
+                <td>
+                    {% if sub.status == 'completed' %}
+                    <span class="chip chip-excellent">Đã chấm</span>
+                    {% elif sub.status == 'processing' %}
+                    <span class="chip chip-processing">Đang chấm</span>
+                    {% elif sub.status == 'pending' %}
+                    <span class="chip chip-pending">Chờ xử lý</span>
+                    {% elif sub.status == 'error' %}
+                    <span class="chip chip-poor">Lỗi</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if sub.score_10 is not None %}
+                    <span class="title-md">{{ sub.score_10 }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if sub.status == 'completed' %}
+                    <span class="chip chip-{{ sub.grade_label }}">{{ sub.grade_text }}</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="body-sm text-on-surface-var">
+                    {{ sub.uploaded_at|timesince }} trước
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-state-icon">
+        <svg width="36" height="36" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+    </div>
+    <h3 class="empty-state-title">Không tìm thấy kết quả</h3>
+    <p class="empty-state-desc">Thử thay đổi bộ lọc hoặc upload bài mới để bắt đầu chấm.</p>
+</div>
+{% endif %}

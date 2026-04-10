@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Kết quả — {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">{{ exam.title }}</h2>
+            <p class="section-subtitle">
+                {% if exam.subject %}{{ exam.subject }} · {% endif %}
+                {{ exam.num_questions }} câu · {{ stats.total }} bài nộp
+            </p>
+        </div>
+        <div style="display: flex; gap: var(--space-3);">
+            <button onclick="window.print()" class="btn btn-secondary btn-sm" data-tooltip="In kết quả">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M4 6V2h8v4M4 12H2V8h12v4h-2M4 10h8v4H4v-4z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                In kết quả
+            </button>
+            <a href="{% url 'grading:upload' %}" class="btn btn-primary btn-sm">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 2v8M4 6l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 10v2a2 2 0 002 2h8a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                Upload thêm
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    {% if stats.completed > 0 %}
+    <div class="stats-grid paper-slide-stagger">
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-primary">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+                    <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M7 10l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="stat-value">{{ stats.completed }}</div>
+            <div class="stat-label">Đã chấm xong</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-success">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+                    <path d="M3 17l4-8 4 4 6-10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="stat-value">{{ stats.avg_score }}</div>
+            <div class="stat-label">Điểm trung bình</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-tertiary">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+                    <path d="M10 3l2 4 5 1-4 3 1 5-4-2-4 2 1-5-4-3 5-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="stat-value">{{ stats.max_score }}</div>
+            <div class="stat-label">Điểm cao nhất</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon stat-icon-secondary">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+                    <path d="M3 3l14 14M17 3L3 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div class="stat-value">{{ stats.min_score }}</div>
+            <div class="stat-label">Điểm thấp nhất</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Progress (if still processing) -->
+    {% if stats.processing > 0 or stats.pending > 0 %}
+    <div class="card" style="margin-bottom: var(--space-6);">
+        <div class="progress-labeled">
+            <div class="progress-info">
+                <span class="progress-label">
+                    <span class="spinner" style="display: inline-block; width: 14px; height: 14px; vertical-align: middle; margin-right: var(--space-2);"></span>
+                    Đang xử lý...
+                </span>
+                <span class="progress-value">{{ stats.completed }} / {{ stats.total }}</span>
+            </div>
+            <div class="progress">
+                {% widthratio stats.completed stats.total 100 as pct %}
+                <div class="progress-bar" style="width: {% widthratio stats.completed stats.total 100 %}%"></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Results Table -->
+    {% if submissions.exists %}
+    <div class="card">
+        <div class="table-responsive">
+        <table class="data-table" id="results-table">
+            <thead>
+                <tr>
+                    <th>STT</th>
+                    <th>Học sinh</th>
+                    <th>Trạng thái</th>
+                    <th>Số câu đúng</th>
+                    <th>Điểm</th>
+                    <th>Xếp loại</th>
+                    <th>Thời gian</th>
+                </tr>
+            </thead>
+            <tbody class="paper-slide-stagger">
+                {% for sub in submissions %}
+                <tr id="sub-{{ sub.id }}"
+                    {% if sub.status == 'pending' or sub.status == 'processing' %}
+                    hx-get="{% url 'grading:submission_status' sub.id %}"
+                    hx-trigger="every 3s"
+                    hx-swap="outerHTML"
+                    {% endif %}>
+                    <td>{{ forloop.counter }}</td>
+                    <td>
+                        <div class="title-sm">{{ sub.student_name|default:"—" }}</div>
+                        {% if sub.student_id %}<div class="body-sm text-on-surface-var">{{ sub.student_id }}</div>{% endif %}
+                    </td>
+                    <td>
+                        {% if sub.status == 'completed' %}
+                        <span class="chip chip-excellent">Đã chấm</span>
+                        {% elif sub.status == 'processing' %}
+                        <span class="chip chip-processing">
+                            <span class="spinner" style="width: 12px; height: 12px;"></span>
+                            Đang chấm
+                        </span>
+                        {% elif sub.status == 'pending' %}
+                        <span class="chip chip-pending">Chờ xử lý</span>
+                        {% elif sub.status == 'error' %}
+                        <span class="chip chip-poor">Lỗi</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if sub.correct_count is not None %}
+                        {{ sub.correct_count }}/{{ sub.total_questions }}
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if sub.score_10 is not None %}
+                        <span class="title-md">{{ sub.score_10 }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if sub.status == 'completed' %}
+                        <span class="chip chip-{{ sub.grade_label }}">{{ sub.grade_text }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td class="body-sm text-on-surface-var">
+                        {{ sub.uploaded_at|timesince }} trước
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

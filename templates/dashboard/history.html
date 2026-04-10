@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Lịch sử chấm điểm{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Lịch sử chấm điểm</h2>
+            <p class="section-subtitle">Tất cả bài kiểm tra đã chấm</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card" style="margin-bottom: var(--space-6);">
+        <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-end;">
+            <!-- Search -->
+            <div class="form-group" style="flex: 1; min-width: 200px;">
+                <label class="form-label">Tìm kiếm</label>
+                <input type="text" 
+                       class="form-input" 
+                       placeholder="Tên hoặc mã học sinh..."
+                       id="history-search"
+                       name="q"
+                       value="{{ search_query }}"
+                       hx-get="{% url 'dashboard:history' %}"
+                       hx-trigger="keyup changed delay:400ms"
+                       hx-target="#history-results"
+                       hx-include="[name='status'], [name='exam']">
+            </div>
+
+            <!-- Status Filter -->
+            <div class="form-group" style="min-width: 150px;">
+                <label class="form-label">Trạng thái</label>
+                <select class="form-select" 
+                        name="status"
+                        hx-get="{% url 'dashboard:history' %}"
+                        hx-trigger="change"
+                        hx-target="#history-results"
+                        hx-include="[name='q'], [name='exam']">
+                    <option value="">Tất cả</option>
+                    <option value="completed" {% if current_status == 'completed' %}selected{% endif %}>Đã chấm</option>
+                    <option value="pending" {% if current_status == 'pending' %}selected{% endif %}>Chờ xử lý</option>
+                    <option value="processing" {% if current_status == 'processing' %}selected{% endif %}>Đang chấm</option>
+                    <option value="error" {% if current_status == 'error' %}selected{% endif %}>Lỗi</option>
+                </select>
+            </div>
+
+            <!-- Exam Filter -->
+            <div class="form-group" style="min-width: 200px;">
+                <label class="form-label">Bài thi</label>
+                <select class="form-select" 
+                        name="exam"
+                        hx-get="{% url 'dashboard:history' %}"
+                        hx-trigger="change"
+                        hx-target="#history-results"
+                        hx-include="[name='q'], [name='status']">
+                    <option value="">Tất cả bài thi</option>
+                    {% for exam in exams %}
+                    <option value="{{ exam.id }}" {% if current_exam == exam.id|stringformat:"s" %}selected{% endif %}>
+                        {{ exam.title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div id="history-results">
+        {% include "dashboard/_history_table.html" %}
+    </div>
+</div>
+{% endblock %}

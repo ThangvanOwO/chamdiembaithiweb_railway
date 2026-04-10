@@ -1,0 +1,81 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 — Không tìm thấy | GradeFlow</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'><rect width='28' height='28' rx='8' fill='%23005BBF'/><path d='M8 14.5L12 18.5L20 10.5' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background: #f8f9fa;
+            color: #191c1d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        .error-page { text-align: center; max-width: 480px; }
+        .error-code {
+            font-size: 8rem;
+            font-weight: 800;
+            line-height: 1;
+            background: linear-gradient(135deg, #005BBF, #1A73E8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+        .error-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+        .error-desc {
+            font-size: 1rem;
+            color: #727785;
+            line-height: 1.7;
+            margin-bottom: 2rem;
+        }
+        .error-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #005BBF, #1A73E8);
+            color: white;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.9375rem;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .error-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 91, 191, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="error-page">
+        <div class="error-code">404</div>
+        <h1 class="error-title">Trang không tồn tại</h1>
+        <p class="error-desc">
+            Trang bạn đang tìm kiếm không tồn tại hoặc đã bị di chuyển. 
+            Vui lòng kiểm tra lại đường dẫn.
+        </p>
+        <a href="/dashboard/" class="error-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 2L2 8l6 6M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Về Dashboard
+        </a>
+    </div>
+</body>
+</html>

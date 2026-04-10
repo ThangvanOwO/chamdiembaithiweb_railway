@@ -1,0 +1,535 @@
+/* =============================================================================
+   POLISH — Final visual refinements, HTMX transitions, dark mode, advanced FX
+   ============================================================================= */
+
+/* =============================================================================
+   1. PAGE TRANSITIONS via HTMX
+   ============================================================================= */
+
+/* HTMX swap indicator — thin top strip */
+.htmx-indicator {
+    display: none;
+}
+
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+    display: block;
+}
+
+#page-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--primary);
+    z-index: 9999;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s var(--ease-out);
+}
+
+#page-loader.loading {
+    transform: scaleX(0.7);
+    transition: transform 8s cubic-bezier(0.1, 0.05, 0, 1);
+}
+
+#page-loader.done {
+    transform: scaleX(1);
+    transition: transform 0.15s var(--ease-out);
+    opacity: 0;
+    transition: transform 0.15s, opacity 0.4s 0.2s;
+}
+
+
+/* =============================================================================
+   2. INK RIPPLE — On buttons and interactive elements
+   ============================================================================= */
+
+.btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(0);
+    animation: ripple-out 0.6s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes ripple-out {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+
+/* =============================================================================
+   3. FOCUS VISIBLE — Accessibility ring
+   ============================================================================= */
+
+:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.form-input:focus-visible,
+.form-textarea:focus-visible,
+.form-select:focus-visible {
+    outline: none; /* They use bottom-border instead */
+}
+
+
+/* =============================================================================
+   4. SCROLLBAR — Minimal, editorial
+   ============================================================================= */
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--outline-variant);
+    border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--outline);
+}
+
+html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--outline-variant) transparent;
+}
+
+
+/* =============================================================================
+   5. SELECTION — Brand-colored text selection
+   ============================================================================= */
+
+::selection {
+    background-color: var(--primary-fixed);
+    color: var(--on-primary-fixed);
+}
+
+
+/* =============================================================================
+   6. HTMX NEW CONTENT FLASH — "swapped in" animation
+   ============================================================================= */
+
+.htmx-added {
+    animation: fade-in 0.3s var(--ease-out) both;
+}
+
+/* Settling content */
+.htmx-settling {
+    opacity: 1;
+}
+
+.htmx-swapping {
+    opacity: 0;
+    transition: opacity 0.15s ease-out;
+}
+
+
+/* =============================================================================
+   7. SMOOTH SCROLLBAR on Sidebar
+   ============================================================================= */
+
+.sidebar-nav::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(114, 119, 133, 0.3);
+    border-radius: var(--radius-full);
+}
+
+
+/* =============================================================================
+   8. CARD HOVER MICRO-INTERACTIONS
+   ============================================================================= */
+
+/* Card icon subtle bounce on parent hover */
+.stat-card:hover .stat-icon {
+    animation: icon-bounce 0.4s var(--ease-spring) both;
+}
+
+@keyframes icon-bounce {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.1); }
+    70%  { transform: scale(0.95); }
+    100% { transform: scale(1); }
+}
+
+/* Nav item slide indicator */
+.nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 20px;
+    background: var(--primary);
+    border-radius: 0 var(--radius-full) var(--radius-full) 0;
+}
+
+.nav-item {
+    position: relative;
+}
+
+
+/* =============================================================================
+   9. UPLOAD ZONE ENHANCED
+   ============================================================================= */
+
+/* Dashed outline effect using background gradient */
+.upload-zone {
+    background-image: repeating-linear-gradient(
+        0deg,
+        var(--outline-variant),
+        var(--outline-variant) 8px,
+        transparent 8px,
+        transparent 16px
+    ),
+    repeating-linear-gradient(
+        90deg,
+        var(--outline-variant),
+        var(--outline-variant) 8px,
+        transparent 8px,
+        transparent 16px
+    ),
+    repeating-linear-gradient(
+        180deg,
+        var(--outline-variant),
+        var(--outline-variant) 8px,
+        transparent 8px,
+        transparent 16px
+    ),
+    repeating-linear-gradient(
+        270deg,
+        var(--outline-variant),
+        var(--outline-variant) 8px,
+        transparent 8px,
+        transparent 16px
+    );
+    background-size: 1px 100%, 100% 1px, 1px 100%, 100% 1px;
+    background-position: 0 0, 0 0, 100% 0, 0 100%;
+    background-repeat: no-repeat;
+}
+
+.upload-zone.dragover {
+    background-image: repeating-linear-gradient(
+        0deg,
+        var(--primary),
+        var(--primary) 8px,
+        transparent 8px,
+        transparent 16px
+    ),
+    repeating-linear-gradient(
+        90deg,
+        var(--primary),
+        var(--primary) 8px,
+        transparent 8px,
+        transparent 16px
+    ),
+    repeating-linear-gradient(
+        180deg,
+        var(--primary),
+        var(--primary) 8px,
+        transparent 8px,
+        transparent 16px
+    ),
+    repeating-linear-gradient(
+        270deg,
+        var(--primary),
+        var(--primary) 8px,
+        transparent 8px,
+        transparent 16px
+    );
+}
+
+
+/* =============================================================================
+   10. TOOLTIP (CSS-only)
+   ============================================================================= */
+
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    padding: var(--space-1) var(--space-3);
+    background-color: var(--inverse-surface);
+    color: var(--inverse-on-surface);
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: var(--radius-md);
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out),
+                transform var(--duration-fast) var(--ease-out);
+}
+
+[data-tooltip]:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+
+/* =============================================================================
+   11. DARK MODE
+   ============================================================================= */
+
+[data-theme="dark"] {
+    /* ── Surface ─────────────────────────────────── */
+    --surface:                    #121416;
+    --surface-dim:                #121416;
+    --surface-bright:             #383a3c;
+    --surface-container-lowest:   #0d0f10;
+    --surface-container-low:      #191c1d;
+    --surface-container:          #1e2022;
+    --surface-container-high:     #282a2c;
+    --surface-container-highest:  #333537;
+
+    /* ── Primary ─────────────────────────────────── */
+    --primary:                    #adc7ff;
+    --primary-container:          #005bbf;
+    --primary-fixed:              #1c3a6e;
+    --primary-fixed-dim:          #14305e;
+    --on-primary:                 #00315d;
+    --on-primary-container:       #d3e3ff;
+    --on-primary-fixed:           #d8e2ff;
+    --on-primary-fixed-variant:   #adc7ff;
+
+    /* ── On-Surface ──────────────────────────────── */
+    --on-surface:                 #e2e3e4;
+    --on-surface-variant:         #c1c6d6;
+    --inverse-surface:            #e2e3e4;
+    --inverse-on-surface:         #2e3132;
+
+    /* ── Outline ─────────────────────────────────── */
+    --outline:                    #8b90a0;
+    --outline-variant:            #43474f;
+
+    /* ── Secondary ───────────────────────────────── */
+    --secondary:                  #c4c8ca;
+    --secondary-container:        #444749;
+    --on-secondary:               #2e3132;
+    --on-secondary-container:     #dee0e1;
+
+    /* ── Tertiary ────────────────────────────────── */
+    --tertiary:                   #ffb77d;
+    --tertiary-container:         #6e3800;
+    --tertiary-fixed:             #3d2100;
+    --on-tertiary:                #4c2700;
+    --on-tertiary-container:      #ffdcc2;
+
+    /* ── Error ───────────────────────────────────── */
+    --error:                      #ffb4ab;
+    --error-container:            #490002;
+    --on-error:                   #690005;
+    --on-error-container:         #ffdad6;
+
+    /* ── Success ─────────────────────────────────── */
+    --success:                    #83da96;
+    --success-container:          #0a3a1a;
+    --on-success:                 #00391b;
+    --on-success-container:       #d4f5e0;
+
+    /* ── Shadows (Darker for dark mode) ──────────── */
+    --shadow-ambient:  0px 12px 32px rgba(0, 0, 0, 0.30);
+    --shadow-glass:    0px 8px 24px rgba(0, 0, 0, 0.25);
+    --shadow-elevated: 0px 16px 48px rgba(0, 0, 0, 0.40);
+    --shadow-toast:    0px 8px 24px rgba(0, 0, 0, 0.35);
+
+    /* ── Glass ───────────────────────────────────── */
+    --glass-bg:       rgba(18, 20, 22, 0.80);
+    --glass-border:   rgba(67, 71, 79, 0.30);
+}
+
+/* Invert specific elements in dark mode */
+[data-theme="dark"] .chip-good {
+    background-color: var(--primary-fixed);
+    color: var(--primary);
+}
+
+[data-theme="dark"] .auth-right {
+    background: var(--primary-fixed-dim);
+}
+
+
+/* =============================================================================
+   12. PRINT STYLES — For printing results
+   ============================================================================= */
+
+@media print {
+    .sidebar,
+    .top-navbar,
+    .toast-container,
+    .btn,
+    .dropdown {
+        display: none !important;
+    }
+    
+    .main-content {
+        margin-left: 0 !important;
+    }
+    
+    .page-content {
+        padding: 0 !important;
+    }
+    
+    .card {
+        break-inside: avoid;
+        box-shadow: none !important;
+    }
+    
+    body {
+        background: white !important;
+        color: black !important;
+        font-size: 12pt;
+    }
+    
+    .data-table tbody tr {
+        background: white !important;
+    }
+}
+
+
+/* =============================================================================
+   13. ENHANCED RESPONSIVE — Tablet (between 768 and 1024)
+   ============================================================================= */
+
+@media (max-width: 1024px) and (min-width: 769px) {
+    .sidebar {
+        width: 72px;
+    }
+    
+    .sidebar .logo-text,
+    .sidebar .nav-section-label,
+    .sidebar .nav-item span,
+    .sidebar .user-info {
+        display: none;
+    }
+    
+    .main-content {
+        margin-left: 72px;
+    }
+    
+    .upload-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* =============================================================================
+   14. MOBILE OVERLAY — Sidebar backdrop
+   ============================================================================= */
+
+.sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(25, 28, 29, 0.40);
+    z-index: calc(var(--z-sidebar) - 1);
+    backdrop-filter: blur(4px);
+}
+
+@media (max-width: 768px) {
+    .sidebar-backdrop.active {
+        display: block;
+        animation: fade-in 0.2s ease-out both;
+    }
+    
+    /* Mobile hamburger target area */
+    .mobile-menu-btn {
+        display: flex;
+    }
+}
+
+.mobile-menu-btn {
+    display: none;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    align-items: center;
+    justify-content: center;
+    color: var(--on-surface-variant);
+    transition: background-color var(--duration-fast);
+}
+
+.mobile-menu-btn:hover {
+    background-color: var(--surface-container-high);
+}
+
+
+/* =============================================================================
+   15. LOADING BUTTON STATE
+   ============================================================================= */
+
+.btn.is-loading {
+    color: transparent !important;
+    pointer-events: none;
+    position: relative;
+}
+
+.btn.is-loading::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+.btn-secondary.is-loading::after,
+.btn-tertiary.is-loading::after {
+    border-color: rgba(0, 0, 0, 0.1);
+    border-top-color: var(--primary);
+}
+
+
+/* =============================================================================
+   16. COUNT-UP NUMBER ANIMATION (JS-driven via IntersectionObserver)
+   ============================================================================= */
+
+.count-target {
+    display: inline-block;
+}
+
+
+/* =============================================================================
+   17. TABLE RESPONSIVE — Horizontal scroll on mobile
+   ============================================================================= */
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+    .data-table {
+        min-width: 600px;
+    }
+}

@@ -1,0 +1,77 @@
+<!-- Toast Notifications Container -->
+<div class="toast-container" x-cloak>
+    <template x-for="(toast, index) in toasts" :key="toast.id || index">
+        <div class="toast" :class="'toast-' + toast.type"
+             x-show="toast.show"
+             x-transition:enter="toast-enter"
+             x-transition:enter-start="toast-enter-start"
+             x-transition:enter-end="toast-enter-end"
+             x-transition:leave="toast-leave"
+             x-transition:leave-start="toast-leave-start"
+             x-transition:leave-end="toast-leave-end"
+             x-init="setTimeout(() => { toast.show = false; setTimeout(() => toasts.splice(toasts.indexOf(toast), 1), 300) }, 4500)">
+            <div class="toast-icon">
+                <template x-if="toast.type === 'success'">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M7 10l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </template>
+                <template x-if="toast.type === 'error'">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </template>
+                <template x-if="toast.type === 'info'">
+                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/>
+                        <path d="M10 9v4M10 7h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </template>
+            </div>
+            <span class="toast-message" x-text="toast.message"></span>
+            <!-- Progress bar auto-dismiss -->
+            <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 3px; border-radius: 0 0 var(--radius-lg) var(--radius-lg); overflow: hidden;">
+                <div style="height: 100%; background: currentColor; opacity: 0.2; animation: toast-progress 4.5s linear forwards;"></div>
+            </div>
+            <button class="toast-close" @click="toast.show = false" aria-label="Đóng thông báo">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </button>
+        </div>
+    </template>
+</div>
+
+<style>
+@keyframes toast-progress {
+    from { width: 100%; }
+    to   { width: 0%; }
+}
+</style>
+
+<!-- Django Messages → Alpine.js Toasts Integration -->
+{% if messages %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Wait for Alpine to initialize
+        requestAnimationFrame(function() {
+            setTimeout(function() {
+                var appRoot = document.querySelector('[x-data]');
+                if (appRoot && appRoot._x_dataStack) {
+                    var data = appRoot._x_dataStack[0];
+                    {% for message in messages %}
+                    data.toasts.push({
+                        id: Date.now() + {{ forloop.counter }},
+                        type: '{{ message.tags|default:"info" }}'.replace('debug', 'info').replace('warning', 'error'),
+                        message: '{{ message|escapejs }}',
+                        show: true
+                    });
+                    {% endfor %}
+                }
+            }, 200);
+        });
+    });
+</script>
+{% endif %}

@@ -1,0 +1,18 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'css/admin-custom.css' %}">
+    <link rel="icon" type="image/png" href="{% static 'img/gradeflow_logo.png' %}">
+{% endblock %}
+
+{% block branding %}
+    <h1 id="site-name">
+        <a href="{% url 'admin:index' %}">
+            <img src="{% static 'img/gradeflow_logo.png' %}" alt="GradeFlow" 
+                 style="height: 28px; width: 28px; border-radius: 6px; vertical-align: middle; margin-right: 8px;">
+            {{ site_header|default:_('Django administration') }}
+        </a>
+    </h1>
+{% endblock %}

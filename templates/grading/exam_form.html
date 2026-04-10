@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Sửa bài thi{% else %}Thêm bài thi Thủ công{% endif %}{% endblock %}
+
+{% block content %}
+<div class="fade-in" style="max-width: 640px;">
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">{% if is_edit %}Sửa bài thi{% else %}Thêm bài thi Thủ công{% endif %}</h2>
+            <p class="section-subtitle">{% if is_edit %}Cập nhật thông tin bài thi{% else %}Nhập thông tin và đáp án bài kiểm tra{% endif %}</p>
+        </div>
+    </div>
+
+    <div class="card card-elevated">
+        <form method="post" id="exam-form">
+            {% csrf_token %}
+            
+            <div class="form-group" style="margin-bottom: var(--space-5);">
+                <label for="exam-title" class="form-label">Tên bài thi</label>
+                {{ form.title }}
+                {% if form.title.errors %}
+                <span class="form-error">{{ form.title.errors.0 }}</span>
+                {% endif %}
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-5);">
+                <div class="form-group">
+                    <label for="exam-subject" class="form-label">Môn</label>
+                    {{ form.subject }}
+                </div>
+                <div class="form-group">
+                    <label for="exam-questions" class="form-label">Số câu hỏi</label>
+                    {{ form.num_questions }}
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: var(--space-6);">
+                <label for="exam-answers" class="form-label">Đáp án đúng</label>
+                {{ form.answer_key }}
+                <span class="form-hint">Nhập đáp án theo thứ tự, phân cách bởi dấu phẩy. VD: A,B,C,D,A,B,...</span>
+                {% if form.answer_key.errors %}
+                <span class="form-error">{{ form.answer_key.errors.0 }}</span>
+                {% endif %}
+            </div>
+
+            <div class="card-footer">
+                <a href="{% url 'grading:exams' %}" class="btn btn-secondary">Hủy</a>
+                <button type="submit" class="btn btn-primary">
+                    {% if is_edit %}Cập nhật{% else %}Thêm bài thi{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
