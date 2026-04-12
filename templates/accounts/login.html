@@ -61,10 +61,10 @@
                     {% csrf_token %}
                     
                     <div class="form-group">
-                        <label for="login-email" class="form-label">Email</label>
-                        {{ form.email }}
-                        {% if form.email.errors %}
-                        <span class="form-error">{{ form.email.errors.0 }}</span>
+                        <label for="id_login" class="form-label">Email</label>
+                        {{ form.login }}
+                        {% if form.login.errors %}
+                        <span class="form-error">{{ form.login.errors.0 }}</span>
                         {% endif %}
                     </div>
 
