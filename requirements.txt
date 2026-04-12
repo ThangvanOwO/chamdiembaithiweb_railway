@@ -13,7 +13,13 @@ Django==5.2                     # Web framework chính (Python)
 # -----------------------------------------------------------------------------
 # DATABASE 
 # -----------------------------------------------------------------------------
-mysqlclient==2.2.8              # Kết nối MySQL/MariaDB (Linux native)
+psycopg2-binary==2.9.9          # Kết nối PostgreSQL (Railway dùng Postgres)
+dj-database-url==2.1.0          # Parse DATABASE_URL từ biến môi trường
+
+# -----------------------------------------------------------------------------
+# PRODUCTION SERVER
+# -----------------------------------------------------------------------------
+gunicorn==22.0.0                # WSGI HTTP Server cho production (Railway)
 
 # -----------------------------------------------------------------------------
 # AUTHENTICATION — Xác thực người dùng
@@ -77,6 +83,6 @@ wcwidth==0.6.0                  # Tính độ rộng ký tự Unicode
 # -----------------------------------------------------------------------------
 # GRADING ENGINE — Xử lý ảnh OMR (chấm trắc nghiệm)
 # -----------------------------------------------------------------------------
-opencv-python>=4.8              # Computer vision: detect bubbles, warp paper
+opencv-python-headless>=4.8     # Computer vision: detect bubbles, warp paper (headless cho server)
 numpy>=1.24                     # Array operations cho image processing
 openpyxl>=3.1                   # Xuất kết quả Excel
