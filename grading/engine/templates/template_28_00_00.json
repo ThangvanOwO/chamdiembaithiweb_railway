@@ -1,0 +1,114 @@
+{
+    "name": "Phiếu QM-2025 A4 — 28 TN only",
+    "description": "Template 28_00_00: 28 TN, 0 ĐS, 0 điền số",
+    "variant_id": "28_00_00",
+    "variant_folder": "28-00-00---QM-2025---A4---Ky-kiem-tra",
+    "version": "1.0",
+    "needs_calibration": true,
+    "warp": {
+        "width": 1400,
+        "height": 1920
+    },
+    "detection": {
+        "fill_threshold": 0.38,
+        "bubble_radius": 13,
+        "morph_kernel_size": 3,
+        "circularity_threshold": 0.6,
+        "bubble_protect_radius": 16
+    },
+    "part1": {
+        "num_rows": 10,
+        "choices": [
+            "A",
+            "B",
+            "C",
+            "D"
+        ],
+        "columns": [
+            {
+                "start_x": 83,
+                "start_y": 691,
+                "step_x": 72.3,
+                "step_y": 33.1,
+                "q_start": 1,
+                "num_rows": 10
+            },
+            {
+                "start_x": 431,
+                "start_y": 693,
+                "step_x": 74,
+                "step_y": 33.1,
+                "q_start": 11,
+                "num_rows": 10
+            },
+            {
+                "start_x": 782,
+                "start_y": 693,
+                "step_x": 73,
+                "step_y": 33.1,
+                "q_start": 21,
+                "num_rows": 8
+            }
+        ]
+    },
+    "part2": {
+        "step_x": 73,
+        "step_y": 33,
+        "rows": [
+            "a",
+            "b",
+            "c",
+            "d"
+        ],
+        "blocks": []
+    },
+    "part3": {
+        "sign_y": 0,
+        "comma_y": 0,
+        "digit_start_y": 0,
+        "digit_step_y": 33.1,
+        "num_digit_cols": 4,
+        "blocks": []
+    },
+    "sbd": {
+        "cols_x": [
+            1057,
+            1085,
+            1113,
+            1141,
+            1169,
+            1197
+        ],
+        "digit_y": [
+            173,
+            206,
+            249,
+            285,
+            326,
+            363,
+            401,
+            440,
+            480,
+            517
+        ]
+    },
+    "made": {
+        "cols_x": [
+            1292,
+            1321,
+            1345
+        ],
+        "digit_y": [
+            173,
+            206,
+            249,
+            285,
+            326,
+            363,
+            401,
+            440,
+            480,
+            517
+        ]
+    }
+}

@@ -74,6 +74,9 @@ click-repl==0.3.0               # REPL mode cho Click
 prompt_toolkit==3.0.52          # Interactive prompt (Celery shell)
 wcwidth==0.6.0                  # Tính độ rộng ký tự Unicode
 
-cd /home/haxodras/Workspaces/Chamdiemtudongweb
-source venv/bin/activate
-python manage.py runserver 0.0.0.0:8000
+# -----------------------------------------------------------------------------
+# GRADING ENGINE — Xử lý ảnh OMR (chấm trắc nghiệm)
+# -----------------------------------------------------------------------------
+opencv-python>=4.8              # Computer vision: detect bubbles, warp paper
+numpy>=1.24                     # Array operations cho image processing
+openpyxl>=3.1                   # Xuất kết quả Excel

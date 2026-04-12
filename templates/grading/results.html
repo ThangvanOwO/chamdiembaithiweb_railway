@@ -91,71 +91,175 @@
     </div>
     {% endif %}
 
-    <!-- Results Table -->
+    <!-- Results — Card View + Search -->
     {% if submissions.exists %}
-    <div class="card">
-        <div class="table-responsive">
-        <table class="data-table" id="results-table">
-            <thead>
-                <tr>
-                    <th>STT</th>
-                    <th>Học sinh</th>
-                    <th>Trạng thái</th>
-                    <th>Số câu đúng</th>
-                    <th>Điểm</th>
-                    <th>Xếp loại</th>
-                    <th>Thời gian</th>
-                </tr>
-            </thead>
-            <tbody class="paper-slide-stagger">
-                {% for sub in submissions %}
-                <tr id="sub-{{ sub.id }}"
-                    {% if sub.status == 'pending' or sub.status == 'processing' %}
-                    hx-get="{% url 'grading:submission_status' sub.id %}"
-                    hx-trigger="every 3s"
-                    hx-swap="outerHTML"
-                    {% endif %}>
-                    <td>{{ forloop.counter }}</td>
-                    <td>
-                        <div class="title-sm">{{ sub.student_name|default:"—" }}</div>
-                        {% if sub.student_id %}<div class="body-sm text-on-surface-var">{{ sub.student_id }}</div>{% endif %}
-                    </td>
-                    <td>
-                        {% if sub.status == 'completed' %}
-                        <span class="chip chip-excellent">Đã chấm</span>
+    <div x-data="{ search: '', viewMode: 'card', sortBy: 'score_desc' }" style="margin-bottom: var(--space-6);">
+
+        <!-- Toolbar -->
+        <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 200px; position: relative;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                     style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--on-surface-variant);">
+                    <circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <input type="text" x-model="search" placeholder="Tìm SBD, tên..."
+                       class="form-input" style="padding-left: 36px; width: 100%;">
+            </div>
+            <div style="display: flex; gap: 2px; background: var(--surface-container); border-radius: var(--radius-md); padding: 2px;">
+                <button type="button" class="btn btn-sm"
+                        :class="viewMode === 'card' ? 'btn-primary' : 'btn-secondary'"
+                        @click="viewMode = 'card'"
+                        style="padding: 4px 10px; font-size: 0.75rem;">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/><rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.3"/></svg>
+                </button>
+                <button type="button" class="btn btn-sm"
+                        :class="viewMode === 'table' ? 'btn-primary' : 'btn-secondary'"
+                        @click="viewMode = 'table'"
+                        style="padding: 4px 10px; font-size: 0.75rem;">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Card View -->
+        <div x-show="viewMode === 'card'" x-cloak
+             style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3);">
+            {% for sub in submissions %}
+            <a href="{% url 'grading:submission_detail' sub.id %}"
+               class="card hover-lift"
+               style="padding: 0; overflow: hidden; text-decoration: none; color: inherit;"
+               x-show="!search || '{{ sub.student_id|default:"" }} {{ sub.student_name|default:"" }}'.toLowerCase().includes(search.toLowerCase())">
+                <div style="display: flex; align-items: stretch;">
+                    <!-- Score Badge (left) -->
+                    <div style="width: 56px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 4px;
+                        {% if sub.score is not None %}
+                            {% if sub.grade_label == 'excellent' %}background: var(--success-container, #d4edda);
+                            {% elif sub.grade_label == 'good' %}background: var(--primary-container, #d0e4ff);
+                            {% elif sub.grade_label == 'average' %}background: #fef3cd;
+                            {% else %}background: var(--error-container, #f8d7da);{% endif %}
+                        {% else %}background: var(--surface-container);{% endif %}">
+                        {% if sub.score is not None %}
+                        <div style="font-size: 1.25rem; font-weight: 800; line-height: 1;
+                            {% if sub.grade_label == 'excellent' %}color: var(--on-success-container, #155724);
+                            {% elif sub.grade_label == 'good' %}color: var(--on-primary-container, #003a75);
+                            {% elif sub.grade_label == 'average' %}color: #856404;
+                            {% else %}color: var(--on-error-container, #721c24);{% endif %}">
+                            {{ sub.score_10 }}
+                        </div>
+                        <div style="font-size: 0.5625rem; font-weight: 600; margin-top: 2px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.5px;">
+                            {{ sub.grade_text }}
+                        </div>
                         {% elif sub.status == 'processing' %}
-                        <span class="chip chip-processing">
-                            <span class="spinner" style="width: 12px; height: 12px;"></span>
-                            Đang chấm
-                        </span>
-                        {% elif sub.status == 'pending' %}
-                        <span class="chip chip-pending">Chờ xử lý</span>
+                        <span class="spinner" style="width: 16px; height: 16px;"></span>
                         {% elif sub.status == 'error' %}
-                        <span class="chip chip-poor">Lỗi</span>
+                        <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="var(--error)" stroke-width="2" stroke-linecap="round"/></svg>
+                        {% else %}
+                        <div style="font-size: 0.625rem; color: var(--on-surface-variant);">...</div>
                         {% endif %}
-                    </td>
-                    <td>
-                        {% if sub.correct_count is not None %}
-                        {{ sub.correct_count }}/{{ sub.total_questions }}
-                        {% else %}—{% endif %}
-                    </td>
-                    <td>
-                        {% if sub.score_10 is not None %}
-                        <span class="title-md">{{ sub.score_10 }}</span>
-                        {% else %}—{% endif %}
-                    </td>
-                    <td>
-                        {% if sub.status == 'completed' %}
-                        <span class="chip chip-{{ sub.grade_label }}">{{ sub.grade_text }}</span>
-                        {% else %}—{% endif %}
-                    </td>
-                    <td class="body-sm text-on-surface-var">
-                        {{ sub.uploaded_at|timesince }} trước
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </div>
+                    <!-- Main content (right) -->
+                    <div style="flex: 1; padding: 8px 12px; display: flex; flex-direction: column; justify-content: center; min-width: 0; gap: 2px;">
+                        <!-- SBD + status -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);">
+                            <div class="title-sm" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                {% if sub.student_id %}SBD {{ sub.student_id }}{% else %}Bài #{{ sub.id }}{% endif %}
+                            </div>
+                            <div class="body-sm text-on-surface-var" style="white-space: nowrap;">
+                                {% if sub.correct_count is not None %}{{ sub.correct_count }}/{{ sub.total_questions }}{% endif %}
+                            </div>
+                        </div>
+                        <!-- Handwritten name crop -->
+                        {% if sub.name_image_url %}
+                        <div style="margin: 2px 0; padding: 3px 6px; background: var(--surface-container); border-radius: 4px; overflow: hidden;">
+                            <img src="{{ sub.name_image_url }}" alt="Tên"
+                                 style="width: 100%; height: 28px; object-fit: contain; object-position: left; filter: contrast(1.5) brightness(1.1);">
+                        </div>
+                        {% elif sub.student_name %}
+                        <div class="body-sm text-on-surface-var" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ sub.student_name }}</div>
+                        {% endif %}
+                        <!-- Meta -->
+                        <div class="body-sm text-on-surface-var" style="font-size: 0.6875rem;">
+                            {{ sub.uploaded_at|timesince }} trước
+                        </div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
+        <!-- Table View (classic) -->
+        <div x-show="viewMode === 'table'" x-cloak class="card">
+            <div class="table-responsive">
+            <table class="data-table" id="results-table">
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Học sinh</th>
+                        <th>Trạng thái</th>
+                        <th>Số câu đúng</th>
+                        <th>Điểm</th>
+                        <th>Xếp loại</th>
+                        <th>Thời gian</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody class="paper-slide-stagger">
+                    {% for sub in submissions %}
+                    <tr id="sub-{{ sub.id }}"
+                        x-show="!search || '{{ sub.student_id|default:"" }} {{ sub.student_name|default:"" }}'.toLowerCase().includes(search.toLowerCase())"
+                        {% if sub.status == 'pending' or sub.status == 'processing' %}
+                        hx-get="{% url 'grading:submission_status' sub.id %}"
+                        hx-trigger="every 3s"
+                        hx-swap="outerHTML"
+                        {% endif %}>
+                        <td>{{ forloop.counter }}</td>
+                        <td>
+                            <div class="title-sm">{{ sub.student_name|default:"—" }}</div>
+                            {% if sub.student_id %}<div class="body-sm text-on-surface-var">{{ sub.student_id }}</div>{% endif %}
+                        </td>
+                        <td>
+                            {% if sub.status == 'completed' %}
+                            <span class="chip chip-excellent">Đã chấm</span>
+                            {% elif sub.status == 'processing' %}
+                            <span class="chip chip-processing">
+                                <span class="spinner" style="width: 12px; height: 12px;"></span>
+                                Đang chấm
+                            </span>
+                            {% elif sub.status == 'pending' %}
+                            <span class="chip chip-pending">Chờ xử lý</span>
+                            {% elif sub.status == 'error' %}
+                            <span class="chip chip-poor">Lỗi</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if sub.correct_count is not None %}
+                            {{ sub.correct_count }}/{{ sub.total_questions }} câu
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            {% if sub.score is not None %}
+                            <span class="title-md">{{ sub.score_10 }}</span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            {% if sub.status == 'completed' %}
+                            <span class="chip chip-{{ sub.grade_label }}">{{ sub.grade_text }}</span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="body-sm text-on-surface-var">
+                            {{ sub.uploaded_at|timesince }} trước
+                        </td>
+                        <td>
+                            <a href="{% url 'grading:submission_detail' sub.id %}" class="btn btn-secondary btn-sm" style="white-space: nowrap;">
+                                Xem
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
         </div>
     </div>
     {% endif %}

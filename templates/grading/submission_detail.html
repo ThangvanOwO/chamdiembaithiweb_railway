@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Chi tiết bài #{{ sub.id }}{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+    <!-- Header -->
+    <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h2 class="section-title">Chi tiết bài nộp #{{ sub.id }}</h2>
+            <p class="section-subtitle">
+                {% if sub.exam %}Đề: {{ sub.exam.title }} · {% endif %}
+                SBD: {{ sub.student_id|default:"—" }} ·
+                {{ sub.processing_time|default:"—" }}s
+            </p>
+        </div>
+        <div style="display: flex; gap: var(--space-2);">
+            {% if sub.exam %}
+            <a href="{% url 'grading:results' sub.exam.id %}" class="btn btn-secondary btn-sm">&larr; Quay lại</a>
+            <form method="post" action="{% url 'grading:submission_regrade' sub.id %}" style="margin: 0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('Chấm lại bài này?')">
+                    &#x21bb; Chấm lại
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if images.name %}
+    <div style="margin-bottom: var(--space-4); display: inline-flex; align-items: center; gap: var(--space-3); padding: 10px 16px; background: var(--surface-container); border-radius: var(--radius-md); border: 1px solid var(--outline-variant);">
+        <span class="body-sm" style="font-weight: 600; color: var(--on-surface-variant); white-space: nowrap;">Họ tên:</span>
+        <img src="{{ images.name }}" alt="Tên học sinh"
+             style="height: 40px; max-width: 500px; object-fit: contain; object-position: left; border-radius: 4px;">
+    </div>
+    {% endif %}
+
+    {% if sub.error_message %}
+    <div class="card" style="padding: var(--space-4); margin-bottom: var(--space-6); border-left: 4px solid var(--error);">
+        <strong style="color: var(--error);">Lỗi:</strong> {{ sub.error_message }}
+    </div>
+    {% endif %}
+
+    <!-- ============================================================ -->
+    <!-- SCORE OVERVIEW                                               -->
+    <!-- ============================================================ -->
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: var(--space-4); margin-bottom: var(--space-6);">
+
+        <!-- Big Score Card -->
+        <div class="card" style="padding: var(--space-5); text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <div class="body-sm text-on-surface-var" style="margin-bottom: var(--space-2);">
+                <span class="chip chip-{{ sub.status }}">{{ sub.get_status_display }}</span>
+            </div>
+            {% if scoring %}
+            <div style="font-size: 2.5rem; font-weight: 800; color: var(--primary); line-height: 1;">
+                {{ scoring.weighted_score }}
+            </div>
+            <div style="font-size: 0.875rem; color: var(--on-surface-variant); margin-top: 4px;">
+                / {{ scoring.max_score }} điểm
+            </div>
+            {% else %}
+            <div style="font-size: 2.5rem; font-weight: 800; color: var(--primary); line-height: 1;">
+                {{ sub.score|default:"—" }}
+            </div>
+            <div style="font-size: 0.875rem; color: var(--on-surface-variant); margin-top: 4px;">
+                {{ sub.correct_count|default:"?" }}/{{ sub.total_questions|default:"?" }} câu
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Breakdown Card -->
+        <div class="card" style="padding: var(--space-4);">
+            <div style="font-weight: 700; margin-bottom: var(--space-3); font-size: 0.875rem;">
+                Chi tiết điểm theo phần
+            </div>
+
+            {% if scoring %}
+            <!-- P1 -->
+            {% if scoring.p1_count %}
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <div>
+                    <span style="font-weight: 600;">Phần I — Trắc nghiệm</span>
+                    <div class="body-sm text-on-surface-var" style="margin-top: 2px;">
+                        {{ scoring.p1_correct }}/{{ scoring.p1_count }} câu đúng &times; {{ scoring.score_p1_per_q }}đ
+                    </div>
+                </div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: var(--primary);">
+                    {{ scoring.p1_score }}đ
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- P2 -->
+            {% if scoring.p2_count %}
+            <div style="padding: 8px 0; border-bottom: 1px solid var(--border);">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <span style="font-weight: 600;">Phần II — Đúng/Sai</span>
+                        <div class="body-sm text-on-surface-var" style="margin-top: 2px;">
+                            {{ scoring.p2_count }} câu &middot; thang Bộ GD&amp;ĐT
+                        </div>
+                    </div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: var(--tertiary);">
+                        {{ scoring.p2_score }}đ
+                    </div>
+                </div>
+
+                <!-- P2 per-question breakdown -->
+                {% if p2_breakdown %}
+                <div style="margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px;">
+                    {% for q in p2_breakdown %}
+                    <div style="padding: 6px 10px; border-radius: 6px; background: var(--surface-container); font-size: 0.8125rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 600;">Câu {{ q.num }}</span>
+                            <span style="font-weight: 700;">
+                                {{ q.correct_count }}/4 ý &rarr;
+                                <span style="color: {% if q.score >= 1 %}var(--success){% elif q.score >= 0.5 %}var(--primary){% elif q.score > 0 %}var(--warning, #e89c0e){% else %}var(--error){% endif %};">
+                                    {{ q.score }}đ
+                                </span>
+                            </span>
+                        </div>
+                        {% if q.subs %}
+                        <div style="display: flex; gap: 6px; margin-top: 4px;">
+                            {% for label, info in q.subs.items %}
+                            <span style="padding: 1px 6px; border-radius: 4px; font-size: 0.6875rem;
+                                {% if info.ok %}background: var(--success-container, #d4edda); color: var(--on-success-container, #155724);
+                                {% else %}background: var(--error-container, #f8d7da); color: var(--on-error-container, #721c24);{% endif %}">
+                                {{ label }}) {% if info.ok %}✓{% else %}✗{% endif %}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- P3 -->
+            {% if scoring.p3_count %}
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 0;">
+                <div>
+                    <span style="font-weight: 600;">Phần III — Điền số</span>
+                    <div class="body-sm text-on-surface-var" style="margin-top: 2px;">
+                        {{ scoring.p3_correct }}/{{ scoring.p3_count }} câu đúng &times; {{ scoring.score_p3_per_q }}đ
+                    </div>
+                </div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: var(--success);">
+                    {{ scoring.p3_score }}đ
+                </div>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <!-- No scoring config -->
+            <div class="body-sm text-on-surface-var" style="padding: var(--space-3);">
+                Chưa cấu hình thang điểm cho đề thi này.
+                Hiển thị raw: {{ sub.correct_count|default:"?" }}/{{ sub.total_questions|default:"?" }} câu đúng.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ANSWER COMPARISON PANEL                                      -->
+    <!-- ============================================================ -->
+    {% if p1_comparison or p2_breakdown or p3_comparison %}
+    <div class="card card-elevated" style="margin-bottom: var(--space-6); padding: var(--space-5);">
+        <div style="font-weight: 700; margin-bottom: var(--space-4); display: flex; align-items: center; gap: var(--space-2);">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            So sánh đáp án
+            {% if sub.variant %}
+            <span style="font-size: 0.6875rem; padding: 2px 8px; border-radius: 99px; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600;">
+                Mã {{ sub.variant.variant_code }}
+            </span>
+            {% endif %}
+        </div>
+
+        {% if p1_comparison %}
+        <!-- Part 1 comparison grid -->
+        <div style="margin-bottom: var(--space-4);">
+            <div class="body-sm" style="font-weight: 600; margin-bottom: var(--space-2); color: var(--on-surface-variant);">
+                Phần I — Trắc nghiệm
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 4px;">
+                {% for q in p1_comparison %}
+                <div style="display: flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; font-size: 0.8125rem;
+                    {% if q.ok %}background: var(--success-container, #d4edda); border: 1px solid rgba(27,122,61,0.2);
+                    {% elif q.student == '—' or q.student == 'X' %}background: var(--surface-container); border: 1px solid var(--outline-variant); opacity: 0.6;
+                    {% else %}background: var(--error-container, #f8d7da); border: 1px solid rgba(186,26,26,0.2);{% endif %}">
+                    <span style="font-weight: 700; min-width: 24px;">{{ q.num }}.</span>
+                    <span style="font-weight: 600;
+                        {% if q.ok %}color: var(--on-success-container, #155724);{% elif q.student == '—' or q.student == 'X' %}color: var(--on-surface-variant);{% else %}color: var(--on-error-container, #721c24);{% endif %}">
+                        {{ q.student }}
+                    </span>
+                    {% if not q.ok and q.student != '—' %}
+                    <span style="color: var(--on-surface-variant); font-size: 0.6875rem;">&rarr;{{ q.correct }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if p2_breakdown %}
+        <!-- Part 2 is already shown in score breakdown above -->
+        {% endif %}
+
+        {% if p3_comparison %}
+        <!-- Part 3 comparison -->
+        <div>
+            <div class="body-sm" style="font-weight: 600; margin-bottom: var(--space-2); color: var(--on-surface-variant);">
+                Phần III — Điền số
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px;">
+                {% for q in p3_comparison %}
+                <div style="display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 6px; font-size: 0.8125rem;
+                    {% if q.ok %}background: var(--success-container, #d4edda); border: 1px solid rgba(27,122,61,0.2);
+                    {% elif q.student == '—' %}background: var(--surface-container); border: 1px solid var(--outline-variant); opacity: 0.6;
+                    {% else %}background: var(--error-container, #f8d7da); border: 1px solid rgba(186,26,26,0.2);{% endif %}">
+                    <span style="font-weight: 700; min-width: 24px;">{{ q.num }}.</span>
+                    <span style="font-weight: 600;">{{ q.student }}</span>
+                    {% if not q.ok and q.student != '—' %}
+                    <span style="color: var(--on-surface-variant); font-size: 0.6875rem;">&rarr;{{ q.correct }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ============================================================ -->
+    <!-- IMAGES                                                       -->
+    <!-- ============================================================ -->
+    <h3 style="margin-bottom: var(--space-4);">Ảnh xử lý</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6);">
+        {% if images.original %}
+        <div class="card" style="padding: var(--space-3);">
+            <div style="padding: var(--space-2) var(--space-3); font-weight: 600; border-bottom: 1px solid var(--border);">Ảnh gốc</div>
+            <div style="padding: var(--space-3);">
+                <a href="{{ images.original }}" target="_blank">
+                    <img src="{{ images.original }}" style="width: 100%; border-radius: 8px;" alt="Ảnh gốc">
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if images.result %}
+        <div class="card" style="padding: var(--space-3);">
+            <div style="padding: var(--space-2) var(--space-3); font-weight: 600; border-bottom: 1px solid var(--border); color: var(--primary);">Ảnh kết quả</div>
+            <div style="padding: var(--space-3);">
+                <a href="{{ images.result }}" target="_blank">
+                    <img src="{{ images.result }}" style="width: 100%; border-radius: 8px;" alt="Ảnh kết quả">
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if images.calibration %}
+        <div class="card" style="padding: var(--space-3);">
+            <div style="padding: var(--space-2) var(--space-3); font-weight: 600; border-bottom: 1px solid var(--border);">Calibration</div>
+            <div style="padding: var(--space-3);">
+                <a href="{{ images.calibration }}" target="_blank">
+                    <img src="{{ images.calibration }}" style="width: 100%; border-radius: 8px;" alt="Calibration">
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- DEBUG (collapsed)                                            -->
+    <!-- ============================================================ -->
+    <details style="margin-bottom: var(--space-6);">
+        <summary style="cursor: pointer; font-weight: 600; padding: var(--space-2);">Debug images &amp; data</summary>
+        <div style="margin-top: var(--space-3);">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4);">
+                {% if images.detect %}
+                <div class="card" style="padding: var(--space-3);">
+                    <div style="padding: var(--space-2); font-weight: 600; font-size: 0.8125rem;">Detect</div>
+                    <a href="{{ images.detect }}" target="_blank">
+                        <img src="{{ images.detect }}" style="width: 100%; border-radius: 6px;">
+                    </a>
+                </div>
+                {% endif %}
+                {% if images.gray %}
+                <div class="card" style="padding: var(--space-3);">
+                    <div style="padding: var(--space-2); font-weight: 600; font-size: 0.8125rem;">Grayscale</div>
+                    <a href="{{ images.gray }}" target="_blank">
+                        <img src="{{ images.gray }}" style="width: 100%; border-radius: 6px;">
+                    </a>
+                </div>
+                {% endif %}
+                {% if images.thresh %}
+                <div class="card" style="padding: var(--space-3);">
+                    <div style="padding: var(--space-2); font-weight: 600; font-size: 0.8125rem;">Threshold</div>
+                    <a href="{{ images.thresh }}" target="_blank">
+                        <img src="{{ images.thresh }}" style="width: 100%; border-radius: 6px;">
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            {% if sub.detail_json %}
+            <div class="card" style="padding: var(--space-4);">
+                <div style="font-weight: 600; margin-bottom: var(--space-2); font-size: 0.8125rem;">Raw JSON</div>
+                <pre style="white-space: pre-wrap; font-size: 0.6875rem; font-family: monospace; max-height: 400px; overflow-y: auto;">{{ sub.detail_json }}</pre>
+            </div>
+            {% endif %}
+        </div>
+    </details>
+</div>
+{% endblock %}

@@ -1,0 +1,539 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tạo đề thi từ file đáp án{% endblock %}
+
+{% block content %}
+<div class="fade-in" x-data="examImport()" x-cloak>
+
+    <!-- ============================================================ -->
+    <!-- STEP INDICATOR                                               -->
+    <!-- ============================================================ -->
+    <div class="import-steps">
+        <div class="import-step" :class="{ 'import-step--active': step === 1, 'import-step--done': step > 1 }">
+            <div class="import-step__num">
+                <template x-if="step > 1">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </template>
+                <template x-if="step <= 1"><span>1</span></template>
+            </div>
+            <div class="import-step__text">
+                <span class="import-step__label">Tải file đáp án</span>
+                <span class="import-step__desc">Excel (.xlsx)</span>
+            </div>
+        </div>
+        <div class="import-step__line" :class="{ 'import-step__line--done': step > 1 }"></div>
+        <div class="import-step" :class="{ 'import-step--active': step === 2, 'import-step--done': step > 2 }">
+            <div class="import-step__num">
+                <template x-if="step > 2">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </template>
+                <template x-if="step <= 2"><span>2</span></template>
+            </div>
+            <div class="import-step__text">
+                <span class="import-step__label">Xác nhận đáp án</span>
+                <span class="import-step__desc">Kiểm tra P1, P2, P3</span>
+            </div>
+        </div>
+        <div class="import-step__line" :class="{ 'import-step__line--done': step > 2 }"></div>
+        <div class="import-step" :class="{ 'import-step--active': step === 3, 'import-step--done': step > 3 }">
+            <div class="import-step__num">
+                <template x-if="step > 3">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </template>
+                <template x-if="step <= 3"><span>3</span></template>
+            </div>
+            <div class="import-step__text">
+                <span class="import-step__label">Chọn phiếu & Lưu</span>
+                <span class="import-step__desc">Mẫu phiếu trả lời</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 1: DRAG & DROP EXCEL FILE                               -->
+    <!-- ============================================================ -->
+    <div x-show="step === 1" x-transition>
+        <div class="import-dropzone-wrapper">
+            <div class="section-header" style="margin-bottom: var(--space-5);">
+                <div>
+                    <h2 class="section-title">Tạo đề thi từ file đáp án</h2>
+                    <p class="section-subtitle">Kéo thả hoặc chọn file Excel chứa đáp án chuẩn</p>
+                </div>
+                <a href="{% url 'grading:exams' %}" class="btn btn-secondary">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M10 2L4 8l6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Quay lại
+                </a>
+            </div>
+
+            <!-- Drop Zone -->
+            <div class="import-dropzone"
+                 :class="{ 'import-dropzone--hover': isDragging, 'import-dropzone--error': uploadError }"
+                 @dragover.prevent="isDragging = true"
+                 @dragleave.prevent="isDragging = false"
+                 @drop.prevent="handleDrop($event)"
+                 @click="$refs.fileInput.click()">
+
+                <input type="file" x-ref="fileInput" accept=".xlsx,.xls"
+                       @change="handleFileSelect($event)" style="display: none;">
+
+                <template x-if="!isUploading && !uploadError">
+                    <div class="import-dropzone__content">
+                        <div class="import-dropzone__icon">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <rect x="10" y="6" width="28" height="36" rx="3" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+                                <rect x="10" y="6" width="28" height="36" rx="3" fill="var(--primary)" opacity="0.06"/>
+                                <path d="M18 20h12M18 26h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+                                <circle cx="34" cy="34" r="10" fill="var(--primary)" opacity="0.15"/>
+                                <path d="M34 30v8M30 34h8" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div class="import-dropzone__title">Kéo thả file Excel vào đây</div>
+                        <div class="import-dropzone__subtitle">hoặc nhấn để chọn file</div>
+                        <div class="import-dropzone__formats">
+                            <span class="import-dropzone__format-badge">.xlsx</span>
+                            <span class="import-dropzone__format-badge">.xls</span>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="isUploading">
+                    <div class="import-dropzone__content">
+                        <div class="import-dropzone__spinner"></div>
+                        <div class="import-dropzone__title">Đang phân tích file...</div>
+                        <div class="import-dropzone__subtitle" x-text="fileName"></div>
+                    </div>
+                </template>
+
+                <template x-if="uploadError">
+                    <div class="import-dropzone__content">
+                        <div class="import-dropzone__icon import-dropzone__icon--error">
+                            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+                                <circle cx="24" cy="24" r="18" stroke="var(--error)" stroke-width="2" opacity="0.3"/>
+                                <path d="M18 18l12 12M30 18L18 30" stroke="var(--error)" stroke-width="2.5" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <div class="import-dropzone__title" style="color: var(--error);" x-text="uploadError"></div>
+                        <div class="import-dropzone__subtitle">Nhấn để thử lại</div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- File format hint -->
+            <div class="import-hint">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0; margin-top:1px;">
+                    <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/>
+                    <path d="M8 5v1M8 8v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <div>
+                    <strong>Định dạng file:</strong> Dòng 1 là header (Mã Đề \ Câu, 1, 2, ..., 1a, 1b, ...). 
+                    Mỗi dòng tiếp theo là 1 mã đề với đáp án tương ứng.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 2: REVIEW PARSED ANSWERS                                -->
+    <!-- ============================================================ -->
+    <div x-show="step === 2" x-transition>
+        <div class="section-header" style="margin-bottom: var(--space-5);">
+            <div>
+                <h2 class="section-title">Xác nhận đáp án</h2>
+                <p class="section-subtitle">Kiểm tra lại đáp án từ file <strong x-text="fileName"></strong></p>
+            </div>
+            <div style="display: flex; gap: var(--space-2);">
+                <button type="button" class="btn btn-secondary" @click="resetToStep1()">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M10 2L4 8l6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Chọn file khác
+                </button>
+            </div>
+        </div>
+
+        <!-- Exam Info -->
+        <div class="card" style="margin-bottom: var(--space-5); padding: var(--space-5);">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+                <div>
+                    <label class="form-label">Tên đề thi *</label>
+                    <input type="text" class="form-input" x-model="title" placeholder="VD: Đề kiểm tra Toán HK1">
+                </div>
+                <div>
+                    <label class="form-label">Môn học</label>
+                    <input type="text" class="form-input" x-model="subject" placeholder="VD: Toán, Lý, Hóa...">
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="import-summary">
+            <div class="import-summary__stat">
+                <div class="import-summary__stat-value" x-text="parsedData ? parsedData.variantCount : 0"></div>
+                <div class="import-summary__stat-label">Mã đề</div>
+            </div>
+            <div class="import-summary__stat">
+                <div class="import-summary__stat-value" x-text="parsedData ? parsedData.part1Count : 0"></div>
+                <div class="import-summary__stat-label">Câu TN (P1)</div>
+            </div>
+            <div class="import-summary__stat">
+                <div class="import-summary__stat-value" x-text="parsedData ? parsedData.part2Count : 0"></div>
+                <div class="import-summary__stat-label">Câu Đ/S (P2)</div>
+            </div>
+            <div class="import-summary__stat">
+                <div class="import-summary__stat-value" x-text="parsedData ? parsedData.part3Count : 0"></div>
+                <div class="import-summary__stat-label">Câu Số (P3)</div>
+            </div>
+            <div class="import-summary__stat import-summary__stat--total">
+                <div class="import-summary__stat-value" x-text="parsedData ? parsedData.totalQuestions : 0"></div>
+                <div class="import-summary__stat-label">Tổng câu</div>
+            </div>
+        </div>
+
+        <!-- Variant Tabs -->
+        <template x-if="parsedData && parsedData.variants.length > 0">
+            <div>
+                <div class="import-variant-tabs">
+                    <template x-for="(v, idx) in parsedData.variants" :key="idx">
+                        <button type="button"
+                                class="import-variant-tab"
+                                :class="{ 'import-variant-tab--active': activeVariantIdx === idx }"
+                                @click="activeVariantIdx = idx"
+                                x-text="'Mã ' + v.code">
+                        </button>
+                    </template>
+                </div>
+
+                <!-- Answer Preview -->
+                <template x-if="parsedData.variants[activeVariantIdx]">
+                    <div class="import-answers">
+                        <!-- Part 1 -->
+                        <template x-if="parsedData.part1Count > 0">
+                            <div class="import-answers__section">
+                                <div class="import-answers__section-header">
+                                    <span class="import-answers__section-title">Phần I — Trắc nghiệm</span>
+                                    <span class="chip chip-processing" x-text="parsedData.part1Count + ' câu'"></span>
+                                </div>
+                                <div class="import-answers__grid import-answers__grid--p1">
+                                    <template x-for="q in parsedData.part1Count" :key="'p1-'+q">
+                                        <div class="import-answer-cell">
+                                            <div class="import-answer-cell__label" x-text="'Câu ' + q"></div>
+                                            <div class="import-answer-cell__value"
+                                                 :class="{ 'import-answer-cell__value--empty': !parsedData.variants[activeVariantIdx].p1[String(q)] }"
+                                                 x-text="parsedData.variants[activeVariantIdx].p1[String(q)] || '—'">
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Part 2 -->
+                        <template x-if="parsedData.part2Count > 0">
+                            <div class="import-answers__section">
+                                <div class="import-answers__section-header">
+                                    <span class="import-answers__section-title">Phần II — Đúng/Sai</span>
+                                    <span class="chip chip-processing" x-text="parsedData.part2Count + ' câu'"></span>
+                                </div>
+                                <div class="import-answers__p2-list">
+                                    <template x-for="q in parsedData.part2Count" :key="'p2-'+q">
+                                        <div class="import-p2-card">
+                                            <div class="import-p2-card__header" x-text="'Câu ' + q"></div>
+                                            <div class="import-p2-card__opts">
+                                                <template x-for="opt in ['a','b','c','d']" :key="opt">
+                                                    <div class="import-p2-opt"
+                                                         :class="{
+                                                             'import-p2-opt--dung': parsedData.variants[activeVariantIdx].p2[String(q)] && parsedData.variants[activeVariantIdx].p2[String(q)][opt] === 'Đ',
+                                                             'import-p2-opt--sai': parsedData.variants[activeVariantIdx].p2[String(q)] && parsedData.variants[activeVariantIdx].p2[String(q)][opt] === 'S'
+                                                         }">
+                                                        <span class="import-p2-opt__label" x-text="opt + ')'"></span>
+                                                        <span class="import-p2-opt__value"
+                                                              x-text="(parsedData.variants[activeVariantIdx].p2[String(q)] && parsedData.variants[activeVariantIdx].p2[String(q)][opt]) || '—'">
+                                                        </span>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Part 3 -->
+                        <template x-if="parsedData.part3Count > 0">
+                            <div class="import-answers__section">
+                                <div class="import-answers__section-header">
+                                    <span class="import-answers__section-title">Phần III — Điền số</span>
+                                    <span class="chip chip-processing" x-text="parsedData.part3Count + ' câu'"></span>
+                                </div>
+                                <div class="import-answers__grid import-answers__grid--p3">
+                                    <template x-for="q in parsedData.part3Count" :key="'p3-'+q">
+                                        <div class="import-answer-cell import-answer-cell--wide">
+                                            <div class="import-answer-cell__label" x-text="'Câu ' + q"></div>
+                                            <div class="import-answer-cell__value import-answer-cell__value--num"
+                                                 x-text="parsedData.variants[activeVariantIdx].p3[String(q)] != null ? parsedData.variants[activeVariantIdx].p3[String(q)] : '—'">
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- Confirm Button -->
+        <div style="display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-5);">
+            <button type="button" class="btn btn-primary btn-lg" @click="confirmAnswers()"
+                    :disabled="!title.trim()">
+                Xác nhận đáp án & Tiếp tục
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 2l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STEP 3: CHOOSE TEMPLATE & SAVE                               -->
+    <!-- ============================================================ -->
+    <div x-show="step === 3" x-transition>
+        <div class="section-header" style="margin-bottom: var(--space-5);">
+            <div>
+                <h2 class="section-title">Chọn phiếu trả lời</h2>
+                <p class="section-subtitle">Chọn mẫu phiếu phù hợp với cấu trúc đề thi</p>
+            </div>
+            <button type="button" class="btn btn-secondary" @click="step = 2">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M10 2L4 8l6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Quay lại
+            </button>
+        </div>
+
+        <!-- Recommended template -->
+        <template x-if="recommendedTemplate">
+            <div class="card" style="padding: var(--space-4); margin-bottom: var(--space-4); border: 2px solid var(--primary); border-radius: var(--radius-xl);">
+                <div style="display: flex; align-items: center; gap: var(--space-3);">
+                    <div style="width: 40px; height: 40px; border-radius: var(--radius-lg); background: var(--primary); color: var(--on-primary); display: flex; align-items: center; justify-content: center;">
+                        <svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M8 1l2.2 4.6L15 6.3l-3.5 3.4.8 4.9L8 12.3 3.7 14.6l.8-4.9L1 6.3l4.8-.7L8 1z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-weight: 700; font-size: 0.9375rem;" x-text="'Phiếu đề xuất: ' + recommendedTemplate.code"></div>
+                        <div class="body-sm text-on-surface-var" x-text="recommendedTemplate.label"></div>
+                    </div>
+                    <button type="button" class="btn btn-primary" @click="selectTemplate(recommendedTemplate.code)">
+                        Chọn phiếu này
+                    </button>
+                </div>
+            </div>
+        </template>
+
+        <!-- All templates grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3);">
+            <template x-for="t in allTemplates" :key="t.code">
+                <div class="card import-template-card"
+                     :class="{ 'import-template-card--selected': selectedTemplate === t.code }"
+                     @click="selectTemplate(t.code)"
+                     style="padding: var(--space-4); cursor: pointer;">
+                    <div style="font-weight: 700; margin-bottom: var(--space-2);" x-text="t.code"></div>
+                    <div class="body-sm text-on-surface-var" x-text="t.label"></div>
+                    <div style="display: flex; gap: var(--space-2); margin-top: var(--space-3);">
+                        <span class="chip chip-pending" x-text="'P1: ' + t.parts[0]"></span>
+                        <span class="chip chip-pending" x-text="'P2: ' + t.parts[1]"></span>
+                        <span class="chip chip-pending" x-text="'P3: ' + t.parts[2]"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Save button -->
+        <div style="display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-5);">
+            <button type="button" class="btn btn-secondary" @click="skipTemplate()">
+                Bỏ qua (không chọn phiếu)
+            </button>
+            <button type="button" class="btn btn-primary btn-lg" @click="saveExam()"
+                    :disabled="!selectedTemplate && !skippedTemplate">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Lưu đề thi & Chấm bài
+            </button>
+        </div>
+    </div>
+
+    <!-- Hidden form for final submission -->
+    <form id="import-form" method="post" style="display: none;">
+        {% csrf_token %}
+        <input type="hidden" name="title" :value="title">
+        <input type="hidden" name="subject" :value="subject">
+        <input type="hidden" name="num_questions" :value="parsedData ? parsedData.totalQuestions : 0">
+        <input type="hidden" name="config_json" :value="configJSON">
+        <input type="hidden" name="template_code" :value="selectedTemplate || ''">
+        <input type="hidden" name="variants_json" :value="variantsJSON">
+    </form>
+</div>
+
+<script>
+window.__examTemplates = {{ templates_json|safe }};
+
+function examImport() {
+    return {
+        step: 1,
+        isDragging: false,
+        isUploading: false,
+        uploadError: '',
+        fileName: '',
+        parsedData: null,
+        activeVariantIdx: 0,
+
+        title: '',
+        subject: '',
+        selectedTemplate: '',
+        skippedTemplate: false,
+
+        allTemplates: window.__examTemplates || [],
+
+        get recommendedTemplate() {
+            if (!this.parsedData) return null;
+            var p1 = this.parsedData.part1Count;
+            var p2 = this.parsedData.part2Count;
+            var p3 = this.parsedData.part3Count;
+            var best = null;
+            var bestScore = Infinity;
+            for (var i = 0; i < this.allTemplates.length; i++) {
+                var t = this.allTemplates[i];
+                if (t.parts[0] >= p1 && t.parts[1] >= p2 && t.parts[2] >= p3) {
+                    var score = (t.parts[0] - p1) * 3 + (t.parts[1] - p2) * 2 + (t.parts[2] - p3);
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = t;
+                    }
+                }
+            }
+            return best;
+        },
+
+        get configJSON() {
+            if (!this.parsedData) return '{}';
+            return JSON.stringify({
+                parts: [this.parsedData.part1Count, this.parsedData.part2Count, this.parsedData.part3Count],
+                scoring: {
+                    p1: 0.25,
+                    p2_mode: 'moet',
+                    p3: 0.5,
+                    max: 10,
+                    scale_to_ten: true,
+                    scale_factor: this.parsedData.totalQuestions > 0 ?
+                        Math.round(10.0 / (this.parsedData.part1Count * 0.25 + this.parsedData.part2Count * 1.0 + this.parsedData.part3Count * 0.5) * 10000) / 10000 : 1
+                }
+            });
+        },
+
+        get variantsJSON() {
+            if (!this.parsedData) return '[]';
+            return JSON.stringify(this.parsedData.variants.map(function(v) {
+                return { code: v.code, p1: v.p1, p2: v.p2, p3: v.p3 };
+            }));
+        },
+
+        handleDrop(event) {
+            this.isDragging = false;
+            var files = event.dataTransfer.files;
+            if (files.length > 0) {
+                this.uploadFile(files[0]);
+            }
+        },
+
+        handleFileSelect(event) {
+            var files = event.target.files;
+            if (files.length > 0) {
+                this.uploadFile(files[0]);
+            }
+        },
+
+        uploadFile(file) {
+            if (!file.name.match(/\.xlsx?$/i)) {
+                this.uploadError = 'Chỉ hỗ trợ file Excel (.xlsx, .xls)';
+                return;
+            }
+            this.fileName = file.name;
+            this.uploadError = '';
+            this.isUploading = true;
+
+            var formData = new FormData();
+            formData.append('file', file);
+
+            var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            var self = this;
+
+            fetch('{% url "grading:parse_excel" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                self.isUploading = false;
+                if (data.success) {
+                    self.parsedData = data.data;
+                    self.activeVariantIdx = 0;
+                    self.step = 2;
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    self.uploadError = data.error || 'Lỗi không xác định';
+                }
+            })
+            .catch(function(err) {
+                self.isUploading = false;
+                self.uploadError = 'Lỗi kết nối: ' + err.message;
+            });
+        },
+
+        resetToStep1() {
+            this.step = 1;
+            this.parsedData = null;
+            this.uploadError = '';
+            this.fileName = '';
+            this.isUploading = false;
+        },
+
+        confirmAnswers() {
+            if (!this.title.trim()) {
+                alert('Vui lòng nhập tên đề thi');
+                return;
+            }
+            this.step = 3;
+            this.selectedTemplate = '';
+            this.skippedTemplate = false;
+            // Auto-select recommended
+            if (this.recommendedTemplate) {
+                this.selectedTemplate = this.recommendedTemplate.code;
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+
+        selectTemplate(code) {
+            this.selectedTemplate = code;
+            this.skippedTemplate = false;
+        },
+
+        skipTemplate() {
+            this.selectedTemplate = '';
+            this.skippedTemplate = true;
+        },
+
+        saveExam() {
+            if (!this.title.trim()) {
+                alert('Vui lòng nhập tên đề thi');
+                return;
+            }
+            document.getElementById('import-form').submit();
+        }
+    };
+}
+</script>
+{% endblock %}

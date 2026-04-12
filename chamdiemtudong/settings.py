@@ -23,6 +23,12 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
 
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
+
+
 
 # =============================================================================
 # APPLICATIONS
@@ -62,6 +68,7 @@ MIDDLEWARE = [
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'chamdiemtudong.middleware.DisableCSRFOriginCheckMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'allauth.account.middleware.AccountMiddleware',
@@ -96,23 +103,31 @@ WSGI_APPLICATION = 'chamdiemtudong.wsgi.application'
 
 
 # =============================================================================
-# DATABASE — MySQL on Linux (root / 123456)
+# DATABASE — MySQL on Linux (root / 123456), SQLite fallback for Windows dev
 # =============================================================================
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'chamdiemtudong',
-        'USER': 'root',
-        'PASSWORD': '123456',
-        'HOST': 'localhost',
-        'PORT': '3306',
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+if os.environ.get('USE_SQLITE', 'false').lower() in ('true', '1', 'yes') or os.name == 'nt':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'chamdiemtudong',
+            'USER': 'root',
+            'PASSWORD': '123456',
+            'HOST': 'localhost',
+            'PORT': '3306',
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
+    }
 
 
 # =============================================================================
@@ -166,6 +181,9 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # WhiteNoise for production static file serving
 STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },

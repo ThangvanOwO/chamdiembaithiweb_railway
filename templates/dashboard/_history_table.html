@@ -20,9 +20,13 @@
                     {% if sub.student_id %}<div class="body-sm text-on-surface-var">{{ sub.student_id }}</div>{% endif %}
                 </td>
                 <td class="body-sm">
+                    {% if sub.exam %}
                     <a href="{% url 'grading:results' sub.exam.id %}" class="text-primary" style="font-weight: 500;">
                         {{ sub.exam.title|truncatechars:30 }}
                     </a>
+                    {% else %}
+                    <span class="text-on-surface-var">Thử nghiệm (Không có đề)</span>
+                    {% endif %}
                 </td>
                 <td>
                     {% if sub.status == 'completed' %}

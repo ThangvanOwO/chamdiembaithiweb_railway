@@ -1,55 +1,830 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}{% if is_edit %}Sửa bài thi{% else %}Thêm bài thi Thủ công{% endif %}{% endblock %}
+{% block title %}{% if is_edit %}Sửa đề thi{% else %}Tạo đề thi thủ công{% endif %}{% endblock %}
 
 {% block content %}
-<div class="fade-in" style="max-width: 640px;">
+<!-- Pass initial data via a script tag to avoid Django HTML escaping issues -->
+<script>
+    window.__examInitialData = {{ initial_data|safe }};
+    window.__examTemplates = {{ templates_json|safe }};
+</script>
+
+<div class="fade-in" x-data="examConfigurator(window.__examInitialData)">
     <div class="section-header">
         <div>
-            <h2 class="section-title">{% if is_edit %}Sửa bài thi{% else %}Thêm bài thi Thủ công{% endif %}</h2>
-            <p class="section-subtitle">{% if is_edit %}Cập nhật thông tin bài thi{% else %}Nhập thông tin và đáp án bài kiểm tra{% endif %}</p>
+            <h2 class="section-title">{% if is_edit %}Sửa đề thi{% else %}Tạo đề thi thủ công{% endif %}</h2>
+            <p class="section-subtitle">Cấu hình cấu trúc đề và nhập đáp án cho từng câu hỏi</p>
         </div>
+        <span class="exam-version-label">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Nhập thủ công
+        </span>
     </div>
 
-    <div class="card card-elevated">
-        <form method="post" id="exam-form">
-            {% csrf_token %}
-            
-            <div class="form-group" style="margin-bottom: var(--space-5);">
-                <label for="exam-title" class="form-label">Tên bài thi</label>
-                {{ form.title }}
-                {% if form.title.errors %}
-                <span class="form-error">{{ form.title.errors.0 }}</span>
-                {% endif %}
-            </div>
+    <form method="post" id="exam-config-form" @submit.prevent="submitForm()">
+        {% csrf_token %}
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-5);">
-                <div class="form-group">
-                    <label for="exam-subject" class="form-label">Môn</label>
-                    {{ form.subject }}
+        <div class="exam-configurator">
+            <!-- ============================================================ -->
+            <!-- LEFT SIDEBAR — Cấu hình đề thi                              -->
+            <!-- ============================================================ -->
+            <aside class="exam-sidebar">
+                <div class="card card-elevated">
+                    <div class="card-header" style="margin-bottom: var(--space-5);">
+                        <span class="card-title">Cấu hình đề thi</span>
+                    </div>
+
+                    <!-- Exam Title -->
+                    <div class="form-group" style="margin-bottom: var(--space-4);">
+                        <label class="form-label">Tên đề thi</label>
+                        <input type="text"
+                               class="form-input"
+                               x-model="title"
+                               placeholder="VD: Kiểm tra Toán chương 1"
+                               required
+                               id="exam-title-input">
+                    </div>
+
+                    <!-- Subject -->
+                    <div class="form-group" style="margin-bottom: var(--space-5);">
+                        <label class="form-label">Môn học</label>
+                        <input type="text"
+                               class="form-input"
+                               x-model="subject"
+                               placeholder="VD: Toán, Lý, Hóa..."
+                               id="exam-subject-input">
+                    </div>
+
+                    <div class="sidebar-divider"></div>
+
+                    <!-- Part 1: Trắc nghiệm ABCD -->
+                    <div class="part-config">
+                        <div class="part-config-header">
+                            <span class="part-config-label">Phần I — Trắc nghiệm (ABCD)</span>
+                            <span class="part-config-help" title="Câu hỏi trắc nghiệm 4 lựa chọn A, B, C, D">?</span>
+                        </div>
+                        <div class="part-config-slider">
+                            <input type="range"
+                                   min="0" max="60"
+                                   x-model.number="part1Count"
+                                   class="range-slider"
+                                   id="part1-slider">
+                            <span class="part-config-value text-primary" x-text="part1Count"></span>
+                        </div>
+                    </div>
+
+                    <!-- Part 2: Đúng/Sai -->
+                    <div class="part-config">
+                        <div class="part-config-header">
+                            <span class="part-config-label">Phần II — Đúng/Sai</span>
+                            <span class="part-config-help" title="Mỗi câu có 4 ý (a, b, c, d) — chọn Đúng hoặc Sai cho mỗi ý">?</span>
+                        </div>
+                        <div class="part-config-slider">
+                            <input type="range"
+                                   min="0" max="20"
+                                   x-model.number="part2Count"
+                                   class="range-slider range-slider-tertiary"
+                                   id="part2-slider">
+                            <span class="part-config-value" style="color: var(--tertiary);" x-text="part2Count"></span>
+                        </div>
+                    </div>
+
+                    <!-- Part 3: Điền số -->
+                    <div class="part-config">
+                        <div class="part-config-header">
+                            <span class="part-config-label">Phần III — Điền số</span>
+                            <span class="part-config-help" title="Câu hỏi yêu cầu điền đáp án dạng số">?</span>
+                        </div>
+                        <div class="part-config-slider">
+                            <input type="range"
+                                   min="0" max="20"
+                                   x-model.number="part3Count"
+                                   class="range-slider range-slider-success"
+                                   id="part3-slider">
+                            <span class="part-config-value text-success" x-text="part3Count"></span>
+                        </div>
+                    </div>
+
+                    <div class="sidebar-divider"></div>
+
+                    <!-- Total Questions Counter -->
+                    <div class="total-counter" style="margin-bottom: var(--space-4);">
+                        <span class="total-counter-label">Tổng số câu</span>
+                        <span class="total-counter-value" x-text="totalQuestions"></span>
+                    </div>
+
+                    <div class="sidebar-divider"></div>
+
+                    <!-- ========== THANG ĐIỂM (Auto) ========== -->
+                    <div style="margin-top: var(--space-2);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3);">
+                            <span class="part-config-label" style="font-weight: 700;">
+                                Thang điểm
+                            </span>
+                            <button type="button" @click="applyMoetStandard()"
+                                    style="font-size: 0.6875rem; padding: 2px 8px; border-radius: 99px; background: var(--primary-container); color: var(--on-primary-container); font-weight: 600; border: none; cursor: pointer; transition: opacity 0.15s;"
+                                    title="Đặt P1 = 0.25đ/câu, P3 = 0.5đ/câu, quy thang 10">
+                                Chuẩn Bộ GD&amp;ĐT
+                            </button>
+                        </div>
+
+                        <!-- P1: điểm/câu có thể chỉnh -->
+                        <div x-show="part1Count > 0" style="margin-bottom: var(--space-3);">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span class="body-sm" style="font-weight: 600;">Phần I — Trắc nghiệm</span>
+                                <strong class="body-sm" style="color: var(--primary);">
+                                    <span x-text="p1Subtotal.toFixed(2) + 'đ'"></span>
+                                    <template x-if="scaleToTen && scaleFactor !== 1">
+                                        <span style="font-weight: 400; color: var(--on-surface-variant);"
+                                              x-text="' → ' + p1Scaled.toFixed(2) + 'đ'"></span>
+                                    </template>
+                                </strong>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: var(--space-2); margin-top: 4px;">
+                                <span class="body-sm text-on-surface-var" x-text="part1Count + ' câu ×'"></span>
+                                <input type="number" step="0.01" min="0" max="10"
+                                       class="form-input" style="width: 70px; text-align: center; padding: 4px 6px; font-size: 0.8125rem;"
+                                       x-model.number="scoreP1">
+                                <span class="body-sm text-on-surface-var">đ/câu</span>
+                            </div>
+                        </div>
+
+                        <!-- P2: thang Bộ GD&ĐT cố định -->
+                        <div x-show="part2Count > 0" style="margin-bottom: var(--space-3);">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span class="body-sm" style="font-weight: 600;">Phần II — Đúng/Sai</span>
+                                <strong class="body-sm" style="color: var(--tertiary);">
+                                    <span x-text="p2MaxScore.toFixed(2) + 'đ'"></span>
+                                    <template x-if="scaleToTen && scaleFactor !== 1">
+                                        <span style="font-weight: 400; color: var(--on-surface-variant);"
+                                              x-text="' → ' + p2Scaled.toFixed(2) + 'đ'"></span>
+                                    </template>
+                                </strong>
+                            </div>
+                            <div style="margin-top: 4px; padding: 6px 8px; border-radius: 6px; background: var(--surface-container);">
+                                <div class="body-sm" style="font-weight: 600; margin-bottom: 4px; color: var(--on-surface);">
+                                    <span x-text="'Phần II – Đúng/Sai (' + part2Count + ' câu)'"></span>
+                                </div>
+                                <div class="body-sm text-on-surface-var" style="margin-bottom: 4px;">Thang điểm Bộ GD&amp;ĐT:</div>
+                                <div style="font-size: 0.6875rem; color: var(--on-surface-variant); line-height: 1.6;">
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px;">
+                                        <span>1 ý đúng → 0,1đ</span>
+                                        <span>2 ý đúng → 0,25đ</span>
+                                        <span>3 ý đúng → 0,5đ</span>
+                                        <span><strong>4 ý đúng → 1,0đ</strong></span>
+                                    </div>
+                                </div>
+                                <div class="body-sm" style="margin-top: 6px; font-weight: 600; color: var(--tertiary);">
+                                    Điểm tối đa Phần II: <span x-text="p2MaxScore.toFixed(1) + 'đ'"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- P3: điểm/câu có thể chỉnh -->
+                        <div x-show="part3Count > 0" style="margin-bottom: var(--space-3);">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span class="body-sm" style="font-weight: 600;">Phần III — Điền số</span>
+                                <strong class="body-sm" style="color: var(--success);">
+                                    <span x-text="p3Subtotal.toFixed(2) + 'đ'"></span>
+                                    <template x-if="scaleToTen && scaleFactor !== 1">
+                                        <span style="font-weight: 400; color: var(--on-surface-variant);"
+                                              x-text="' → ' + p3Scaled.toFixed(2) + 'đ'"></span>
+                                    </template>
+                                </strong>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: var(--space-2); margin-top: 4px;">
+                                <span class="body-sm text-on-surface-var" x-text="part3Count + ' câu ×'"></span>
+                                <input type="number" step="0.01" min="0" max="10"
+                                       class="form-input" style="width: 70px; text-align: center; padding: 4px 6px; font-size: 0.8125rem;"
+                                       x-model.number="scoreP3">
+                                <span class="body-sm text-on-surface-var">đ/câu</span>
+                            </div>
+                        </div>
+
+                        <div class="sidebar-divider"></div>
+
+                        <!-- Quy về thang 10 toggle -->
+                        <label style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); cursor: pointer; user-select: none;">
+                            <input type="checkbox" x-model="scaleToTen"
+                                   style="width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer;">
+                            <span class="body-sm" style="font-weight: 600;">Quy về thang 10</span>
+                        </label>
+
+                        <!-- Raw total (khi scale) -->
+                        <div x-show="scaleToTen && scaleFactor !== 1" x-cloak
+                             style="margin-bottom: var(--space-2); padding: 6px 8px; border-radius: 6px; background: var(--surface-container); font-size: 0.75rem; color: var(--on-surface-variant);">
+                            Tổng thô: <strong x-text="rawMax.toFixed(2) + 'đ'"></strong>
+                            &nbsp;×&nbsp;<span x-text="scaleFactor.toFixed(4)"></span>
+                            &nbsp;=&nbsp;<strong>10.0đ</strong>
+                        </div>
+
+                        <!-- Tổng điểm -->
+                        <div class="total-counter">
+                            <span class="total-counter-label">Tổng điểm tối đa</span>
+                            <span class="total-counter-value" style="color: var(--primary); font-size: 1.75rem;" x-text="calcMaxScore.toFixed(1)"></span>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="exam-questions" class="form-label">Số câu hỏi</label>
-                    {{ form.num_questions }}
+
+                <!-- Sidebar: selected template indicator (compact) -->
+                <div x-show="templateCode" x-cloak class="card card-elevated" style="margin-top: var(--space-4); padding: var(--space-3);">
+                    <div style="display: flex; align-items: center; gap: var(--space-2);">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style="flex-shrink: 0; color: var(--primary);">
+                            <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <div style="flex: 1; min-width: 0;">
+                            <div class="body-sm" style="font-weight: 600;">Mẫu phiếu</div>
+                            <div style="font-size: 0.6875rem; color: var(--on-surface-variant);" x-text="templateCode"></div>
+                        </div>
+                        <button type="button" @click="formStep = 2" class="btn btn-sm btn-secondary" style="font-size: 0.6875rem;">Đổi</button>
+                    </div>
                 </div>
-            </div>
 
-            <div class="form-group" style="margin-bottom: var(--space-6);">
-                <label for="exam-answers" class="form-label">Đáp án đúng</label>
-                {{ form.answer_key }}
-                <span class="form-hint">Nhập đáp án theo thứ tự, phân cách bởi dấu phẩy. VD: A,B,C,D,A,B,...</span>
-                {% if form.answer_key.errors %}
-                <span class="form-error">{{ form.answer_key.errors.0 }}</span>
-                {% endif %}
-            </div>
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: var(--space-3); margin-top: var(--space-4);">
+                    <a href="{% url 'grading:exams' %}" class="btn btn-secondary" style="flex: 1; justify-content: center;">
+                        Hủy
+                    </a>
+                    <button type="button" x-show="formStep === 1"
+                            class="btn btn-primary hover-glow"
+                            style="flex: 2;"
+                            :disabled="totalQuestions === 0 || !title.trim()"
+                            @click="goToStep2()">
+                        Chọn phiếu trả lời &rarr;
+                    </button>
+                    <button type="submit" x-show="formStep === 2" x-cloak
+                            class="btn btn-primary hover-glow"
+                            style="flex: 2;"
+                            :disabled="totalQuestions === 0 || !title.trim() || !templateCode"
+                            id="submit-exam-btn">
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                            <path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        {% if is_edit %}Cập nhật{% else %}Lưu đề thi{% endif %}
+                    </button>
+                </div>
+            </aside>
 
-            <div class="card-footer">
-                <a href="{% url 'grading:exams' %}" class="btn btn-secondary">Hủy</a>
-                <button type="submit" class="btn btn-primary">
-                    {% if is_edit %}Cập nhật{% else %}Thêm bài thi{% endif %}
-                </button>
-            </div>
-        </form>
-    </div>
+            <!-- ============================================================ -->
+            <!-- RIGHT — Step indicator + content                            -->
+            <!-- ============================================================ -->
+            <main class="exam-answer-area">
+
+                <!-- Step Indicator Bar -->
+                <div class="exam-step-bar">
+                    <button type="button" @click="formStep = 1"
+                            class="exam-step-tab"
+                            :class="{ 'exam-step-tab--active': formStep === 1, 'exam-step-tab--done': formStep !== 1 && totalQuestions > 0 }">
+                        <span class="exam-step-tab__num"
+                              :class="{ 'exam-step-tab__num--active': formStep === 1, 'exam-step-tab__num--done': formStep !== 1 && totalQuestions > 0 }">
+                            <template x-if="formStep !== 1 && totalQuestions > 0">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </template>
+                            <template x-if="formStep === 1 || totalQuestions === 0"><span>1</span></template>
+                        </span>
+                        <div class="exam-step-tab__text">
+                            <span class="exam-step-tab__label">Nhập đáp án</span>
+                            <span class="exam-step-tab__desc" x-text="totalQuestions > 0 ? totalQuestions + ' câu đã cấu hình' : 'Cấu hình câu hỏi'"></span>
+                        </div>
+                    </button>
+
+                    <div class="exam-step-bar__divider"
+                         :class="{ 'exam-step-bar__divider--done': templateCode }"></div>
+
+                    <button type="button" @click="if (totalQuestions > 0 && title.trim()) formStep = 2"
+                            class="exam-step-tab"
+                            :class="{ 'exam-step-tab--active': formStep === 2, 'exam-step-tab--done': formStep !== 2 && templateCode }">
+                        <span class="exam-step-tab__num"
+                              :class="{ 'exam-step-tab__num--active': formStep === 2, 'exam-step-tab__num--done': formStep !== 2 && templateCode }">
+                            <template x-if="formStep !== 2 && templateCode">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </template>
+                            <template x-if="formStep === 2 || !templateCode"><span>2</span></template>
+                        </span>
+                        <div class="exam-step-tab__text">
+                            <span class="exam-step-tab__label">Chọn phiếu trả lời</span>
+                            <span class="exam-step-tab__desc" x-text="templateCode ? 'Mẫu: ' + templateCode : 'Chọn mẫu phiếu'"></span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- ============ STEP 1: Nhập đáp án ============ -->
+                <div x-show="formStep === 1">
+
+                <!-- Empty State: no questions configured -->
+                <template x-if="totalQuestions === 0">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">
+                            <svg width="32" height="32" viewBox="0 0 20 20" fill="none">
+                                <path d="M4 3h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/>
+                                <path d="M7 7h6M7 10h6M7 13h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="empty-state-title">Chưa cấu hình câu hỏi</h3>
+                        <p class="empty-state-desc">Sử dụng các thanh trượt bên trái để thêm số lượng câu hỏi cho mỗi phần.</p>
+                    </div>
+                </template>
+
+                <!-- Variant tabs + answer area (only when questions > 0) -->
+                <template x-if="totalQuestions > 0">
+                    <div>
+                        <!-- ── Variant Tabs Bar ── -->
+                        <div class="variant-tabs-bar">
+                            <div class="variant-tabs">
+                                <template x-for="(v, idx) in variants" :key="v.id">
+                                    <button type="button"
+                                            class="variant-tab"
+                                            :class="{ 'variant-tab-active': activeVariantIdx === idx }"
+                                            @click="activeVariantIdx = idx">
+                                        <span x-text="'Mã ' + v.code"></span>
+                                        <span x-show="variants.length > 1" class="variant-tab-remove"
+                                              @click.stop="removeVariant(idx)" title="Xóa mã đề">×</span>
+                                    </button>
+                                </template>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary" @click="addVariant()"
+                                    style="white-space: nowrap;">
+                                + Thêm mã đề
+                            </button>
+                        </div>
+
+                        <!-- ── Variant code input ── -->
+                        <div style="display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); padding: var(--space-3) var(--space-4); background: var(--surface-container); border-radius: var(--radius-md);">
+                            <label class="body-sm" style="font-weight: 600; white-space: nowrap;">Mã đề:</label>
+                            <input type="text" class="form-input"
+                                   style="width: 120px; text-align: center; font-weight: 700; font-size: 1rem;"
+                                   x-model="activeVariant.code"
+                                   placeholder="VD: 123"
+                                   maxlength="10">
+                            <span class="body-sm text-on-surface-var" x-show="variants.length > 1"
+                                  x-text="'(' + variants.length + ' mã đề)'"></span>
+                            <button type="button" class="btn btn-sm btn-secondary" style="margin-left: auto;"
+                                    @click="copyFromVariant()" x-show="variants.length > 1" title="Sao chép đáp án từ mã đề khác">
+                                Sao chép từ mã khác
+                            </button>
+                        </div>
+
+                        <!-- ── PHẦN I — Trắc nghiệm ABCD ── -->
+                        <template x-if="part1Count > 0">
+                            <div class="answer-section paper-slide">
+                                <div class="answer-section-header">
+                                    <h3 class="answer-section-title">Phần I — Trắc nghiệm</h3>
+                                    <span class="badge badge-primary" x-text="part1Count + ' câu'"></span>
+                                    <span class="answer-section-link" @click="fillAllP1Random()" title="Điền ngẫu nhiên (debug)">⟳</span>
+                                </div>
+                                <div class="answer-grid">
+                                    <template x-for="i in part1Count" :key="'p1_' + activeVariant.id + '_' + i">
+                                        <div class="answer-item">
+                                            <label class="answer-item-label"
+                                                   :class="{ 'has-value': activeVariant.p1[i] }"
+                                                   x-text="'Câu ' + i"></label>
+                                            <select class="answer-select"
+                                                    :class="{ 'has-value': activeVariant.p1[i] }"
+                                                    x-model="activeVariant.p1[i]">
+                                                <option value="">—</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- ── PHẦN II — Đúng/Sai ── -->
+                        <template x-if="part2Count > 0">
+                            <div class="answer-section paper-slide">
+                                <div class="answer-section-header">
+                                    <h3 class="answer-section-title">Phần II — Đúng/Sai</h3>
+                                    <span class="badge badge-primary" x-text="part2Count + ' câu'"></span>
+                                </div>
+                                <div class="tf-questions">
+                                    <template x-for="i in part2Count" :key="'p2_' + activeVariant.id + '_' + i">
+                                        <div class="tf-question-card">
+                                            <div class="tf-question-header">
+                                                <span class="tf-question-label" x-text="'Câu ' + i + ':'"></span>
+                                            </div>
+                                            <div class="tf-options">
+                                                <template x-for="opt in ['a', 'b', 'c', 'd']" :key="'p2_' + activeVariant.id + '_' + i + '_' + opt">
+                                                    <div class="tf-option">
+                                                        <span class="tf-option-letter" x-text="'Ý ' + opt + ')'"></span>
+                                                        <button type="button"
+                                                                class="tf-toggle"
+                                                                :class="{
+                                                                    'tf-toggle-d': getP2(i, opt) === 'Đ',
+                                                                    'tf-toggle-s': getP2(i, opt) === 'S'
+                                                                }"
+                                                                @click="toggleP2(i, opt)"
+                                                                x-text="getP2(i, opt) || '—'">
+                                                        </button>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- ── PHẦN III — Điền số ── -->
+                        <template x-if="part3Count > 0">
+                            <div class="answer-section paper-slide">
+                                <div class="answer-section-header">
+                                    <h3 class="answer-section-title">Phần III — Điền số</h3>
+                                    <span class="badge badge-primary" x-text="part3Count + ' câu'"></span>
+                                </div>
+                                <div class="answer-grid">
+                                    <template x-for="i in part3Count" :key="'p3_' + activeVariant.id + '_' + i">
+                                        <div class="answer-item">
+                                            <label class="answer-item-label"
+                                                   :class="{ 'has-value': activeVariant.p3[i] }"
+                                                   x-text="'Câu ' + i"></label>
+                                            <input type="text"
+                                                   class="answer-input-number"
+                                                   x-model="activeVariant.p3[i]"
+                                                   placeholder="Đáp án">
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                </div><!-- end step 1 -->
+
+                <!-- ============ STEP 2: Chọn phiếu trả lời ============ -->
+                <div x-show="formStep === 2" x-cloak>
+                    <div style="margin-bottom: var(--space-4);">
+                        <button type="button" @click="formStep = 1" class="btn btn-sm btn-secondary" style="gap: 4px;">
+                            &larr; Quay lại nhập đáp án
+                        </button>
+                    </div>
+
+                    <div class="card card-elevated" style="padding: var(--space-5); margin-bottom: var(--space-5);">
+                        <h3 class="answer-section-title" style="margin-bottom: 4px;">Chọn phiếu trả lời</h3>
+                        <p class="body-sm text-on-surface-var" style="margin-bottom: var(--space-4);">Chọn mẫu phiếu vật lý phù hợp để hệ thống nhận diện chính xác nhất. Cấu hình hiện tại: <strong x-text="part1Count + ' TN · ' + part2Count + ' ĐS · ' + part3Count + ' Điền số'"></strong></p>
+
+                        <!-- Exact matches -->
+                        <template x-if="matchingTemplates.length > 0">
+                            <div style="margin-bottom: var(--space-5);">
+                                <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3);">
+                                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; background: var(--success-container, #d4edda); color: var(--on-success-container, #155724); font-size: 0.6875rem; font-weight: 700;">
+                                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                        Phiếu khớp chính xác
+                                    </span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3);">
+                                    <template x-for="t in matchingTemplates" :key="t.code">
+                                        <label @click="templateCode = t.code"
+                                               style="display: flex; flex-direction: column; border-radius: var(--radius-lg); cursor: pointer; overflow: hidden; border: 2px solid var(--outline-variant); transition: all 0.2s;"
+                                               :style="templateCode === t.code ? 'border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-container);' : ''">
+                                            <input type="radio" name="_tpl" :value="t.code" x-model="templateCode" style="display: none;">
+                                            <!-- Preview image -->
+                                            <div style="background: #f8f9fa; padding: 12px; display: flex; align-items: center; justify-content: center; min-height: 180px;">
+                                                <img :src="'/static/img/templates/' + t.code + '.jpg'" :alt="t.label"
+                                                     style="max-height: 200px; width: auto; max-width: 100%; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                            </div>
+                                            <!-- Info -->
+                                            <div style="padding: 12px 14px;" :style="templateCode === t.code ? 'background: var(--primary-container);' : ''">
+                                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                                    <span style="font-weight: 700; font-size: 0.875rem;" x-text="t.code"></span>
+                                                    <span x-show="t.pages === 2" style="font-size: 0.625rem; padding: 1px 6px; border-radius: 99px; background: var(--tertiary-container, #e8def8); color: var(--on-tertiary-container, #4a4458); font-weight: 600;">2 trang</span>
+                                                    <span x-show="templateCode === t.code" style="font-size: 0.625rem; padding: 1px 6px; border-radius: 99px; background: var(--primary); color: var(--on-primary); font-weight: 600;">Đã chọn</span>
+                                                </div>
+                                                <div class="body-sm text-on-surface-var" style="margin-top: 2px;" x-text="t.desc"></div>
+                                            </div>
+                                        </label>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- No exact match message -->
+                        <div x-show="matchingTemplates.length === 0" style="text-align: center; padding: var(--space-4); margin-bottom: var(--space-3); border-radius: var(--radius-md); background: #fff3cd; color: #856404;">
+                            <p style="font-weight: 600; margin-bottom: 4px;">Không có mẫu phiếu khớp chính xác</p>
+                            <p class="body-sm">Bạn có thể chọn phiếu lớn hơn (bỏ trống ô thừa) hoặc điều chỉnh lại số câu.</p>
+                        </div>
+
+                        <!-- Compatible (larger) templates -->
+                        <template x-if="compatibleTemplates.length > 0">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3);">
+                                    <span style="font-size: 0.75rem; font-weight: 600; color: var(--on-surface-variant);">Phiếu tương thích (lớn hơn)</span>
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3);">
+                                    <template x-for="t in compatibleTemplates" :key="t.code">
+                                        <label @click="templateCode = t.code"
+                                               style="display: flex; flex-direction: column; border-radius: var(--radius-lg); cursor: pointer; overflow: hidden; border: 2px solid var(--outline-variant); transition: all 0.2s;"
+                                               :style="templateCode === t.code ? 'border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-container);' : ''">
+                                            <input type="radio" name="_tpl" :value="t.code" x-model="templateCode" style="display: none;">
+                                            <!-- Preview image -->
+                                            <div style="background: #f8f9fa; padding: 12px; display: flex; align-items: center; justify-content: center; min-height: 160px;">
+                                                <img :src="'/static/img/templates/' + t.code + '.jpg'" :alt="t.label"
+                                                     style="max-height: 180px; width: auto; max-width: 100%; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                            </div>
+                                            <!-- Info -->
+                                            <div style="padding: 12px 14px;" :style="templateCode === t.code ? 'background: var(--primary-container);' : ''">
+                                                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                                    <span style="font-weight: 700; font-size: 0.875rem;" x-text="t.code"></span>
+                                                    <span x-show="t.pages === 2" style="font-size: 0.625rem; padding: 1px 6px; border-radius: 99px; background: var(--tertiary-container, #e8def8); color: var(--on-tertiary-container, #4a4458); font-weight: 600;">2 trang</span>
+                                                    <span x-show="templateCode === t.code" style="font-size: 0.625rem; padding: 1px 6px; border-radius: 99px; background: var(--primary); color: var(--on-primary); font-weight: 600;">Đã chọn</span>
+                                                </div>
+                                                <div class="body-sm text-on-surface-var" style="margin-top: 2px;" x-text="t.desc"></div>
+                                            </div>
+                                        </label>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- All templates fallback -->
+                        <div x-show="matchingTemplates.length === 0 && compatibleTemplates.length === 0" style="text-align: center; padding: var(--space-5); color: var(--on-surface-variant);">
+                            <p class="body-sm">Hãy điều chỉnh số câu bên sidebar để phù hợp với một mẫu phiếu.</p>
+                        </div>
+                    </div>
+                </div><!-- end step 2 -->
+
+            </main>
+        </div>
+
+        <!-- Hidden fields for form submission -->
+        <input type="hidden" name="title" :value="title">
+        <input type="hidden" name="subject" :value="subject">
+        <input type="hidden" name="template_code" :value="templateCode">
+        <input type="hidden" name="num_questions" :value="totalQuestions">
+        <input type="hidden" name="answer_key" :value="answerKeyCSV">
+        <input type="hidden" name="config_json" :value="configJSON">
+        <input type="hidden" name="variants_json" :value="variantsJSON">
+    </form>
 </div>
+
+{% block extra_js %}
+<script>
+function _makeVariant(code, p1, p2, p3) {
+    return { id: Date.now() + Math.random(), code: code || '', p1: p1 || {}, p2: p2 || {}, p3: p3 || {} };
+}
+
+function examConfigurator(initial) {
+    initial = initial || {};
+
+    /* Build initial variants array */
+    var initVariants = [];
+    if (initial.variants && initial.variants.length) {
+        initial.variants.forEach(function(v) {
+            initVariants.push(_makeVariant(v.code, v.p1, v.p2, v.p3));
+        });
+    } else {
+        /* Backward compat: single set of answers → one variant */
+        initVariants.push(_makeVariant('', initial.p1 || {}, initial.p2 || {}, initial.p3 || {}));
+    }
+
+    return {
+        /* ── State ────────────────────────────── */
+        title:      initial.title      || '',
+        subject:    initial.subject    || '',
+        templateCode: initial.templateCode || '',
+        part1Count: initial.part1Count != null ? initial.part1Count : 24,
+        part2Count: initial.part2Count != null ? initial.part2Count : 4,
+        part3Count: initial.part3Count != null ? initial.part3Count : 0,
+
+        /* Variants: array of { id, code, p1, p2, p3 } */
+        variants: initVariants,
+        activeVariantIdx: 0,
+
+        /* Scoring */
+        scoreP1: (initial.scoring && initial.scoring.p1 != null) ? initial.scoring.p1 : 0.25,
+        scoreP3: (initial.scoring && initial.scoring.p3 != null) ? initial.scoring.p3 : 0.5,
+        scaleToTen: (initial.scoring && initial.scoring.scale_to_ten != null) ? initial.scoring.scale_to_ten : true,
+
+        /* Templates from server */
+        allTemplates: window.__examTemplates || [],
+        _lastAutoCode: '',
+
+        /* Form step: 1 = enter answers, 2 = pick template */
+        formStep: initial.templateCode ? 1 : 1,
+
+        /* ── Active variant shortcut ─────────── */
+        get activeVariant() {
+            return this.variants[this.activeVariantIdx] || this.variants[0];
+        },
+
+        /* ── Computed ─────────────────────────── */
+        get totalQuestions() {
+            return this.part1Count + this.part2Count + this.part3Count;
+        },
+
+        /* Templates matching */
+        get matchingTemplates() {
+            var p1 = this.part1Count, p2 = this.part2Count, p3 = this.part3Count;
+            var matches = this.allTemplates.filter(function(t) {
+                return t.parts[0] === p1 && t.parts[1] === p2 && t.parts[2] === p3;
+            });
+            // Auto-select the only exact match
+            if (matches.length === 1 && this._lastAutoCode !== matches[0].code) {
+                var self = this;
+                setTimeout(function() { self.templateCode = matches[0].code; self._lastAutoCode = matches[0].code; }, 0);
+            }
+            // If config changed and previous selection no longer valid, clear it
+            if (matches.length === 0 && this.templateCode && this._lastAutoCode === this.templateCode) {
+                var self = this;
+                var isCompat = this.allTemplates.some(function(t) {
+                    return t.code === self.templateCode && t.parts[0] >= p1 && t.parts[1] >= p2 && t.parts[2] >= p3;
+                });
+                if (!isCompat) {
+                    setTimeout(function() { self.templateCode = ''; self._lastAutoCode = ''; }, 0);
+                }
+            }
+            return matches;
+        },
+
+        get compatibleTemplates() {
+            var p1 = this.part1Count, p2 = this.part2Count, p3 = this.part3Count;
+            return this.allTemplates.filter(function(t) {
+                var exact = t.parts[0] === p1 && t.parts[1] === p2 && t.parts[2] === p3;
+                return !exact && t.parts[0] >= p1 && t.parts[1] >= p2 && t.parts[2] >= p3;
+            }).slice(0, 8);
+        },
+
+        /* Subtotals */
+        get p1Subtotal() { return this.scoreP1 * this.part1Count; },
+        get p2MaxScore() { return this.part2Count * 1.0; },
+        get p3Subtotal() { return this.scoreP3 * this.part3Count; },
+        get rawMax() { return this.p1Subtotal + this.p2MaxScore + this.p3Subtotal; },
+        get scaleFactor() { return (this.scaleToTen && this.rawMax > 0) ? (10.0 / this.rawMax) : 1.0; },
+        get calcMaxScore() { return this.scaleToTen ? 10.0 : this.rawMax; },
+        get p1Scaled() { return Math.round(this.p1Subtotal * this.scaleFactor * 100) / 100; },
+        get p2Scaled() { return Math.round(this.p2MaxScore * this.scaleFactor * 100) / 100; },
+        get p3Scaled() { return Math.round(this.p3Subtotal * this.scaleFactor * 100) / 100; },
+
+        /* CSV of first variant Part 1 answers (backward compat) */
+        get answerKeyCSV() {
+            var v = this.variants[0];
+            var answers = [];
+            for (var i = 1; i <= this.part1Count; i++) {
+                answers.push((v && v.p1[i]) || '');
+            }
+            return answers.join(',');
+        },
+
+        /* Config JSON (shared exam config, no answers) */
+        get configJSON() {
+            var cfg = {
+                parts: [this.part1Count, this.part2Count, this.part3Count],
+                scoring: {
+                    p1: this.scoreP1,
+                    p2_mode: 'moet',
+                    p3: this.scoreP3,
+                    max: this.calcMaxScore,
+                    scale_to_ten: this.scaleToTen
+                }
+            };
+            if (this.scaleToTen && this.rawMax > 0) {
+                cfg.scoring.scale_factor = Math.round(this.scaleFactor * 10000) / 10000;
+            }
+            return JSON.stringify(cfg);
+        },
+
+        /* Variants JSON for saving */
+        get variantsJSON() {
+            return JSON.stringify(this.variants.map(function(v) {
+                return { code: v.code, p1: v.p1, p2: v.p2, p3: v.p3 };
+            }));
+        },
+
+        /* ── Variant management ──────────────── */
+        addVariant() {
+            this.variants.push(_makeVariant('', {}, {}, {}));
+            this.activeVariantIdx = this.variants.length - 1;
+        },
+
+        removeVariant(idx) {
+            if (this.variants.length <= 1) return;
+            if (!confirm('Xóa mã đề "' + this.variants[idx].code + '"?')) return;
+            this.variants.splice(idx, 1);
+            if (this.activeVariantIdx >= this.variants.length) {
+                this.activeVariantIdx = this.variants.length - 1;
+            }
+        },
+
+        copyFromVariant() {
+            var self = this;
+            var options = this.variants
+                .filter(function(v, i) { return i !== self.activeVariantIdx; })
+                .map(function(v, i) { return v.code || ('Mã ' + (i + 1)); });
+            if (options.length === 0) return;
+
+            var sourceIdx = -1;
+            for (var i = 0; i < this.variants.length; i++) {
+                if (i !== this.activeVariantIdx) { sourceIdx = i; break; }
+            }
+            if (sourceIdx < 0) return;
+
+            if (this.variants.length > 2) {
+                var choice = prompt('Sao chép từ mã đề nào?\n' + this.variants.map(function(v, i) {
+                    return i !== self.activeVariantIdx ? (i + 1) + '. ' + (v.code || '(trống)') : '';
+                }).filter(Boolean).join('\n'));
+                if (!choice) return;
+                sourceIdx = parseInt(choice) - 1;
+            }
+
+            var src = this.variants[sourceIdx];
+            var dst = this.activeVariant;
+            dst.p1 = JSON.parse(JSON.stringify(src.p1));
+            dst.p2 = JSON.parse(JSON.stringify(src.p2));
+            dst.p3 = JSON.parse(JSON.stringify(src.p3));
+        },
+
+        /* ── Part 2 helpers (on activeVariant) ── */
+        getP2(qNum, opt) {
+            var v = this.activeVariant;
+            if (!v.p2[qNum]) return '';
+            return v.p2[qNum][opt] || '';
+        },
+
+        toggleP2(qNum, opt) {
+            var v = this.activeVariant;
+            if (!v.p2[qNum]) {
+                v.p2[qNum] = { a: '', b: '', c: '', d: '' };
+            }
+            var current = v.p2[qNum][opt];
+            if (!current || current === '' || current === '—') {
+                v.p2[qNum][opt] = 'Đ';
+            } else if (current === 'Đ') {
+                v.p2[qNum][opt] = 'S';
+            } else {
+                v.p2[qNum][opt] = '';
+            }
+            v.p2 = Object.assign({}, v.p2);
+        },
+
+        /* ── Áp dụng chuẩn Bộ GD&ĐT ──────────── */
+        applyMoetStandard() {
+            this.scoreP1 = 0.25;
+            this.scoreP3 = 0.5;
+            this.scaleToTen = true;
+        },
+
+        /* ── Navigate to step 2 ────────────────── */
+        goToStep2() {
+            if (this.totalQuestions === 0) {
+                alert('Vui lòng cấu hình ít nhất 1 câu hỏi');
+                return;
+            }
+            if (!this.title.trim()) {
+                alert('Vui lòng nhập tên đề thi');
+                return;
+            }
+            // Validate variant codes
+            for (var i = 0; i < this.variants.length; i++) {
+                if (!this.variants[i].code.trim()) {
+                    alert('Vui lòng nhập mã đề cho tất cả các mã đề (mã đề #' + (i + 1) + ' đang trống)');
+                    this.activeVariantIdx = i;
+                    return;
+                }
+            }
+            this.formStep = 2;
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+
+        /* ── Debug: fill random Part 1 ────────────── */
+        fillAllP1Random() {
+            var v = this.activeVariant;
+            var opts = ['A', 'B', 'C', 'D'];
+            for (var i = 1; i <= this.part1Count; i++) {
+                v.p1[i] = opts[Math.floor(Math.random() * 4)];
+            }
+            v.p1 = Object.assign({}, v.p1);
+        },
+
+        /* ── Form submission ──────────────────── */
+        submitForm() {
+            if (!this.title.trim()) {
+                alert('Vui lòng nhập tên đề thi');
+                return;
+            }
+            if (this.totalQuestions === 0) {
+                alert('Vui lòng cấu hình ít nhất 1 câu hỏi');
+                return;
+            }
+            /* Check all variants have a code */
+            for (var i = 0; i < this.variants.length; i++) {
+                if (!this.variants[i].code.trim()) {
+                    alert('Vui lòng nhập mã đề cho tất cả các mã đề (mã đề #' + (i + 1) + ' đang trống)');
+                    this.activeVariantIdx = i;
+                    return;
+                }
+            }
+            document.getElementById('exam-config-form').submit();
+        }
+    };
+}
+</script>
+{% endblock %}
 {% endblock %}
