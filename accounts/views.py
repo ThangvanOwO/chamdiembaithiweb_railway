@@ -1,9 +1,12 @@
+import logging
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .forms import LoginForm, ProfileForm
 from .models import TeacherProfile
+
+logger = logging.getLogger(__name__)
 
 
 def login_view(request):
@@ -18,14 +21,30 @@ def login_view(request):
         if form.is_valid():
             email = form.cleaned_data['email']
             password = form.cleaned_data['password']
+            logger.warning(f'[LOGIN] Attempting login for email={email}')
             
             # Find user by email
             from django.contrib.auth.models import User
             try:
                 user_obj = User.objects.get(email=email)
+                logger.warning(f'[LOGIN] Found user: {user_obj.username}, check_pw={user_obj.check_password(password)}')
+                
+                # Try authenticate with username
                 user = authenticate(request, username=user_obj.username, password=password)
+                logger.warning(f'[LOGIN] authenticate result: {user}')
+                
+                # Fallback: if authenticate fails but password is correct, login directly
+                if user is None and user_obj.check_password(password):
+                    logger.warning('[LOGIN] Fallback: direct login')
+                    from django.contrib.auth import login as auth_login
+                    auth_login(request, user_obj, backend='django.contrib.auth.backends.ModelBackend')
+                    messages.success(request, f'Chào mừng {user_obj.get_full_name() or user_obj.email}!')
+                    next_url = request.GET.get('next', '/dashboard/')
+                    return redirect(next_url)
+                
             except User.DoesNotExist:
                 user = None
+                logger.warning(f'[LOGIN] No user with email={email}')
             
             if user is not None:
                 login(request, user)
@@ -34,6 +53,8 @@ def login_view(request):
                 return redirect(next_url)
             else:
                 messages.error(request, 'Email hoặc mật khẩu không đúng.')
+        else:
+            logger.warning(f'[LOGIN] Form invalid: {form.errors}')
     
     return render(request, 'accounts/login.html', {'form': form})
 

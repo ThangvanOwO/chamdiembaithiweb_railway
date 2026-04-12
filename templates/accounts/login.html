@@ -57,12 +57,16 @@
                 {% endif %}
 
                 <!-- Login Form -->
-                <form method="post" class="auth-form" id="login-form">
+                <form method="post" action="{% url 'accounts:login' %}?next={{ request.GET.next|default:'/dashboard/' }}" class="auth-form" id="login-form">
                     {% csrf_token %}
                     
                     <div class="form-group">
                         <label for="login-email" class="form-label">Email</label>
-                        {{ form.email }}
+                        <input type="email" name="email" id="login-email"
+                               class="form-input" 
+                               placeholder="email@truonghoc.edu.vn"
+                               value="{{ form.email.value|default:'' }}"
+                               autofocus required>
                         {% if form.email.errors %}
                         <span class="form-error">{{ form.email.errors.0 }}</span>
                         {% endif %}
@@ -70,7 +74,10 @@
 
                     <div class="form-group">
                         <label for="login-password" class="form-label">Mật khẩu</label>
-                        {{ form.password }}
+                        <input type="password" name="password" id="login-password"
+                               class="form-input"
+                               placeholder="••••••••"
+                               required>
                         {% if form.password.errors %}
                         <span class="form-error">{{ form.password.errors.0 }}</span>
                         {% endif %}
