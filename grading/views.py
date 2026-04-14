@@ -787,8 +787,118 @@ def parse_excel_api(request):
 
 
 @login_required
+def parse_image_api(request):
+    """AJAX API: detect answers from an uploaded answer sheet image."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    f = request.FILES.get('file')
+    if not f:
+        return JsonResponse({'error': 'Không có file nào được upload'}, status=400)
+
+    allowed_ext = ('.jpg', '.jpeg', '.png', '.bmp', '.webp')
+    if not f.name.lower().endswith(allowed_ext):
+        return JsonResponse({'error': f'Chỉ hỗ trợ ảnh: {", ".join(allowed_ext)}'}, status=400)
+
+    import tempfile
+    import cv2
+    import numpy as np
+
+    try:
+        # Save uploaded file to temp
+        suffix = os.path.splitext(f.name)[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            for chunk in f.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        # Run grading engine (no correct answers → just detect)
+        from grading.engine import hi as engine
+        result = engine.process_sheet(tmp_path, correct_answers=None, debug=False)
+
+        # Cleanup temp file
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+        if not result:
+            return JsonResponse({'error': 'Không thể đọc phiếu trả lời. Hãy chụp rõ hơn.'}, status=400)
+
+        # Convert engine result → same format as parse_excel_api
+        p1_ans = result.get('part1', {})
+        p2_ans = result.get('part2', {})
+        p3_ans = result.get('part3', {})
+        made = result.get('made', '')
+
+        # Count actual detected answers
+        p1_count = sum(1 for v in p1_ans.values() if v and v not in ('', 'X'))
+        p2_count = sum(1 for v in p2_ans.values()
+                       if isinstance(v, dict) and any(v.get(k) for k in ('a', 'b', 'c', 'd')))
+        p3_count = sum(1 for v in p3_ans.values() if v and str(v).strip())
+
+        # Build P1 dict (string keys, uppercase values)
+        p1 = {}
+        for q, a in p1_ans.items():
+            if a and a not in ('', 'X'):
+                p1[str(q)] = a.upper()
+
+        # Build P2 dict — normalize Dung→Đ, Sai→S
+        p2 = {}
+        for q, opts in p2_ans.items():
+            if isinstance(opts, dict):
+                q_data = {}
+                for opt_key in ('a', 'b', 'c', 'd'):
+                    val = opts.get(opt_key, '')
+                    if val in ('Dung', 'Đ', 'ĐÚNG'):
+                        q_data[opt_key] = 'Đ'
+                    elif val in ('Sai', 'S', 'SAI'):
+                        q_data[opt_key] = 'S'
+                    elif val:
+                        q_data[opt_key] = val
+                if q_data:
+                    p2[str(q)] = q_data
+
+        # Build P3 dict
+        p3 = {}
+        for q, a in p3_ans.items():
+            if a and str(a).strip():
+                p3[str(q)] = a
+
+        variant_code = made if made and '?' not in str(made) else '001'
+
+        variant = {
+            'code': str(variant_code),
+            'p1': p1,
+            'p2': p2,
+            'p3': p3,
+            'p1_count': len(p1),
+            'p2_count': len(p2),
+            'p3_count': len(p3),
+        }
+
+        # Use the max part counts from the sheet layout (40, 8, 6)
+        data = {
+            'variants': [variant],
+            'part1Count': max(len(p1), p1_count),
+            'part2Count': max(len(p2), p2_count),
+            'part3Count': max(len(p3), p3_count),
+            'totalQuestions': max(len(p1), p1_count) + max(len(p2), p2_count) + max(len(p3), p3_count),
+            'variantCount': 1,
+            'source': 'image',
+            'detect_method': result.get('detect_method', '?'),
+        }
+
+        return JsonResponse({'success': True, 'data': data})
+
+    except Exception as e:
+        logger.exception('Error parsing answer image')
+        return JsonResponse({'error': f'Lỗi xử lý ảnh: {str(e)}'}, status=400)
+
+
+@login_required
 def exam_import_view(request):
-    """Create exam by importing answer key from Excel file."""
+    """Create exam by importing answer key from Excel file or image."""
     if request.method == 'POST':
         # Same save logic as exam_create_view
         title = request.POST.get('title', '').strip()

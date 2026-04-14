@@ -19,7 +19,7 @@
             </div>
             <div class="import-step__text">
                 <span class="import-step__label">Tải file đáp án</span>
-                <span class="import-step__desc">Excel (.xlsx)</span>
+                <span class="import-step__desc">Excel (.xlsx) hoặc Ảnh (.jpg)</span>
             </div>
         </div>
         <div class="import-step__line" :class="{ 'import-step__line--done': step > 1 }"></div>
@@ -58,7 +58,7 @@
             <div class="section-header" style="margin-bottom: var(--space-5);">
                 <div>
                     <h2 class="section-title">Tạo đề thi từ file đáp án</h2>
-                    <p class="section-subtitle">Kéo thả hoặc chọn file Excel chứa đáp án chuẩn</p>
+                    <p class="section-subtitle">Kéo thả file Excel hoặc ảnh phiếu đáp án đã tô</p>
                 </div>
                 <a href="{% url 'grading:exams' %}" class="btn btn-secondary">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -76,7 +76,7 @@
                  @drop.prevent="handleDrop($event)"
                  @click="$refs.fileInput.click()">
 
-                <input type="file" x-ref="fileInput" accept=".xlsx,.xls"
+                <input type="file" x-ref="fileInput" accept=".xlsx,.xls,.jpg,.jpeg,.png,.bmp,.webp"
                        @change="handleFileSelect($event)" style="display: none;">
 
                 <template x-if="!isUploading && !uploadError">
@@ -90,11 +90,13 @@
                                 <path d="M34 30v8M30 34h8" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round"/>
                             </svg>
                         </div>
-                        <div class="import-dropzone__title">Kéo thả file Excel vào đây</div>
+                        <div class="import-dropzone__title">Kéo thả file vào đây</div>
                         <div class="import-dropzone__subtitle">hoặc nhấn để chọn file</div>
                         <div class="import-dropzone__formats">
                             <span class="import-dropzone__format-badge">.xlsx</span>
                             <span class="import-dropzone__format-badge">.xls</span>
+                            <span class="import-dropzone__format-badge" style="background: var(--tertiary-container, #e8def8); color: var(--on-tertiary-container, #4a4458);">.jpg</span>
+                            <span class="import-dropzone__format-badge" style="background: var(--tertiary-container, #e8def8); color: var(--on-tertiary-container, #4a4458);">.png</span>
                         </div>
                     </div>
                 </template>
@@ -121,6 +123,113 @@
                 </template>
             </div>
 
+            <!-- OR Divider -->
+            <div style="display:flex; align-items:center; gap:var(--space-3); margin:var(--space-4) 0;">
+                <div style="flex:1; height:1px; background:var(--outline-variant);"></div>
+                <span style="font-size:0.75rem; font-weight:700; color:var(--on-surface-variant); text-transform:uppercase; letter-spacing:0.05em;">hoặc</span>
+                <div style="flex:1; height:1px; background:var(--outline-variant);"></div>
+            </div>
+
+            <!-- Camera Capture Button -->
+            <div style="text-align:center;">
+                <button type="button" class="btn btn-lg"
+                        style="gap:var(--space-2); padding:var(--space-3) var(--space-6); border-radius:var(--radius-xl); background:var(--tertiary-container, #e8def8); color:var(--on-tertiary-container, #4a4458); border:2px solid transparent; font-weight:700; font-size:0.9375rem; transition:all 0.2s;"
+                        @click="openCamera()">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Chụp phiếu đáp án
+                </button>
+                <div style="margin-top:var(--space-2); font-size:0.75rem; color:var(--on-surface-variant);">
+                    Mở camera để chụp trực tiếp phiếu đáp án đã tô
+                </div>
+                <!-- Hidden input for mobile native camera -->
+                <input type="file" x-ref="cameraInput"
+                       @change="handleCameraCapture($event)"
+                       accept="image/*" capture="environment"
+                       style="display:none;">
+            </div>
+
+            <!-- Camera Modal (WebRTC for desktop) -->
+            <div x-show="cameraOpen" x-cloak
+                 style="position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center; padding:var(--space-4);"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 @keydown.escape.window="closeCamera()">
+                <div style="background:var(--surface); border-radius:var(--radius-xl); max-width:640px; width:100%; overflow:hidden; box-shadow:0 25px 50px rgba(0,0,0,0.25);"
+                     @click.outside="closeCamera()">
+                    <!-- Header -->
+                    <div style="display:flex; align-items:center; justify-content:space-between; padding:var(--space-3) var(--space-4); border-bottom:1px solid var(--outline-variant);">
+                        <h3 style="margin:0; font-weight:700; font-size:1rem; display:flex; align-items:center; gap:6px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Chụp phiếu đáp án
+                        </h3>
+                        <button type="button" @click="closeCamera()"
+                                style="background:none; border:none; cursor:pointer; padding:4px; color:var(--on-surface-variant);">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- Video / Preview -->
+                    <div style="position:relative; background:#000;">
+                        <video x-ref="cameraVideo" x-show="!capturedImage" autoplay playsinline muted
+                               style="width:100%; max-height:70vh; object-fit:contain;"></video>
+                        <img x-show="capturedImage" :src="capturedImage" x-cloak
+                             style="width:100%; max-height:70vh; object-fit:contain;">
+                        <canvas x-ref="cameraCanvas" style="display:none;"></canvas>
+                        <!-- Guide corners -->
+                        <div x-show="!capturedImage" style="position:absolute; inset:8%; pointer-events:none;">
+                            <div style="position:absolute; top:0; left:0; width:30px; height:30px; border-top:3px solid rgba(255,255,255,0.7); border-left:3px solid rgba(255,255,255,0.7); border-radius:4px 0 0 0;"></div>
+                            <div style="position:absolute; top:0; right:0; width:30px; height:30px; border-top:3px solid rgba(255,255,255,0.7); border-right:3px solid rgba(255,255,255,0.7); border-radius:0 4px 0 0;"></div>
+                            <div style="position:absolute; bottom:0; left:0; width:30px; height:30px; border-bottom:3px solid rgba(255,255,255,0.7); border-left:3px solid rgba(255,255,255,0.7); border-radius:0 0 0 4px;"></div>
+                            <div style="position:absolute; bottom:0; right:0; width:30px; height:30px; border-bottom:3px solid rgba(255,255,255,0.7); border-right:3px solid rgba(255,255,255,0.7); border-radius:0 0 4px 0;"></div>
+                        </div>
+                    </div>
+                    <!-- Footer buttons -->
+                    <div style="display:flex; gap:var(--space-3); justify-content:center; padding:var(--space-3) var(--space-4); border-top:1px solid var(--outline-variant);">
+                        <template x-if="!capturedImage">
+                            <div style="display:flex; gap:var(--space-3);">
+                                <button type="button" class="btn btn-secondary" @click="closeCamera()">Hủy</button>
+                                <button type="button" class="btn btn-primary" @click="capturePhoto()"
+                                        style="gap:6px; padding:var(--space-2) var(--space-5);">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                        <circle cx="12" cy="12" r="7" fill="currentColor"/>
+                                    </svg>
+                                    Chụp
+                                </button>
+                            </div>
+                        </template>
+                        <template x-if="capturedImage">
+                            <div style="display:flex; gap:var(--space-3);">
+                                <button type="button" class="btn btn-secondary" @click="retakePhoto()">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M2 2v5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M3 11a6 6 0 1 0 1.5-6.5L2 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Chụp lại
+                                </button>
+                                <button type="button" class="btn btn-primary" @click="acceptPhoto()">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                        <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Dùng ảnh này
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
             <!-- File format hint -->
             <div class="import-hint">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0; margin-top:1px;">
@@ -128,8 +237,9 @@
                     <path d="M8 5v1M8 8v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 </svg>
                 <div>
-                    <strong>Định dạng file:</strong> Dòng 1 là header (Mã Đề \ Câu, 1, 2, ..., 1a, 1b, ...). 
-                    Mỗi dòng tiếp theo là 1 mã đề với đáp án tương ứng.
+                    <strong>Excel:</strong> Dòng 1 là header (Mã Đề \ Câu, 1, 2, ..., 1a, 1b, ...). 
+                    Mỗi dòng tiếp theo là 1 mã đề với đáp án tương ứng.<br>
+                    <strong>Ảnh:</strong> Chụp phiếu đáp án đã tô đầy đủ. Hệ thống sẽ tự nhận diện đáp án từ ảnh.
                 </div>
             </div>
         </div>
@@ -390,6 +500,13 @@ function examImport() {
         parsedData: null,
         activeVariantIdx: 0,
 
+        // Camera state
+        cameraOpen: false,
+        cameraStream: null,
+        capturedImage: null,
+        capturedBlob: null,
+        isMobile: /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+
         title: '',
         subject: '',
         selectedTemplate: '',
@@ -440,6 +557,82 @@ function examImport() {
             }));
         },
 
+        // ── Camera methods ──
+        openCamera() {
+            if (this.isMobile) {
+                this.$refs.cameraInput.click();
+                return;
+            }
+            this.cameraOpen = true;
+            this.capturedImage = null;
+            this.capturedBlob = null;
+            var self = this;
+            this.$nextTick(function() {
+                navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: 'environment' }
+                }).then(function(stream) {
+                    self.cameraStream = stream;
+                    if (self.$refs.cameraVideo) {
+                        self.$refs.cameraVideo.srcObject = stream;
+                    }
+                }).catch(function(err) {
+                    console.error('Camera error:', err);
+                    alert('Không thể truy cập camera. Hãy cấp quyền camera cho trình duyệt.');
+                    self.closeCamera();
+                });
+            });
+        },
+
+        closeCamera() {
+            if (this.cameraStream) {
+                this.cameraStream.getTracks().forEach(function(t) { t.stop(); });
+                this.cameraStream = null;
+            }
+            this.cameraOpen = false;
+            this.capturedImage = null;
+            this.capturedBlob = null;
+        },
+
+        capturePhoto() {
+            var video = this.$refs.cameraVideo;
+            var canvas = this.$refs.cameraCanvas;
+            if (!video || !canvas) return;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            this.capturedImage = canvas.toDataURL('image/jpeg', 0.92);
+            var self = this;
+            canvas.toBlob(function(blob) { self.capturedBlob = blob; }, 'image/jpeg', 0.92);
+            if (this.cameraStream) {
+                this.cameraStream.getTracks().forEach(function(t) { t.enabled = false; });
+            }
+        },
+
+        retakePhoto() {
+            this.capturedImage = null;
+            this.capturedBlob = null;
+            if (this.cameraStream) {
+                this.cameraStream.getTracks().forEach(function(t) { t.enabled = true; });
+            }
+        },
+
+        acceptPhoto() {
+            if (!this.capturedBlob) return;
+            var file = new File([this.capturedBlob], 'dap_an_chup.jpg', { type: 'image/jpeg' });
+            this.closeCamera();
+            this.uploadFile(file);
+        },
+
+        handleCameraCapture(event) {
+            var files = event.target.files;
+            if (files && files.length > 0) {
+                this.uploadFile(files[0]);
+            }
+            event.target.value = '';
+        },
+
+        // ── File methods ──
         handleDrop(event) {
             this.isDragging = false;
             var files = event.dataTransfer.files;
@@ -456,10 +649,14 @@ function examImport() {
         },
 
         uploadFile(file) {
-            if (!file.name.match(/\.xlsx?$/i)) {
-                this.uploadError = 'Chỉ hỗ trợ file Excel (.xlsx, .xls)';
+            var isExcel = /\.xlsx?$/i.test(file.name);
+            var isImage = /\.(jpe?g|png|bmp|webp)$/i.test(file.name) || (file.type && file.type.startsWith('image/'));
+
+            if (!isExcel && !isImage) {
+                this.uploadError = 'Chỉ hỗ trợ Excel (.xlsx) hoặc ảnh (.jpg, .png)';
                 return;
             }
+
             this.fileName = file.name;
             this.uploadError = '';
             this.isUploading = true;
@@ -469,8 +666,11 @@ function examImport() {
 
             var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             var self = this;
+            var apiUrl = isImage
+                ? '{% url "grading:parse_image" %}'
+                : '{% url "grading:parse_excel" %}';
 
-            fetch('{% url "grading:parse_excel" %}', {
+            fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'X-CSRFToken': csrfToken },
                 body: formData

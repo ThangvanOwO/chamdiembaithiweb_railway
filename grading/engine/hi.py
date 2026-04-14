@@ -572,73 +572,169 @@ _REFINE_MIN_SPAN   = 0.60        # 4 marker phải trải ≥60% ảnh warped
 _REFINE_MARGIN     = 0.20        # Mỗi marker phải trong 20% từ góc ảnh
 
 
+def _score_warp_quality(warped, method_name, corners):
+    """
+    Chấm điểm chất lượng ảnh warped — đa yếu tố thực tế:
+      1) Sharpness (Laplacian variance)     — 40%  (quan trọng nhất)
+      2) Paper coverage (vùng trắng)        — 25%
+      3) Cleanliness (ít noise)             — 20%
+      4) Corner stability (hình học)        — 10%
+      5) Bonus nhẹ cho corner_markers       — +8
+      6) Marker refinement thành công       — +15
+    Returns (total_score, sharpness_raw, refined_corners_or_None)
+    """
+    gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY) \
+        if len(warped.shape) == 3 else warped.copy()
+    h, w = gray.shape[:2]
+    total_px = h * w
+    score = 0.0
+    detail = {}
+
+    # ── 1) Sharpness — 40% (0-40) ──
+    lap_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+    sharp_score = min(100.0, lap_var / 50.0) * 0.40
+    score += sharp_score
+    detail['sharp'] = f"{sharp_score:.1f}"
+
+    # ── 2) Coverage — 25% (0-25) ──
+    white_px = np.count_nonzero(gray > 150)
+    coverage = (white_px / total_px) * 100.0 if total_px > 0 else 0
+    cov_score = min(coverage, 100.0) * 0.25
+    score += cov_score
+    detail['cover'] = f"{cov_score:.1f}"
+
+    # ── 3) Cleanliness — 20% (0-20) ──
+    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                   cv2.THRESH_BINARY_INV, 11, 2)
+    noise_ratio = cv2.countNonZero(thresh) / total_px
+    clean = max(0.0, 100.0 - noise_ratio * 80.0)
+    clean_score = clean * 0.20
+    score += clean_score
+    detail['clean'] = f"{clean_score:.1f}"
+
+    # ── 4) Corner stability — 10% (0-10) ──
+    if corners is not None and len(corners) == 4:
+        ordered = order_points(corners)
+        tl, tr, br, bl = ordered
+        w_top = np.linalg.norm(tr - tl)
+        w_bot = np.linalg.norm(br - bl)
+        h_left = np.linalg.norm(bl - tl)
+        h_right = np.linalg.norm(br - tr)
+        if w_top > 0 and w_bot > 0 and h_left > 0 and h_right > 0:
+            w_sym = min(w_top, w_bot) / max(w_top, w_bot)
+            h_sym = min(h_left, h_right) / max(h_left, h_right)
+            symmetry = (w_sym + h_sym) / 2.0
+            avg_w = (w_top + w_bot) / 2
+            avg_h = (h_left + h_right) / 2
+            aspect = min(avg_w, avg_h) / max(avg_w, avg_h)
+            a4_fit = max(0.0, 1.0 - abs(aspect - 0.707) * 3.0)
+            stab = (symmetry * 0.5 + a4_fit * 0.5) * 10.0
+            score += stab
+            detail['stab'] = f"{stab:.1f}"
+
+    # ── 5) Bonus nhẹ cho corner_markers ──
+    if method_name.startswith("corner_markers"):
+        score += 8.0
+        detail['bonus'] = '+8'
+
+    # ── 6) Marker refinement ──
+    refined = _refine_targeted(warped)
+    if refined is not None:
+        score += 15.0
+        detail['refine'] = 'targeted+15'
+    else:
+        refined = _refine_with_markers(warped)
+        if refined is not None:
+            score += 8.0
+            detail['refine'] = 'global+8'
+        else:
+            detail['refine'] = 'none'
+
+    print(f"    score_detail: {detail} → {score:.1f}")
+    return score, sharp_score, refined
+
+
 def auto_deskew_and_crop(image, debug=False):
     """
     Tự động phát hiện phiếu trắc nghiệm và nắn thẳng.
 
-    Pipeline 2 lớp:
-      LỚP 1 (ưu tiên) : Tìm 4 ô vuông đen góc — chính xác nhất
-      LỚP 2 (fallback) : Tìm viền giấy (Canny / threshold / saturation)
-                          → warp trung gian → refinement bằng corner markers
+    Luôn chạy CẢ 2 method, chọn kết quả tốt nhất:
+      Method A : Tìm 4 ô vuông đen góc → warp → refine
+      Method B : Tìm viền giấy (Canny / threshold / saturation)
+                 → warp trung gian → refine bằng corner markers
 
     Returns:
       dict {
         "warped"      : ndarray  — ảnh nắn thẳng WARP_WIDTH × WARP_HEIGHT
         "corners"     : ndarray 4×2 float32 [TL, TR, BR, BL] trên ảnh gốc
-        "method"      : str  — "corner_markers" | "paper_contour" | "paper+refine"
+        "method"      : str
         "success"     : bool — True nếu tìm được
         "debug_image" : ndarray | None
       }
-    Raise ValueError nếu cả 2 lớp đều thất bại.
+    Raise ValueError nếu cả 2 đều thất bại.
     """
     debug_img = image.copy() if debug else None
+    candidates = []  # (score, warped, corners, method_name)
 
-    # ─── LỚP 1: Corner markers (chính xác, calibrate sẵn) ───
+    # ─── Method A: Corner markers ───
     markers = _find_corner_markers(image, debug_img)
     if markers is not None:
         ordered = order_points(markers)
         if _validate_marker_quad(ordered, image.shape[1], image.shape[0]):
-            warped = _warp_to_rect(image, ordered)
-            # Thử targeted refinement để cải thiện thêm
-            refined = _refine_targeted(warped)
-            if refined is not None:
-                warped = _warp_to_rect(warped, refined)
-                return _result(warped, ordered, "corner_markers+refine",
-                               True, debug_img)
-            return _result(warped, ordered, "corner_markers", True, debug_img)
-        # Markers found but don't form valid A4 quad → fallback to Layer 2
+            warped_a = _warp_to_rect(image, ordered)
+            score_a, sharp_a, refined_a = _score_warp_quality(
+                warped_a, "corner_markers", ordered)
+            if refined_a is not None:
+                warped_a = _warp_to_rect(warped_a, refined_a)
+                candidates.append((score_a, sharp_a, warped_a, ordered,
+                                   "corner_markers+refine"))
+            else:
+                candidates.append((score_a, sharp_a, warped_a, ordered,
+                                   "corner_markers"))
+            print(f"  [A] corner_markers → {score_a:.1f}")
 
-    # ─── LỚP 2: Paper contour → warp → targeted refinement ───
+    # ─── Method B: Paper contour ───
     paper = _find_paper_contour(image, debug_img)
-    if paper is None:
+    if paper is not None:
+        ordered_p = order_points(paper)
+        warped_b = _warp_to_rect(image, ordered_p)
+        score_b, sharp_b, refined_b = _score_warp_quality(
+            warped_b, "paper_contour", ordered_p)
+        if refined_b is not None:
+            warped_b = _warp_to_rect(warped_b, refined_b)
+            method_b = "paper+refine"
+        else:
+            method_b = "paper_contour"
+        candidates.append((score_b, sharp_b, warped_b, ordered_p, method_b))
+        print(f"  [B] {method_b} → {score_b:.1f}")
+
+    # ─── Chọn kết quả tốt nhất ───
+    if not candidates:
         raise ValueError("Không tìm được viền giấy lẫn 4 góc đen.")
 
-    ordered_p = order_points(paper)
-    warped_raw = _warp_to_rect(image, ordered_p)
+    # Sort by score desc
+    candidates.sort(key=lambda x: x[0], reverse=True)
 
-    # Refinement: targeted local search (SullyChen-inspired) — chính xác nhất
-    refined = _refine_targeted(warped_raw)
-    if refined is not None:
-        warped_final = _warp_to_rect(warped_raw, refined)
-        if debug_img is not None:
-            _draw_debug(debug_img, ordered_p, refined, "PAPER+REFINE",
-                        (0, 165, 255))
-        return _result(warped_final, ordered_p, "paper+refine", True, debug_img)
+    # Tie-breaker: nếu chênh < 5 điểm → ưu tiên sharpness cao hơn
+    if len(candidates) > 1:
+        top = candidates[0]
+        runner = candidates[1]
+        if abs(top[0] - runner[0]) < 5.0 and runner[1] > top[1]:
+            print(f"  [TIE-BREAK] scores within 5pts, "
+                  f"picking {runner[4]} (sharper: {runner[1]:.1f} > {top[1]:.1f})")
+            candidates[0], candidates[1] = candidates[1], candidates[0]
 
-    # Fallback: global marker search
-    refined_g = _refine_with_markers(warped_raw)
-    if refined_g is not None:
-        warped_final = _warp_to_rect(warped_raw, refined_g)
-        if debug_img is not None:
-            _draw_debug(debug_img, ordered_p, refined_g, "PAPER+GLOBAL",
-                        (0, 165, 255))
-        return _result(warped_final, ordered_p, "paper+global_refine",
-                       True, debug_img)
+    best_score, best_sharp, best_warped, best_corners, best_method = candidates[0]
 
-    # Không refine được → dùng paper warp thô
+    if len(candidates) > 1:
+        print(f"  [PICK] {best_method} ({best_score:.1f}) "
+              f"over {candidates[1][4]} ({candidates[1][0]:.1f})")
+
     if debug_img is not None:
-        _draw_debug(debug_img, ordered_p, None, "PAPER", (0, 255, 0))
-    return _result(warped_raw, ordered_p, "paper_contour", True, debug_img)
+        _draw_debug(debug_img, best_corners, None, best_method.upper(),
+                    (0, 165, 255))
+
+    return _result(best_warped, best_corners, best_method, True, debug_img)
 
 
 def _validate_marker_quad(ordered, img_w, img_h):
