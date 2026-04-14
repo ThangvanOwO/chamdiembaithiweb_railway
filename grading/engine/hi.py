@@ -562,14 +562,14 @@ _PAPER_SIDE_RATIO_MIN = 0.35  # Cạnh đối diện chênh tối đa 65% (persp
 _PAPER_ASPECT_MIN     = 0.45  # min(w,h)/max(w,h) — A4 dọc ≈ 0.73
 
 # --- Tham số corner markers ---
-_MARKER_MIN_AREA_RATIO = 0.0003  # Ô vuông nhỏ nhất (scan chất lượng cao)
-_MARKER_MAX_AREA_RATIO = 0.008   # Ô vuông lớn nhất
+_MARKER_MIN_AREA_RATIO = 0.0001  # Ô vuông nhỏ nhất (phone xa, ảnh lớn)
+_MARKER_MAX_AREA_RATIO = 0.012   # Ô vuông lớn nhất
 
 # --- Tham số refinement ---
 _REFINE_MARKER_MIN = 0.00003     # Marker trên ảnh warped nhỏ hơn
 _REFINE_MARKER_MAX = 0.004
-_REFINE_MIN_SPAN   = 0.70        # 4 marker phải trải ≥70% ảnh warped
-_REFINE_MARGIN     = 0.15        # Mỗi marker phải trong 15% từ góc ảnh
+_REFINE_MIN_SPAN   = 0.60        # 4 marker phải trải ≥60% ảnh warped
+_REFINE_MARGIN     = 0.20        # Mỗi marker phải trong 20% từ góc ảnh
 
 
 def auto_deskew_and_crop(image, debug=False):
@@ -712,10 +712,10 @@ def _extract_squares(thresh_img, min_a, max_a):
             continue
         peri = cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, 0.04 * peri, True)
-        if len(approx) == 4:
+        if 4 <= len(approx) <= 6:
             x, y, bw, bh = cv2.boundingRect(approx)
             asp = bw / float(bh) if bh > 0 else 0
-            if 0.55 < asp < 1.8:  # Hơi lỏng hơn cho perspective
+            if 0.45 < asp < 2.2:  # Rộng hơn cho perspective phone
                 result.append((x + bw // 2, y + bh // 2, area))
     return result
 
@@ -1133,8 +1133,8 @@ def detect_section_offsets(gray):
         "part3": {"y": 1340, "xs": [233, 466, 700, 933, 1166]},
     }
 
-    SEARCH_H = 40      # tìm kiếm ±40px theo y
-    SEARCH_W = 25      # tìm kiếm ±25px theo x
+    SEARCH_H = 60      # tìm kiếm ±60px theo y (phone bị lệch nhiều hơn)
+    SEARCH_W = 35      # tìm kiếm ±35px theo x
 
     offsets = {"part1": 0, "part2": 0, "part3": 0}
 
@@ -1934,6 +1934,8 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
         "scores": scores if correct_answers else {},
         "details": {"sbd": sbd_det, "part1": p1_det, "part2": p2_det, "part3": p3_det},
         "name_image_path": name_path,
+        "detect_method": method if not pre_warped else "pre_warped",
+        "offsets": offsets,
     }
 
 

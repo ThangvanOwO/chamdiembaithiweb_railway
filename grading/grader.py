@@ -320,6 +320,11 @@ def grade_image(image_path, answer_key_str='', template_code=''):
 
     processing_time = round(time.time() - start_time, 2)
 
+    # Log detection method + offsets (engine now returns these)
+    detect_method = result.get('detect_method', 'unknown')
+    offsets = result.get('offsets', {})
+    logger.info(f"Detection: method={detect_method}, offsets={offsets}")
+
     # Tìm ảnh kết quả (engine tạo file _result.jpg cạnh ảnh gốc)
     base = os.path.splitext(image_path)[0]
     result_img = f"{base}_result.jpg"
@@ -351,5 +356,6 @@ def grade_image(image_path, answer_key_str='', template_code=''):
         'detail_json': json.dumps(detail, ensure_ascii=False),
         'result_image_path': result_img if os.path.exists(result_img) else '',
         'processing_time': processing_time,
+        'detect_method': detect_method,
         'error': '',
     }
