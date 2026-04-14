@@ -597,8 +597,10 @@ def auto_deskew_and_crop(image, debug=False):
     markers = _find_corner_markers(image, debug_img)
     if markers is not None:
         ordered = order_points(markers)
-        warped = _warp_to_rect(image, ordered)
-        return _result(warped, ordered, "corner_markers", True, debug_img)
+        if _validate_marker_quad(ordered, image.shape[1], image.shape[0]):
+            warped = _warp_to_rect(image, ordered)
+            return _result(warped, ordered, "corner_markers", True, debug_img)
+        # Markers found but don't form valid A4 quad → fallback to Layer 2
 
     # ─── LỚP 2: Paper contour → warp → refinement ───
     paper = _find_paper_contour(image, debug_img)
@@ -621,6 +623,61 @@ def auto_deskew_and_crop(image, debug=False):
     if debug_img is not None:
         _draw_debug(debug_img, ordered_p, None, "PAPER", (0, 255, 0))
     return _result(warped_raw, ordered_p, "paper_contour", True, debug_img)
+
+
+def _validate_marker_quad(ordered, img_w, img_h):
+    """
+    Kiểm tra 4 marker [TL, TR, BR, BL] có tạo thành hình chữ nhật hợp lệ:
+    1) Convex
+    2) Aspect ratio gần A4 (0.55 - 0.90)
+    3) Cạnh đối diện không chênh quá 40%
+    4) Chiếm >= 15% diện tích ảnh (tránh marker quá gần nhau)
+    5) Góc trong hợp lý (60° - 120°)
+    """
+    tl, tr, br, bl = ordered
+    # Cạnh
+    w_top = np.linalg.norm(tr - tl)
+    w_bot = np.linalg.norm(br - bl)
+    h_left = np.linalg.norm(bl - tl)
+    h_right = np.linalg.norm(br - tr)
+
+    avg_w = (w_top + w_bot) / 2
+    avg_h = (h_left + h_right) / 2
+    if avg_w == 0 or avg_h == 0:
+        return False
+
+    # Aspect ratio: A4 dọc ≈ 0.73
+    aspect = min(avg_w, avg_h) / max(avg_w, avg_h)
+    if aspect < 0.50 or aspect > 0.92:
+        return False
+
+    # Cạnh đối diện không chênh quá 40%
+    if w_top > 0 and w_bot > 0:
+        if min(w_top, w_bot) / max(w_top, w_bot) < 0.60:
+            return False
+    if h_left > 0 and h_right > 0:
+        if min(h_left, h_right) / max(h_left, h_right) < 0.60:
+            return False
+
+    # Diện tích quad >= 15% ảnh
+    quad_area = cv2.contourArea(ordered)
+    img_area = img_w * img_h
+    if quad_area / img_area < 0.15:
+        return False
+
+    # Góc trong hợp lý (60° - 120°)
+    for i in range(4):
+        p1 = ordered[i]
+        p2 = ordered[(i + 1) % 4]
+        p3 = ordered[(i + 2) % 4]
+        v1 = p1 - p2
+        v2 = p3 - p2
+        cos_a = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-8)
+        angle = np.degrees(np.arccos(np.clip(cos_a, -1, 1)))
+        if angle < 55 or angle > 125:
+            return False
+
+    return True
 
 
 def _result(warped, corners, method, success, debug_img):
