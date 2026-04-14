@@ -599,10 +599,16 @@ def auto_deskew_and_crop(image, debug=False):
         ordered = order_points(markers)
         if _validate_marker_quad(ordered, image.shape[1], image.shape[0]):
             warped = _warp_to_rect(image, ordered)
+            # Thử targeted refinement để cải thiện thêm
+            refined = _refine_targeted(warped)
+            if refined is not None:
+                warped = _warp_to_rect(warped, refined)
+                return _result(warped, ordered, "corner_markers+refine",
+                               True, debug_img)
             return _result(warped, ordered, "corner_markers", True, debug_img)
         # Markers found but don't form valid A4 quad → fallback to Layer 2
 
-    # ─── LỚP 2: Paper contour → warp → refinement ───
+    # ─── LỚP 2: Paper contour → warp → targeted refinement ───
     paper = _find_paper_contour(image, debug_img)
     if paper is None:
         raise ValueError("Không tìm được viền giấy lẫn 4 góc đen.")
@@ -610,14 +616,24 @@ def auto_deskew_and_crop(image, debug=False):
     ordered_p = order_points(paper)
     warped_raw = _warp_to_rect(image, ordered_p)
 
-    # Refinement: tìm markers trên ảnh warped trung gian
-    refined = _refine_with_markers(warped_raw)
+    # Refinement: targeted local search (SullyChen-inspired) — chính xác nhất
+    refined = _refine_targeted(warped_raw)
     if refined is not None:
         warped_final = _warp_to_rect(warped_raw, refined)
         if debug_img is not None:
             _draw_debug(debug_img, ordered_p, refined, "PAPER+REFINE",
                         (0, 165, 255))
         return _result(warped_final, ordered_p, "paper+refine", True, debug_img)
+
+    # Fallback: global marker search
+    refined_g = _refine_with_markers(warped_raw)
+    if refined_g is not None:
+        warped_final = _warp_to_rect(warped_raw, refined_g)
+        if debug_img is not None:
+            _draw_debug(debug_img, ordered_p, refined_g, "PAPER+GLOBAL",
+                        (0, 165, 255))
+        return _result(warped_final, ordered_p, "paper+global_refine",
+                       True, debug_img)
 
     # Không refine được → dùng paper warp thô
     if debug_img is not None:
@@ -646,9 +662,9 @@ def _validate_marker_quad(ordered, img_w, img_h):
     if avg_w == 0 or avg_h == 0:
         return False
 
-    # Aspect ratio: A4 dọc ≈ 0.73
+    # Aspect ratio: A4 dọc ≈ 0.707 (210/297mm)
     aspect = min(avg_w, avg_h) / max(avg_w, avg_h)
-    if aspect < 0.50 or aspect > 0.92:
+    if aspect < 0.62 or aspect > 0.85:
         return False
 
     # Cạnh đối diện không chênh quá 40%
@@ -1037,11 +1053,7 @@ def _is_valid_quad(quad, img_area):
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 def _refine_with_markers(warped_raw):
-    """
-    Tìm 4 corner markers trên ảnh đã warp bằng paper contour.
-    Trả về 4 góc ordered nếu tìm được, None nếu không.
-    Validation nghiêm ngặt: 4 marker phải ở gần 4 góc ảnh warped.
-    """
+    """Fallback: tìm markers bằng global contour. Giữ lại cho tương thích."""
     h, w = warped_raw.shape[:2]
     markers = _find_corner_markers(
         warped_raw, debug_img=None,
@@ -1049,14 +1061,112 @@ def _refine_with_markers(warped_raw):
     )
     if markers is None:
         return None
-
     ordered = order_points(markers)
+    if not _validate_corner_positions(ordered, w, h):
+        return None
+    return ordered
 
-    # Validate: 4 marker phải trải rộng ≥70% ảnh + gần góc
+
+def _refine_targeted(warped_raw):
+    """
+    Tìm 4 corner markers bằng TARGETED LOCAL SEARCH (SullyChen-inspired).
+
+    Thay vì tìm global (nhiều false positive), chỉ tìm trong vùng góc.
+    Kết hợp: contour detection + template matching.
+
+    Trả về 4 góc ordered hoặc None.
+    """
+    gray = cv2.cvtColor(warped_raw, cv2.COLOR_BGR2GRAY) \
+        if len(warped_raw.shape) == 3 else warped_raw.copy()
+    h, w = gray.shape[:2]
+
+    # Vùng tìm kiếm: 15% width, 8% height từ mỗi góc
+    mx = int(w * 0.15)
+    my = int(h * 0.08)
+
+    corner_rois = [
+        (0,      0,      mx, my),       # TL
+        (w - mx, 0,      w,  my),       # TR
+        (w - mx, h - my, w,  h),        # BR
+        (0,      h - my, mx, h),        # BL
+    ]
+
+    found = []
+    for (x1, y1, x2, y2) in corner_rois:
+        roi = gray[y1:y2, x1:x2]
+        marker = _find_marker_in_roi(roi)
+        if marker is not None:
+            found.append((x1 + marker[0], y1 + marker[1]))
+
+    if len(found) != 4:
+        return None
+
+    ordered = order_points(np.array(found, dtype="float32"))
     if not _validate_corner_positions(ordered, w, h):
         return None
 
     return ordered
+
+
+def _find_marker_in_roi(roi_gray):
+    """
+    Tìm ô vuông đen (corner marker) trong ROI nhỏ.
+
+    2 phương pháp:
+      1) Contour detection (multi-threshold)
+      2) Template matching (SullyChen-inspired) — fallback
+
+    Returns (cx, cy) hoặc None.
+    """
+    rh, rw = roi_gray.shape[:2]
+    if rh < 15 or rw < 15:
+        return None
+
+    # --- Method 1: Contour detection (nhiều ngưỡng) ---
+    best_center = None
+    best_score = 0
+
+    for tval in [50, 70, 90, 110, 130]:
+        _, binary = cv2.threshold(roi_gray, tval, 255, cv2.THRESH_BINARY_INV)
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL,
+                                       cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            if area < 60 or area > 4000:
+                continue
+            x, y, bw, bh = cv2.boundingRect(cnt)
+            asp = bw / float(bh) if bh > 0 else 0
+            if 0.45 < asp < 2.2:
+                # Fill ratio: contourArea / boundingRectArea (vuông đặc ≈ 0.8+)
+                fill = area / (bw * bh) if bw * bh > 0 else 0
+                if fill < 0.5:
+                    continue
+                squareness = 1.0 - abs(asp - 1.0) * 0.5
+                score = area * squareness * fill
+                if score > best_score:
+                    best_score = score
+                    best_center = (x + bw // 2, y + bh // 2)
+
+    if best_center is not None:
+        return best_center
+
+    # --- Method 2: Template matching (SullyChen-inspired) ---
+    for tsize in [16, 20, 24]:
+        pad = 5
+        tmpl = np.ones((tsize + pad * 2, tsize + pad * 2), dtype=np.uint8) * 200
+        tmpl[pad:pad + tsize, pad:pad + tsize] = 30
+
+        if rh < tmpl.shape[0] or rw < tmpl.shape[1]:
+            continue
+
+        result = cv2.matchTemplate(roi_gray, tmpl, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)
+
+        if max_val > 0.35:
+            return (max_loc[0] + tmpl.shape[1] // 2,
+                    max_loc[1] + tmpl.shape[0] // 2)
+
+    return None
 
 
 def _validate_corner_positions(ordered_pts, img_w, img_h):
