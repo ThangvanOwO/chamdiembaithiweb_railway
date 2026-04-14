@@ -10,8 +10,8 @@ from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('accounts/', include('allauth.socialaccount.urls')),  # Google OAuth callbacks only
-    path('accounts/', include('accounts.urls')),               # Custom login/logout/profile
+    path('accounts/', include('accounts.urls')),     # Custom login/logout/profile (matched first)
+    path('accounts/', include('allauth.urls')),     # allauth: Google OAuth + social callbacks
     path('grading/', include('grading.urls')),
     path('', include('dashboard.urls')),  # Dashboard handles /dashboard/ prefix internally
     path('', RedirectView.as_view(url='/dashboard/', permanent=False)),
