@@ -26,6 +26,7 @@ gunicorn==22.0.0                # WSGI HTTP Server cho production (Railway)
 # -----------------------------------------------------------------------------
 django-allauth==65.15.1         # Đăng nhập bằng email/password + Google OAuth
 PyJWT[crypto]==2.12.1           # JWT token cho Google OAuth (allauth dependency)
+requests>=2.31                  # HTTP client (allauth Google provider dependency)
 
 # -----------------------------------------------------------------------------
 # FRONTEND TOOLS — Hỗ trợ giao diện
