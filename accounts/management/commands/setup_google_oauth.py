@@ -1,7 +1,8 @@
 """
-Auto-provision Google OAuth SocialApp + SocialToken from environment variables.
-Run on every deploy so the DB SocialApp stays in sync with env vars.
-Env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+Auto-provision Google OAuth SocialApp from environment variables.
+Also updates the Django Site domain so allauth builds correct callback URLs.
+Run on every deploy so the DB stays in sync with env vars.
+Env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, RAILWAY_PUBLIC_DOMAIN
 """
 import os
 from django.core.management.base import BaseCommand
@@ -9,9 +10,22 @@ from django.contrib.sites.models import Site
 
 
 class Command(BaseCommand):
-    help = 'Tạo / cập nhật Google SocialApp từ biến môi trường'
+    help = 'Tạo / cập nhật Google SocialApp + Site domain từ biến môi trường'
 
     def handle(self, *args, **options):
+        # ── 1. Fix Site domain (allauth uses this for callback URLs) ──
+        railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
+        if railway_domain:
+            site = Site.objects.get_current()
+            if site.domain != railway_domain:
+                site.domain = railway_domain
+                site.name = 'GradeFlow'
+                site.save()
+                self.stdout.write(self.style.SUCCESS(
+                    f'Site domain cập nhật → {railway_domain}'
+                ))
+
+        # ── 2. Provision Google SocialApp ──
         client_id = os.environ.get('GOOGLE_CLIENT_ID', '')
         client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '')
 
