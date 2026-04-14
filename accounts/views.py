@@ -3,10 +3,18 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.dispatch import receiver
+from allauth.account.signals import user_logged_in
 from .forms import LoginForm, ProfileForm
 from .models import TeacherProfile
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(user_logged_in)
+def ensure_teacher_profile(sender, request, user, **kwargs):
+    """Auto-create TeacherProfile on any login (including Google OAuth)."""
+    TeacherProfile.objects.get_or_create(user=user)
 
 
 def login_view(request):

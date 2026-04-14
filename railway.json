@@ -5,7 +5,7 @@
     "buildCommand": "pip install -r requirements.txt && python manage.py collectstatic --noinput"
   },
   "deploy": {
-    "startCommand": "python manage.py migrate --noinput && python manage.py ensure_superuser && gunicorn chamdiemtudong.wsgi --bind 0.0.0.0:$PORT --workers 2 --timeout 120",
+    "startCommand": "python manage.py migrate --noinput && python manage.py ensure_superuser && python manage.py setup_google_oauth && gunicorn chamdiemtudong.wsgi --bind 0.0.0.0:$PORT --workers 2 --timeout 120",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }

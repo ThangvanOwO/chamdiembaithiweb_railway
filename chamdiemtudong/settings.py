@@ -59,6 +59,8 @@ INSTALLED_APPS = [
     # Third-party
     'allauth',
     'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
     'django_htmx',
     'import_export',
 
@@ -144,15 +146,32 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
-# Allauth config — NO social providers, NO public registration
+# Allauth config
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
-ACCOUNT_EMAIL_VERIFICATION = 'none'  # Internal tool, admin creates accounts
-ACCOUNT_SIGNUP_CLOSED = True  # No public signup
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_SIGNUP_CLOSED = True  # No public signup via email/password
 
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# --- Google OAuth2 (Social Login) ---
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+        'APP': {
+            'client_id': os.environ.get('GOOGLE_CLIENT_ID', ''),
+            'secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''),
+        },
+    }
+}
+SOCIALACCOUNT_AUTO_SIGNUP = True         # Auto-create user on first Google login
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True # Match existing user by email
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+SOCIALACCOUNT_LOGIN_ON_GET = True         # Skip intermediate "Continue?" page
+SOCIALACCOUNT_QUERY_EMAIL = True
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
