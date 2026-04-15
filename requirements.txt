@@ -87,4 +87,5 @@ wcwidth==0.6.0                  # Tính độ rộng ký tự Unicode
 # -----------------------------------------------------------------------------
 opencv-python-headless>=4.8     # Computer vision: detect bubbles, warp paper (headless cho server)
 numpy>=1.24                     # Array operations cho image processing
+scikit-image>=0.22              # Cân bằng sáng nâng cao (equalize_adapthist) cho ảnh camera
 openpyxl>=3.1                   # Xuất kết quả Excel

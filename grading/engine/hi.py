@@ -22,6 +22,8 @@ import numpy as np
 import os
 import json
 from datetime import datetime
+from PIL import Image, ExifTags
+from skimage import exposure
 
 # ╔════════════════════════════════════════════════════════════════════════╗
 # ║                        CẤU HÌNH CHUNG                               ║
@@ -1351,7 +1353,7 @@ def erase_printed_text(warped_img):
 # ║   BƯỚC 3: TIỀN XỬ LÝ — 3 LỚP BẢO VỆ                              ║
 # ╚════════════════════════════════════════════════════════════════════════╝
 
-def preprocess(warped):
+def preprocess(warped, enhance_camera=False):
     """
     Tiền xử lý: trả về ảnh xám (blur) cho detection.
 
@@ -1361,9 +1363,28 @@ def preprocess(warped):
 
     Binary threshold CHỈ tạo ra cho debug visualization.
 
+    enhance_camera: True → áp dụng cân bằng sáng nâng cao (ảnh camera)
+
     Trả về: gray (blurred, dùng detect), thresh (debug), cleaned (debug)
     """
     gray_raw = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+
+    # Cân bằng sáng cho ảnh camera: equalize_adapthist (scikit-image)
+    # Chỉ kích hoạt khi ảnh có contrast thấp (bóng đổ, ánh sáng không đều)
+    if enhance_camera:
+        std_val = float(np.std(gray_raw))
+        mean_val = float(np.mean(gray_raw))
+        # Ảnh camera thường: std < 55 (contrast thấp) hoặc mean < 160 (tối)
+        if std_val < 55 or mean_val < 160:
+            gray_norm = gray_raw.astype(np.float64) / 255.0
+            gray_enhanced = exposure.equalize_adapthist(
+                gray_norm, kernel_size=64, clip_limit=0.02
+            )
+            gray_raw = (gray_enhanced * 255).astype(np.uint8)
+            print(f"[ENHANCE] equalize_adapthist (std={std_val:.0f}, mean={mean_val:.0f})")
+        else:
+            print(f"[ENHANCE] Ảnh sạch, bỏ qua (std={std_val:.0f}, mean={mean_val:.0f})")
+
     gray = cv2.GaussianBlur(gray_raw, (5, 5), 0)
 
     # Binary CHỈ cho debug visualization
@@ -2078,6 +2099,28 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     if image is None:
         print(f"[LỖI] Không đọc được ảnh: {image_path}")
         return None
+
+    # --- Fix EXIF orientation (ảnh camera điện thoại) ---
+    try:
+        pil_img = Image.open(image_path)
+        exif = pil_img._getexif()
+        if exif:
+            orientation_key = next(
+                (k for k, v in ExifTags.TAGS.items() if v == 'Orientation'), None
+            )
+            if orientation_key and orientation_key in exif:
+                orient = exif[orientation_key]
+                if orient == 3:
+                    image = cv2.rotate(image, cv2.ROTATE_180)
+                    print("[EXIF] Xoay 180°")
+                elif orient == 6:
+                    image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+                    print("[EXIF] Xoay 90° (phải)")
+                elif orient == 8:
+                    image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                    print("[EXIF] Xoay 90° (trái)")
+    except Exception:
+        pass  # Không có EXIF hoặc lỗi → bỏ qua
 
     # --- Bước 1-2: Detect corners + Warp ---
     if pre_warped:

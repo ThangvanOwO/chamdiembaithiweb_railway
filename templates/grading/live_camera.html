@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Chấm trực tiếp (Live Camera){% endblock %}
+
+{% block extra_css %}
+<style>
+    .live-container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: var(--space-3);
+    }
+    .live-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        margin-bottom: var(--space-3);
+    }
+    .live-header h1 {
+        font-size: 1.5rem;
+        margin: 0;
+    }
+    .live-controls {
+        display: flex;
+        gap: var(--space-2);
+        align-items: center;
+    }
+    .live-video-wrap {
+        position: relative;
+        background: #000;
+        border-radius: 12px;
+        overflow: hidden;
+        aspect-ratio: 3/4;
+        max-height: 70vh;
+        margin: 0 auto;
+    }
+    .live-video-wrap video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .live-overlay {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+    .live-guide {
+        position: absolute;
+        top: 8%; left: 8%; right: 8%; bottom: 8%;
+        border: 2px dashed rgba(255,255,255,0.4);
+        border-radius: 8px;
+        pointer-events: none;
+    }
+    .live-guide::after {
+        content: 'Canh phiếu vào khung';
+        position: absolute;
+        bottom: -28px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255,255,255,0.6);
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+    .live-status {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 10;
+    }
+    .live-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        backdrop-filter: blur(8px);
+    }
+    .badge-idle { background: rgba(255,255,255,0.2); color: #fff; }
+    .badge-scanning { background: rgba(59,130,246,0.8); color: #fff; }
+    .badge-success { background: rgba(34,197,94,0.85); color: #fff; }
+    .badge-error { background: rgba(239,68,68,0.8); color: #fff; }
+
+    .live-result-panel {
+        margin-top: var(--space-3);
+        padding: var(--space-3);
+        border-radius: 12px;
+        background: var(--surface-1, #f9fafb);
+        border: 1px solid var(--border, #e5e7eb);
+        display: none;
+    }
+    .live-result-panel.show { display: block; }
+    .result-score {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: var(--space-2);
+    }
+    .result-score .fraction {
+        font-size: 1.2rem;
+        color: var(--text-muted, #6b7280);
+        font-weight: 400;
+    }
+    .result-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: var(--space-2);
+        text-align: center;
+    }
+    .result-info-item {
+        padding: var(--space-2);
+        background: var(--surface-2, #fff);
+        border-radius: 8px;
+        border: 1px solid var(--border, #e5e7eb);
+    }
+    .result-info-item .label {
+        font-size: 0.75rem;
+        color: var(--text-muted, #6b7280);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .result-info-item .value {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-top: 2px;
+    }
+    .btn-capture {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        border: 4px solid #fff;
+        background: rgba(255,255,255,0.3);
+        cursor: pointer;
+        z-index: 20;
+        transition: all 0.2s;
+        backdrop-filter: blur(4px);
+    }
+    .btn-capture:hover { background: rgba(255,255,255,0.5); }
+    .btn-capture:active { transform: translateX(-50%) scale(0.9); }
+    .btn-capture.scanning {
+        border-color: #3b82f6;
+        background: rgba(59,130,246,0.4);
+        animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.5); }
+        50% { box-shadow: 0 0 0 12px rgba(59,130,246,0); }
+    }
+    .btn-actions {
+        display: flex;
+        gap: var(--space-2);
+        justify-content: center;
+        margin-top: var(--space-3);
+    }
+    .live-answers {
+        margin-top: var(--space-2);
+        font-size: 0.85rem;
+        line-height: 1.8;
+    }
+    .live-answers .q-correct { color: #16a34a; font-weight: 600; }
+    .live-answers .q-wrong { color: #dc2626; font-weight: 600; }
+    .live-answers .q-empty { color: #9ca3af; }
+
+    .auto-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="live-container" x-data="liveCamera()">
+    <div class="live-header">
+        <h1>Cham diem truc tiep</h1>
+        <div class="live-controls">
+            <select x-model="examId" class="form-select" style="max-width:220px; font-size:0.85rem;">
+                <option value="">-- Khong co dap an --</option>
+                {% for exam in exams %}
+                <option value="{{ exam.id }}">{{ exam.name }}</option>
+                {% endfor %}
+            </select>
+            <label class="auto-toggle">
+                <input type="checkbox" x-model="autoMode">
+                Tu dong
+            </label>
+        </div>
+    </div>
+
+    <!-- Camera viewport -->
+    <div class="live-video-wrap">
+        <video x-ref="video" autoplay playsinline muted></video>
+        <canvas x-ref="overlay" class="live-overlay"></canvas>
+        <div class="live-guide" x-show="!lastResult"></div>
+
+        <div class="live-status">
+            <span class="live-badge"
+                  :class="{
+                      'badge-idle': status === 'idle',
+                      'badge-scanning': status === 'scanning',
+                      'badge-success': status === 'success',
+                      'badge-error': status === 'error'
+                  }"
+                  x-text="statusText"></span>
+            <span class="live-badge badge-idle" x-show="fps > 0"
+                  x-text="fps + ' FPS'"></span>
+        </div>
+
+        <button class="btn-capture"
+                :class="{ scanning: status === 'scanning' }"
+                @click="captureAndGrade()"
+                :disabled="status === 'scanning' || !cameraReady">
+        </button>
+    </div>
+
+    <!-- Result panel -->
+    <div class="live-result-panel" :class="{ show: lastResult }">
+        <div class="result-score" x-show="lastResult && lastResult.success">
+            <span x-text="lastResult ? lastResult.score : ''"></span>
+            <span class="fraction">/ <span x-text="lastResult ? lastResult.max_score : ''"></span></span>
+        </div>
+        <div class="result-info" x-show="lastResult && lastResult.success">
+            <div class="result-info-item">
+                <div class="label">SBD</div>
+                <div class="value" x-text="lastResult ? lastResult.sbd : ''"></div>
+            </div>
+            <div class="result-info-item">
+                <div class="label">Ma de</div>
+                <div class="value" x-text="lastResult ? lastResult.made : ''"></div>
+            </div>
+            <div class="result-info-item">
+                <div class="label">Phan I</div>
+                <div class="value" x-text="lastResult && lastResult.scores ? lastResult.scores.part1 || 0 : 0"></div>
+            </div>
+            <div class="result-info-item">
+                <div class="label">Phan II</div>
+                <div class="value" x-text="lastResult && lastResult.scores ? lastResult.scores.part2 || 0 : 0"></div>
+            </div>
+        </div>
+        <div x-show="lastResult && !lastResult.success"
+             style="text-align:center; color: var(--text-muted, #6b7280); padding: var(--space-3);">
+            <p x-text="lastResult ? lastResult.error : ''"></p>
+        </div>
+
+        <!-- Part 1 answers grid -->
+        <div class="live-answers" x-show="lastResult && lastResult.success && lastResult.part1">
+            <strong>Dap an Phan I:</strong><br>
+            <template x-for="q in 40" :key="q">
+                <span style="display:inline-block; width:70px;"
+                      :class="{
+                          'q-correct': lastResult && lastResult.part1 && lastResult.part1[String(q)] && lastResult.part1[String(q)] !== '' && lastResult.part1[String(q)] !== 'X',
+                          'q-empty': lastResult && lastResult.part1 && (!lastResult.part1[String(q)] || lastResult.part1[String(q)] === ''),
+                          'q-wrong': lastResult && lastResult.part1 && lastResult.part1[String(q)] === 'X'
+                      }">
+                    <span x-text="'Q' + q + ':'"></span>
+                    <span x-text="lastResult && lastResult.part1 ? (lastResult.part1[String(q)] || '-') : '-'"></span>
+                </span>
+            </template>
+        </div>
+
+        <div class="btn-actions">
+            <button class="btn btn-outline-secondary btn-sm" @click="lastResult = null">
+                Xoa ket qua
+            </button>
+            <button class="btn btn-primary btn-sm" @click="saveResult()"
+                    x-show="lastResult && lastResult.success">
+                Luu ket qua
+            </button>
+            <button class="btn btn-success btn-sm" @click="exportExcel()"
+                    x-show="allResults.length > 0">
+                Xuat Excel (<span x-text="allResults.length"></span> bai)
+            </button>
+        </div>
+    </div>
+
+    <!-- Hidden canvas for frame capture -->
+    <canvas x-ref="capture" style="display:none;"></canvas>
+</div>
+
+<script>
+function liveCamera() {
+    return {
+        cameraReady: false,
+        status: 'idle',
+        statusText: 'San sang',
+        examId: '',
+        autoMode: false,
+        autoTimer: null,
+        lastResult: null,
+        allResults: [],
+        fps: 0,
+        _lastTime: 0,
+
+        async init() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 1920 } },
+                    audio: false
+                });
+                this.$refs.video.srcObject = stream;
+                this.$refs.video.onloadedmetadata = () => {
+                    this.cameraReady = true;
+                    this.statusText = 'San sang — Nhan nut de cham';
+                    this.resizeOverlay();
+                };
+                // Auto mode watcher
+                this.$watch('autoMode', (val) => {
+                    if (val) this.startAuto();
+                    else this.stopAuto();
+                });
+            } catch (e) {
+                this.status = 'error';
+                this.statusText = 'Khong the mo camera';
+                console.error(e);
+            }
+        },
+
+        resizeOverlay() {
+            const video = this.$refs.video;
+            const canvas = this.$refs.overlay;
+            canvas.width = video.videoWidth || video.clientWidth;
+            canvas.height = video.videoHeight || video.clientHeight;
+        },
+
+        startAuto() {
+            this.stopAuto();
+            this.autoTimer = setInterval(() => {
+                if (this.status !== 'scanning') {
+                    this.captureAndGrade();
+                }
+            }, 3000);
+        },
+
+        stopAuto() {
+            if (this.autoTimer) {
+                clearInterval(this.autoTimer);
+                this.autoTimer = null;
+            }
+        },
+
+        async captureAndGrade() {
+            if (!this.cameraReady || this.status === 'scanning') return;
+
+            this.status = 'scanning';
+            this.statusText = 'Dang cham...';
+            const startTime = performance.now();
+
+            // Capture frame
+            const video = this.$refs.video;
+            const canvas = this.$refs.capture;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+            try {
+                const formData = new FormData();
+                formData.append('image_base64', dataUrl);
+                if (this.examId) formData.append('exam_id', this.examId);
+
+                const resp = await fetch('{% url "grading:grade_frame" %}', {
+                    method: 'POST',
+                    body: formData,
+                });
+                const data = await resp.json();
+
+                const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+                this.fps = Math.round(1000 / (performance.now() - startTime));
+
+                if (data.success) {
+                    this.status = 'success';
+                    this.statusText = `Diem: ${data.score}/${data.max_score} (${elapsed}s)`;
+                    this.lastResult = data;
+                } else {
+                    this.status = 'error';
+                    this.statusText = data.error || 'Khong nhan dien duoc';
+                    this.lastResult = data;
+                }
+            } catch (e) {
+                this.status = 'error';
+                this.statusText = 'Loi ket noi';
+                console.error(e);
+            }
+
+            // Reset status after delay (if not auto)
+            if (!this.autoMode) {
+                setTimeout(() => {
+                    if (this.status !== 'scanning') {
+                        this.status = 'idle';
+                        this.statusText = 'San sang';
+                    }
+                }, 5000);
+            }
+        },
+
+        saveResult() {
+            if (this.lastResult && this.lastResult.success) {
+                // Check duplicate SBD
+                const exists = this.allResults.find(r => r.sbd === this.lastResult.sbd && r.made === this.lastResult.made);
+                if (exists) {
+                    if (!confirm(`SBD ${this.lastResult.sbd} da ton tai. Ghi de?`)) return;
+                    this.allResults = this.allResults.filter(r => !(r.sbd === this.lastResult.sbd && r.made === this.lastResult.made));
+                }
+                this.allResults.push({...this.lastResult, timestamp: new Date().toISOString()});
+                this.statusText = `Da luu! (${this.allResults.length} bai)`;
+            }
+        },
+
+        exportExcel() {
+            if (this.allResults.length === 0) return;
+
+            // Build CSV (Excel-compatible)
+            let csv = '\uFEFF'; // BOM for UTF-8
+            csv += 'STT,SBD,Ma de,Diem,Diem toi da,Phan I,Phan II,Phan III,Thoi gian\n';
+            this.allResults.forEach((r, i) => {
+                csv += `${i+1},${r.sbd || ''},${r.made || ''},${r.score || 0},${r.max_score || 0},`;
+                csv += `${r.scores?.part1 || 0},${r.scores?.part2 || 0},${r.scores?.part3 || 0},`;
+                csv += `${r.timestamp || ''}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ket_qua_cham_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        },
+
+        destroy() {
+            this.stopAuto();
+            const video = this.$refs.video;
+            if (video && video.srcObject) {
+                video.srcObject.getTracks().forEach(t => t.stop());
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

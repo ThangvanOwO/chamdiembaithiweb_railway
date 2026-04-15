@@ -16,4 +16,6 @@ urlpatterns = [
     path('api/submission/<int:submission_id>/status/', views.submission_status_api, name='submission_status'),
     path('submission/<int:submission_id>/', views.submission_detail_view, name='submission_detail'),
     path('submission/<int:submission_id>/regrade/', views.submission_regrade_view, name='submission_regrade'),
+    path('live/', views.live_camera_view, name='live_camera'),
+    path('api/grade-frame/', views.grade_frame_api, name='grade_frame'),
 ]

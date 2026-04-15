@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
 from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
 from .models import Exam, ExamVariant, Submission
 from .forms import ExamForm, UploadForm
 from .grader import grade_image, parse_answer_key, compute_weighted_score
@@ -11,6 +12,8 @@ import json
 import logging
 import os
 import re
+import tempfile
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -1316,6 +1319,89 @@ def submission_regrade_view(request, submission_id):
         messages.error(request, f'Chấm lại thất bại: {sub.error_message}')
 
     return redirect('grading:submission_detail', submission_id=sub.id)
+
+
+@login_required
+def live_camera_view(request):
+    """Live camera grading page."""
+    exams = Exam.objects.filter(teacher=request.user)
+    return render(request, 'grading/live_camera.html', {'exams': exams})
+
+
+@login_required
+@csrf_exempt
+def grade_frame_api(request):
+    """
+    API nhận 1 frame ảnh (base64 hoặc file), chấm nhanh, trả JSON.
+    Dùng cho live camera grading — không lưu DB.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+
+    # Nhận ảnh từ base64 hoặc file upload
+    tmp_path = None
+    try:
+        image_data = request.POST.get('image_base64', '')
+        image_file = request.FILES.get('image')
+        exam_id = request.POST.get('exam_id', '')
+
+        if not image_data and not image_file:
+            return JsonResponse({'error': 'No image provided'}, status=400)
+
+        # Lưu tạm
+        suffix = '.jpg'
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+        if image_data:
+            # base64 → bytes
+            if ',' in image_data:
+                image_data = image_data.split(',', 1)[1]
+            tmp.write(base64.b64decode(image_data))
+        else:
+            for chunk in image_file.chunks():
+                tmp.write(chunk)
+        tmp.close()
+        tmp_path = tmp.name
+
+        # Load đáp án từ exam (nếu có)
+        answer_key_str = ''
+        template_code = ''
+        if exam_id:
+            try:
+                exam = Exam.objects.get(id=exam_id, teacher=request.user)
+                answer_key_str = exam.answer_key or ''
+                template_code = exam.template_code or ''
+            except Exam.DoesNotExist:
+                pass
+
+        # Chấm
+        result = grade_image(tmp_path, answer_key_str=answer_key_str,
+                             template_code=template_code)
+
+        if result.get('success'):
+            return JsonResponse({
+                'success': True,
+                'sbd': result.get('sbd', ''),
+                'made': result.get('made', ''),
+                'score': result.get('score'),
+                'max_score': result.get('max_score'),
+                'scores': result.get('scores', {}),
+                'part1': {str(k): v for k, v in result.get('part1', {}).items()},
+                'detect_method': result.get('detect_method', ''),
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result.get('error', 'Không nhận diện được phiếu'),
+            })
+    except Exception as e:
+        logger.error(f"grade_frame_api error: {e}", exc_info=True)
+        return JsonResponse({'success': False, 'error': str(e)})
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
 
 
 @login_required
