@@ -32,8 +32,14 @@
         background: #000;
         border-radius: 12px;
         overflow: hidden;
-        max-height: 80vh;
+        width: 100%;
+        height: 100%;
+        max-height: 85vh;
         margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     }
 
     /* ── Fullscreen mode ── */
@@ -55,7 +61,6 @@
         flex: 1;
         max-height: none;
         border-radius: 0;
-        aspect-ratio: auto;
         width: 100%;
         height: 100%;
     }
@@ -126,6 +131,9 @@
         width: 100%;
         height: 100%;
         object-fit: contain;
+        max-height: 100%;
+        max-width: 100%;
+        display: block;
     }
     .live-overlay {
         position: absolute;
@@ -299,6 +307,13 @@
         gap: 6px;
         font-size: 0.85rem;
     }
+    /* Buoc portrait - giam nguy co chuyen ngang */
+    @media (orientation: landscape) {
+        .live-video-wrap video {
+            object-fit: contain !important;
+            max-height: 100% !important;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -460,7 +475,12 @@ function liveCamera() {
         async init() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 1920 } },
+                    video: {
+                        facingMode: { ideal: 'environment' },
+                        width: { ideal: 1080 },
+                        height: { ideal: 1920 },
+                        aspectRatio: { ideal: 9 / 16 }
+                    },
                     audio: false
                 });
                 this.$refs.video.srcObject = stream;
@@ -471,7 +491,7 @@ function liveCamera() {
                     this.startCornerDetection();
                     // Auto-enter fullscreen on mobile
                     if (window.innerWidth <= 1024) {
-                        setTimeout(() => this.enterFullscreen(), 300);
+                        setTimeout(() => this.enterFullscreen(), 600);
                     }
                 };
                 // Auto mode watcher
