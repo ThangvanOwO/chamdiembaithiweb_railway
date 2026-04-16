@@ -32,9 +32,71 @@
         background: #000;
         border-radius: 12px;
         overflow: hidden;
-        aspect-ratio: 3/4;
-        max-height: 70vh;
+        aspect-ratio: 9/16;
+        max-height: 80vh;
         margin: 0 auto;
+    }
+
+    /* ── Fullscreen mode ── */
+    .live-container.is-fullscreen {
+        position: fixed;
+        inset: 0;
+        max-width: none;
+        padding: 0;
+        margin: 0;
+        z-index: 9999;
+        background: #000;
+        display: flex;
+        flex-direction: column;
+    }
+    .live-container.is-fullscreen .live-header {
+        display: none;
+    }
+    .live-container.is-fullscreen .live-video-wrap {
+        flex: 1;
+        max-height: none;
+        border-radius: 0;
+        aspect-ratio: auto;
+        width: 100%;
+        height: 100%;
+    }
+    .live-container.is-fullscreen .live-result-panel {
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        max-height: 40vh;
+        overflow-y: auto;
+        border-radius: 16px 16px 0 0;
+        z-index: 30;
+    }
+    /* Fullscreen top bar */
+    .fs-topbar {
+        display: none;
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        padding: 12px 16px;
+        z-index: 25;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+        align-items: center;
+        justify-content: space-between;
+    }
+    .live-container.is-fullscreen .fs-topbar {
+        display: flex;
+    }
+    .fs-topbar button, .fs-topbar select {
+        background: rgba(255,255,255,0.15);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        backdrop-filter: blur(8px);
+    }
+    .fs-topbar .fs-close {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        padding: 0;
+        font-size: 1.2rem;
     }
     .live-video-wrap video {
         width: 100%;
@@ -145,6 +207,22 @@
         font-weight: 600;
         margin-top: 2px;
     }
+    /* Fullscreen enter button */
+    .btn-fullscreen {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        background: var(--primary, #0f766e);
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+    }
+    .btn-fullscreen:hover { opacity: 0.9; }
+
     .btn-capture {
         position: absolute;
         bottom: 20px;
@@ -196,7 +274,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="live-container" x-data="liveCamera()">
+<div class="live-container" :class="{ 'is-fullscreen': isFullscreen }" x-data="liveCamera()">
     <div class="live-header">
         <h1>Cham diem truc tiep</h1>
         <div class="live-controls">
@@ -210,11 +288,28 @@
                 <input type="checkbox" x-model="autoMode">
                 Tự động quét
             </label>
+            <button class="btn-fullscreen" @click="enterFullscreen()">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Toàn màn hình
+            </button>
         </div>
     </div>
 
     <!-- Camera viewport -->
     <div class="live-video-wrap">
+        <!-- Fullscreen top bar (only visible in fullscreen) -->
+        <div class="fs-topbar">
+            <button class="fs-close" @click="exitFullscreen()">&times;</button>
+            <select x-model="examId" style="max-width:180px;">
+                <option value="">-- Khong dap an --</option>
+                {% for exam in exams %}
+                <option value="{{ exam.id }}">{{ exam.name }}</option>
+                {% endfor %}
+            </select>
+            <label style="color:#fff; font-size:0.8rem; display:flex; align-items:center; gap:4px;">
+                <input type="checkbox" x-model="autoMode"> Auto
+            </label>
+        </div>
         <video x-ref="video" autoplay playsinline muted></video>
         <canvas x-ref="overlay" class="live-overlay"></canvas>
         <!-- Corner detection status -->
@@ -325,6 +420,7 @@ function liveCamera() {
         allResults: [],
         fps: 0,
         cornersFound: 0,
+        isFullscreen: false,
         _lastTime: 0,
         _detectTimer: null,
         _detectedCorners: [],
@@ -341,11 +437,21 @@ function liveCamera() {
                     this.statusText = 'San sang — Nhan nut de cham';
                     this.resizeOverlay();
                     this.startCornerDetection();
+                    // Auto-enter fullscreen on mobile
+                    if (window.innerWidth <= 1024) {
+                        setTimeout(() => this.enterFullscreen(), 300);
+                    }
                 };
                 // Auto mode watcher
                 this.$watch('autoMode', (val) => {
                     if (val) this.startAuto();
                     else this.stopAuto();
+                });
+                // Sync state when browser exits fullscreen (ESC key)
+                document.addEventListener('fullscreenchange', () => {
+                    if (!document.fullscreenElement && this.isFullscreen) {
+                        this.exitFullscreen();
+                    }
                 });
             } catch (e) {
                 this.status = 'error';
@@ -360,6 +466,32 @@ function liveCamera() {
             canvas.width = video.videoWidth || video.clientWidth;
             canvas.height = video.videoHeight || video.clientHeight;
         },
+
+        enterFullscreen() {
+            this.isFullscreen = true;
+            // Hide navbar & sidebar
+            document.querySelector('.top-navbar')?.style.setProperty('display', 'none', 'important');
+            document.querySelector('.sidebar')?.style.setProperty('display', 'none', 'important');
+            document.querySelector('.sidebar-backdrop')?.style.setProperty('display', 'none', 'important');
+            // Request browser fullscreen
+            const el = this.$el;
+            if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+            // Lock to portrait if available
+            try { screen.orientation?.lock('portrait').catch(() => {}); } catch(e) {}
+        },
+
+        exitFullscreen() {
+            this.isFullscreen = false;
+            // Restore navbar & sidebar
+            document.querySelector('.top-navbar')?.style.removeProperty('display');
+            document.querySelector('.sidebar')?.style.removeProperty('display');
+            document.querySelector('.sidebar-backdrop')?.style.removeProperty('display');
+            // Exit browser fullscreen
+            if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+            else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
+        },
+
 
         /* ─── Real-time corner marker detection ─── */
         startCornerDetection() {
