@@ -350,7 +350,7 @@
                  'corner-status-partial': cornersFound > 0 && cornersFound < 4,
                  'corner-status-found': cornersFound === 4
              }"
-             x-text="cornersFound === 4 ? 'Da phat hien 4 goc!' : (cornersFound > 0 ? cornersFound + '/4 goc...' : 'Dua phieu vao khung hinh')"
+             x-text="cornersFound === 4 ? (quadValid ? '✅ Phieu hop le — San sang cham!' : '⚠️ 4 goc — Sai vi tri') : (cornersFound > 0 ? cornersFound + '/4 goc...' : 'Dua phieu vao khung hinh')"
              x-transition></div>
 
         <div class="live-status">
@@ -451,6 +451,7 @@ function liveCamera() {
         allResults: [],
         fps: 0,
         cornersFound: 0,
+        quadValid: false,
         isFullscreen: false,
         _lastTime: 0,
         _detectTimer: null,
@@ -615,6 +616,12 @@ function liveCamera() {
             this.cornersFound = found.length;
             this._detectedCorners = found;
 
+            // Validate quad if all 4 corners detected
+            this.quadValid = false;
+            if (found.length === 4) {
+                this.quadValid = this._validateQuad(found);
+            }
+
             // Draw on overlay
             const oCtx = overlay.getContext('2d');
             oCtx.clearRect(0, 0, overlay.width, overlay.height);
@@ -629,11 +636,69 @@ function liveCamera() {
                 const fy = region.cy * overlay.height;
                 const detected = found.some(f => f.label === region.label);
                 if (detected) {
-                    this._drawCornerSquare(oCtx, fx, fy, squareSize, 'rgba(34,197,94,0.85)', true);
+                    const color = this.quadValid ? 'rgba(34,197,94,0.85)' : 'rgba(251,191,36,0.85)';
+                    this._drawCornerSquare(oCtx, fx, fy, squareSize, color, true);
                 } else {
                     this._drawCornerSquare(oCtx, fx, fy, squareSize, 'rgba(255,255,255,0.35)', false);
                 }
             }
+
+            // Draw connecting frame when 4 corners validated
+            if (found.length === 4 && this.quadValid) {
+                const tl = found.find(f => f.label === 'TL');
+                const tr = found.find(f => f.label === 'TR');
+                const br = found.find(f => f.label === 'BR');
+                const bl = found.find(f => f.label === 'BL');
+                oCtx.strokeStyle = 'rgba(34,197,94,0.6)';
+                oCtx.lineWidth = 2;
+                oCtx.setLineDash([8, 4]);
+                oCtx.beginPath();
+                oCtx.moveTo(tl.x, tl.y);
+                oCtx.lineTo(tr.x, tr.y);
+                oCtx.lineTo(br.x, br.y);
+                oCtx.lineTo(bl.x, bl.y);
+                oCtx.closePath();
+                oCtx.stroke();
+                oCtx.setLineDash([]);
+            }
+        },
+
+        _validateQuad(corners) {
+            // Check that 4 corners form a reasonable rectangle (~A4 aspect)
+            const tl = corners.find(c => c.label === 'TL');
+            const tr = corners.find(c => c.label === 'TR');
+            const br = corners.find(c => c.label === 'BR');
+            const bl = corners.find(c => c.label === 'BL');
+            if (!tl || !tr || !br || !bl) return false;
+
+            // Edge lengths
+            const dist = (a, b) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+            const top = dist(tl, tr);
+            const bottom = dist(bl, br);
+            const left = dist(tl, bl);
+            const right = dist(tr, br);
+
+            // Top and bottom should be similar width (within 40%)
+            if (Math.min(top, bottom) / Math.max(top, bottom) < 0.6) return false;
+            // Left and right should be similar height (within 40%)
+            if (Math.min(left, right) / Math.max(left, right) < 0.6) return false;
+
+            // Aspect ratio: width/height should be ~0.5-0.9 (portrait A4 ≈ 0.707)
+            const avgW = (top + bottom) / 2;
+            const avgH = (left + right) / 2;
+            const aspect = avgW / avgH;
+            if (aspect < 0.35 || aspect > 1.2) return false;
+
+            // Minimum size: quad should be at least 15% of overlay area
+            const area = 0.5 * Math.abs(
+                (tr.x - tl.x) * (bl.y - tl.y) - (bl.x - tl.x) * (tr.y - tl.y)
+            ) + 0.5 * Math.abs(
+                (tr.x - br.x) * (bl.y - br.y) - (bl.x - br.x) * (tr.y - br.y)
+            );
+            const overlayArea = overlay.width * overlay.height;
+            if (area / overlayArea < 0.10) return false;
+
+            return true;
         },
 
         _findDarkSquare(ctx, x, y, w, h) {
