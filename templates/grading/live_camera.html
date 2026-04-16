@@ -61,12 +61,37 @@
         height: 100%;
     }
     .live-container.is-fullscreen .live-result-panel {
-        position: absolute;
+        position: fixed;
         bottom: 0; left: 0; right: 0;
-        max-height: 40vh;
+        max-height: 55vh;
         overflow-y: auto;
         border-radius: 16px 16px 0 0;
-        z-index: 30;
+        z-index: 10000;
+        background: rgba(15,15,15,0.95);
+        color: #fff;
+        backdrop-filter: blur(12px);
+        padding: var(--space-3);
+        animation: slide-up 0.3s ease-out;
+    }
+    .live-container.is-fullscreen .live-result-panel .result-score {
+        color: #fff;
+    }
+    .live-container.is-fullscreen .live-result-panel .result-info-item {
+        background: rgba(255,255,255,0.1);
+        border-color: rgba(255,255,255,0.15);
+    }
+    .live-container.is-fullscreen .live-result-panel .result-info-item .label {
+        color: rgba(255,255,255,0.6);
+    }
+    .live-container.is-fullscreen .live-result-panel .result-info-item .value {
+        color: #fff;
+    }
+    .live-container.is-fullscreen .live-result-panel .live-answers {
+        color: rgba(255,255,255,0.85);
+    }
+    @keyframes slide-up {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
     }
     /* Fullscreen top bar */
     .fs-topbar {
@@ -240,6 +265,11 @@
     }
     .btn-capture:hover { background: rgba(255,255,255,0.5); }
     .btn-capture:active { transform: translateX(-50%) scale(0.9); }
+    .live-container.is-fullscreen .btn-capture {
+        bottom: 30px;
+        width: 72px;
+        height: 72px;
+    }
     .btn-capture.scanning {
         border-color: #3b82f6;
         background: rgba(59,130,246,0.4);
@@ -368,8 +398,9 @@
             </div>
         </div>
         <div x-show="lastResult && !lastResult.success"
-             style="text-align:center; color: var(--text-muted, #6b7280); padding: var(--space-3);">
-            <p x-text="lastResult ? lastResult.error : ''"></p>
+             style="text-align:center; padding: var(--space-3);">
+            <div style="font-size:2rem; margin-bottom:8px;">&#10060;</div>
+            <p style="color: #ef4444; font-weight:600;" x-text="lastResult ? lastResult.error : ''"></p>
         </div>
 
         <!-- Part 1 answers grid -->
@@ -508,21 +539,35 @@ function liveCamera() {
             const overlay = this.$refs.overlay;
             if (!video || !overlay || video.videoWidth === 0) return;
 
-            // Capture frame to hidden canvas
+            // Capture ONLY the visible region (matching object-fit:cover crop)
             const cap = this.$refs.capture;
-            const W = video.videoWidth;
-            const H = video.videoHeight;
-            cap.width = W;
-            cap.height = H;
+            const vW = video.videoWidth;
+            const vH = video.videoHeight;
+            const vRect = video.getBoundingClientRect();
+            const dW = vRect.width;
+            const dH = vRect.height;
+
+            const scW = dW / vW;
+            const scH = dH / vH;
+            const coverScale = Math.max(scW, scH);
+            const visW = Math.round(dW / coverScale);
+            const visH = Math.round(dH / coverScale);
+            const sx = Math.round((vW - visW) / 2);
+            const sy = Math.round((vH - visH) / 2);
+
+            cap.width = visW;
+            cap.height = visH;
             const ctx = cap.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(video, 0, 0, W, H);
+            ctx.drawImage(video, sx, sy, visW, visH, 0, 0, visW, visH);
+
+            const W = visW;
+            const H = visH;
 
             // Resize overlay to match video display
-            const vRect = video.getBoundingClientRect();
-            overlay.width = vRect.width;
-            overlay.height = vRect.height;
-            const scaleX = vRect.width / W;
-            const scaleY = vRect.height / H;
+            overlay.width = dW;
+            overlay.height = dH;
+            const scaleX = dW / W;
+            const scaleY = dH / H;
 
             // Search for dark squares near 4 corners
             const marginX = 0.08;  // 8% inward horizontally
@@ -713,14 +758,29 @@ function liveCamera() {
             this.statusText = 'Dang cham...';
             const startTime = performance.now();
 
-            // Capture frame
+            // Capture frame — crop to match what object-fit:cover shows
             const video = this.$refs.video;
             const canvas = this.$refs.capture;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            const vW = video.videoWidth;
+            const vH = video.videoHeight;
+            const dRect = video.getBoundingClientRect();
+            const dW = dRect.width;
+            const dH = dRect.height;
+
+            // Calculate visible region in original video coords
+            const scaleW = dW / vW;
+            const scaleH = dH / vH;
+            const coverScale = Math.max(scaleW, scaleH);
+            const visW = Math.round(dW / coverScale);
+            const visH = Math.round(dH / coverScale);
+            const sx = Math.round((vW - visW) / 2);
+            const sy = Math.round((vH - visH) / 2);
+
+            canvas.width = visW;
+            canvas.height = visH;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            ctx.drawImage(video, sx, sy, visW, visH, 0, 0, visW, visH);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
             try {
                 const formData = new FormData();
