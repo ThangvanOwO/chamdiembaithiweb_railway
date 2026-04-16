@@ -429,20 +429,18 @@ function liveCamera() {
             const oCtx = overlay.getContext('2d');
             oCtx.clearRect(0, 0, overlay.width, overlay.height);
 
-            // Square size: ~2.5% of overlay short side × 3.0 (300% of real marker)
+            // Square size: ~2.5% of overlay short side × 7.0 (700%)
             const baseSize = Math.min(overlay.width, overlay.height) * 0.025;
-            const squareSize = Math.round(baseSize * 3.0);
+            const squareSize = Math.round(baseSize * 7.0);
 
-            // Draw filled green squares at detected corners
-            for (const pt of found) {
-                this._drawCornerSquare(oCtx, pt.x, pt.y, squareSize, 'rgba(34,197,94,0.85)', true);
-            }
-
-            // Draw outline squares at undetected corners (guide)
+            // Draw squares at FIXED positions — green if detected, faint if not
             for (const region of cornerRegions) {
-                if (!found.find(f => f.label === region.label)) {
-                    const fx = region.cx * overlay.width;
-                    const fy = region.cy * overlay.height;
+                const fx = region.cx * overlay.width;
+                const fy = region.cy * overlay.height;
+                const detected = found.some(f => f.label === region.label);
+                if (detected) {
+                    this._drawCornerSquare(oCtx, fx, fy, squareSize, 'rgba(34,197,94,0.85)', true);
+                } else {
                     this._drawCornerSquare(oCtx, fx, fy, squareSize, 'rgba(255,255,255,0.35)', false);
                 }
             }
