@@ -32,7 +32,6 @@
         background: #000;
         border-radius: 12px;
         overflow: hidden;
-        aspect-ratio: 9/16;
         max-height: 80vh;
         margin: 0 auto;
     }
@@ -126,7 +125,7 @@
     .live-video-wrap video {
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: contain;
     }
     .live-overlay {
         position: absolute;
@@ -540,35 +539,21 @@ function liveCamera() {
             const overlay = this.$refs.overlay;
             if (!video || !overlay || video.videoWidth === 0) return;
 
-            // Capture ONLY the visible region (matching object-fit:cover crop)
+            // Capture full video frame (object-fit:contain = no crop)
             const cap = this.$refs.capture;
-            const vW = video.videoWidth;
-            const vH = video.videoHeight;
-            const vRect = video.getBoundingClientRect();
-            const dW = vRect.width;
-            const dH = vRect.height;
-
-            const scW = dW / vW;
-            const scH = dH / vH;
-            const coverScale = Math.max(scW, scH);
-            const visW = Math.round(dW / coverScale);
-            const visH = Math.round(dH / coverScale);
-            const sx = Math.round((vW - visW) / 2);
-            const sy = Math.round((vH - visH) / 2);
-
-            cap.width = visW;
-            cap.height = visH;
+            const W = video.videoWidth;
+            const H = video.videoHeight;
+            cap.width = W;
+            cap.height = H;
             const ctx = cap.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(video, sx, sy, visW, visH, 0, 0, visW, visH);
-
-            const W = visW;
-            const H = visH;
+            ctx.drawImage(video, 0, 0, W, H);
 
             // Resize overlay to match video display
-            overlay.width = dW;
-            overlay.height = dH;
-            const scaleX = dW / W;
-            const scaleY = dH / H;
+            const vRect = video.getBoundingClientRect();
+            overlay.width = vRect.width;
+            overlay.height = vRect.height;
+            const scaleX = vRect.width / W;
+            const scaleY = vRect.height / H;
 
             // Search for dark squares near 4 corners
             const marginX = 0.08;  // 8% inward horizontally
@@ -823,28 +808,13 @@ function liveCamera() {
             this.statusText = 'Dang cham...';
             const startTime = performance.now();
 
-            // Capture frame — crop to match what object-fit:cover shows
+            // Capture full video frame (object-fit:contain = no crop)
             const video = this.$refs.video;
             const canvas = this.$refs.capture;
-            const vW = video.videoWidth;
-            const vH = video.videoHeight;
-            const dRect = video.getBoundingClientRect();
-            const dW = dRect.width;
-            const dH = dRect.height;
-
-            // Calculate visible region in original video coords
-            const scaleW = dW / vW;
-            const scaleH = dH / vH;
-            const coverScale = Math.max(scaleW, scaleH);
-            const visW = Math.round(dW / coverScale);
-            const visH = Math.round(dH / coverScale);
-            const sx = Math.round((vW - visW) / 2);
-            const sy = Math.round((vH - visH) / 2);
-
-            canvas.width = visW;
-            canvas.height = visH;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, sx, sy, visW, visH, 0, 0, visW, visH);
+            ctx.drawImage(video, 0, 0);
             const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
             try {
