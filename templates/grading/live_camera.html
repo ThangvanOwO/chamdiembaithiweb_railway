@@ -482,10 +482,9 @@ function liveCamera() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        facingMode: { ideal: 'environment' },
-                        width: { ideal: 1080 },
-                        height: { ideal: 1920 },
-                        aspectRatio: { ideal: 9 / 16 }
+                        facingMode: 'environment',
+                        width: { ideal: 2160 },
+                        height: { ideal: 2160 }
                     },
                     audio: false
                 });
@@ -574,12 +573,17 @@ function liveCamera() {
             const ctx = cap.getContext('2d', { willReadFrequently: true });
             ctx.drawImage(video, 0, 0, W, H);
 
-            // Resize overlay to match video display
+            // Resize overlay to match video display CSS bounds
             const vRect = video.getBoundingClientRect();
             overlay.width = vRect.width;
             overlay.height = vRect.height;
-            const scaleX = vRect.width / W;
-            const scaleY = vRect.height / H;
+            
+            // Calculate object-fit: contain mapping
+            const scale = Math.min(vRect.width / W, vRect.height / H);
+            const drawW = W * scale;
+            const drawH = H * scale;
+            const offsetX = (vRect.width - drawW) / 2;
+            const offsetY = (vRect.height - drawH) / 2;
 
             // Search for dark squares near 4 corners
             const marginX = 0.08;  // 8% inward horizontally
@@ -608,8 +612,8 @@ function liveCamera() {
                 rawFound.push({ label: region.label, detected: !!marker,
                     orig_x: marker ? x1 + marker.cx : 0,
                     orig_y: marker ? y1 + marker.cy : 0,
-                    x: marker ? (x1 + marker.cx) * scaleX : 0,
-                    y: marker ? (y1 + marker.cy) * scaleY : 0 });
+                    x: marker ? offsetX + (x1 + marker.cx) * scale : 0,
+                    y: marker ? offsetY + (y1 + marker.cy) * scale : 0 });
             }
 
             // Temporal smoothing: require 2 out of last 3 frames
@@ -649,10 +653,13 @@ function liveCamera() {
             const baseSize = Math.min(overlay.width, overlay.height) * 0.025;
             const squareSize = Math.round(baseSize * 7.0);
 
-            // Draw squares at FIXED positions — green if detected, faint if not
+            // Draw squares at FIXED positions mapped from raw video coordinates
             for (const region of cornerRegions) {
-                const fx = region.cx * overlay.width;
-                const fy = region.cy * overlay.height;
+                // To get raw target offset, map region.cx * W back out
+                const rawX = region.cx * W;
+                const rawY = region.cy * H;
+                const fx = offsetX + rawX * scale;
+                const fy = offsetY + rawY * scale;
                 const detected = found.some(f => f.label === region.label);
                 if (detected) {
                     const color = this.quadValid ? 'rgba(34,197,94,0.85)' : 'rgba(251,191,36,0.85)';
