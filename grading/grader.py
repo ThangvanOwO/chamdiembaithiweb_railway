@@ -249,7 +249,7 @@ def compute_weighted_score(result, scoring_config, correct_answers=None):
     }
 
 
-def grade_image(image_path, answer_key_str='', template_code=''):
+def grade_image(image_path, answer_key_str='', template_code='', corners=None):
     """
     Chấm 1 ảnh phiếu thi.
 
@@ -257,6 +257,7 @@ def grade_image(image_path, answer_key_str='', template_code=''):
         image_path: Đường dẫn tuyệt đối tới ảnh
         answer_key_str: Đáp án (JSON string hoặc CSV)
         template_code: Mã template phiếu (VD: '30-04-06-TL')
+        corners: Tọa độ 4 góc từ client truyền lên (nếu có)
 
     Returns:
         dict {
@@ -299,6 +300,7 @@ def grade_image(image_path, answer_key_str='', template_code=''):
             str(image_path),
             correct_answers=correct,
             debug=True,
+            provided_corners=corners,
         )
     except Exception as e:
         logger.error(f"Grading failed: {e}", exc_info=True)

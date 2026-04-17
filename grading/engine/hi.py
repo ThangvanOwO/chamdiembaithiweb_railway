@@ -1523,7 +1523,8 @@ def preprocess(warped, enhance_camera=False):
 
     Pipeline:
       1) erase_printed_text() — LỚP 1 punch-hole xóa chữ in
-      2) GaussianBlur — giảm noise
+      2) Illumination Flattening — làm phẳng nền chia độ sáng nền
+      3) GaussianBlur — giảm noise
 
     Trả về: gray (blurred, dùng detect), thresh (debug), cleaned (debug)
     """
@@ -1532,7 +1533,15 @@ def preprocess(warped, enhance_camera=False):
 
     gray_raw = cv2.cvtColor(warped_clean, cv2.COLOR_BGR2GRAY)
 
-    gray = cv2.GaussianBlur(gray_raw, (5, 5), 0)
+    # --- Làm phẳng nền giấy (Illumination Flattening / Background Division) ---
+    # Dùng phép toán hình thái học với kernel lớn để xấp xỉ phần nền
+    bg_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (51, 51))
+    background = cv2.morphologyEx(gray_raw, cv2.MORPH_CLOSE, bg_kernel)
+    
+    # Chia cho nền để san phẳng sáng, sau đó scale về 0-255
+    flat_gray = cv2.divide(gray_raw, background, scale=255)
+
+    gray = cv2.GaussianBlur(flat_gray, (5, 5), 0)
 
     # Binary CHỈ cho debug visualization
     thresh = cv2.adaptiveThreshold(
@@ -2227,7 +2236,7 @@ def draw_bubble_grid(warped_image):
 # ║                     PIPELINE CHÍNH (Main)                            ║
 # ╚════════════════════════════════════════════════════════════════════════╝
 
-def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=False):
+def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=False, provided_corners=None):
     """
     Pipeline đầy đủ: phát hiện góc → warp → tiền xử lý → đọc đáp án → chấm điểm.
 
@@ -2239,6 +2248,7 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
         part3: {1: '1234', 2: '-5.67', ...}
       debug           : True → lưu ảnh calibration + threshold
       pre_warped      : True → bỏ qua detect corner (ảnh đã thẳng)
+      provided_corners: Tọa độ 4 góc được truyền từ frontend (nếu có)
     """
     print(f"\n{'='*60}")
     print(f"  Xử lý: {os.path.basename(image_path)}")
@@ -2281,6 +2291,19 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
         corners = None
         all_candidates = []
         print(f"[OK] Ảnh pre-warped ({WARP_WIDTH}x{WARP_HEIGHT})")
+    elif provided_corners is not None and len(provided_corners) == 4:
+        try:
+            pts = np.array(provided_corners, dtype="float32")
+            ordered_pts = order_points(pts)
+            warped = _warp_to_rect(image, ordered_pts)
+            method = "frontend_corners"
+            _orig_method = method
+            corners = ordered_pts
+            all_candidates = []
+            print(f"[OK] Sử dụng tọa độ góc từ Frontend: {ordered_pts.astype(int).tolist()}")
+        except Exception as e:
+            print(f"[LỖI] parse frontend_corners: {e}")
+            return None
     else:
         try:
             detect_result = detect_paper_and_warp(image, debug=debug)

@@ -1373,9 +1373,17 @@ def grade_frame_api(request):
             except Exam.DoesNotExist:
                 pass
 
+        corners_json = request.POST.get('corners')
+        corners_list = None
+        if corners_json:
+            try:
+                corners_list = json.loads(corners_json)
+            except Exception:
+                pass
+
         # Chấm
         result = grade_image(tmp_path, answer_key_str=answer_key_str,
-                             template_code=template_code)
+                             template_code=template_code, corners=corners_list)
 
         if result.get('success'):
             return JsonResponse({
