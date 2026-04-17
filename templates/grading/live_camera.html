@@ -33,10 +33,10 @@
         border-radius: 12px;
         overflow: hidden;
         
-        /* Ép tỉ lệ dọc 9:16 */
+        /* Ép tỉ lệ dọc 3:4 chống bóp méo/zoom cảm biến */
         width: 100%;
-        max-width: calc(85vh * 9 / 16); 
-        aspect-ratio: 9 / 16;
+        max-width: calc(85vh * 3 / 4); 
+        aspect-ratio: 3 / 4;
         max-height: 85vh;
         
         margin: 0 auto;
@@ -136,7 +136,7 @@
     .live-video-wrap video {
         width: 100%;
         height: 100%;
-        object-fit: cover; /* Fill the vertical 9:16 shape entirely */
+        object-fit: contain; /* Tuyệt đối không phóng to camera */
         max-height: 100%;
         max-width: 100%;
         display: block;
@@ -484,8 +484,9 @@ function liveCamera() {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'environment',
-                        width: { ideal: isPortrait ? 1080 : 1920 },
-                        height: { ideal: isPortrait ? 1920 : 1080 }
+                        // Mặc định cảm biến điện thoại là 4:3. Yêu cầu 3/4 ở chế độ dọc giúp
+                        // Lấy 100% trường nhìn, không bị phần cứng cắt xén (gây lỗi Zoom x2)
+                        aspectRatio: { ideal: isPortrait ? 3/4 : 4/3 }
                     },
                     audio: false
                 });
@@ -579,25 +580,26 @@ function liveCamera() {
             overlay.width = vRect.width;
             overlay.height = vRect.height;
             
-            // Calculate object-fit: cover mapping
-            const scale = Math.max(vRect.width / W, vRect.height / H);
+            // Calculate object-fit: contain mapping
+            const scale = Math.min(vRect.width / W, vRect.height / H);
             const drawW = W * scale;
             const drawH = H * scale;
             const offsetX = (vRect.width - drawW) / 2;
             const offsetY = (vRect.height - drawH) / 2;
 
-            // Search regions relative to the VISIBLE screen
-            const marginX = vRect.width * 0.08;
-            const marginTop = vRect.height * 0.16;
-            const marginBot = vRect.height * 0.16;
-            const roiSizeW = vRect.width * 0.12;
-            const roiSizeH = vRect.height * 0.12;
+            // Search regions relative to the VISIBLE VIDEO (drawW, drawH) 
+            // Ensures markers stick to the camera feed even if letterboxed
+            const marginX = drawW * 0.08;
+            const marginTop = drawH * 0.16;
+            const marginBot = drawH * 0.16;
+            const roiSizeW = drawW * 0.12;
+            const roiSizeH = drawH * 0.12;
 
             const screenRegions = [
-                { label: 'TL', cx: marginX, cy: marginTop },
-                { label: 'TR', cx: vRect.width - marginX, cy: marginTop },
-                { label: 'BR', cx: vRect.width - marginX, cy: vRect.height - marginBot },
-                { label: 'BL', cx: marginX, cy: vRect.height - marginBot },
+                { label: 'TL', cx: offsetX + marginX, cy: offsetY + marginTop },
+                { label: 'TR', cx: offsetX + drawW - marginX, cy: offsetY + marginTop },
+                { label: 'BR', cx: offsetX + drawW - marginX, cy: offsetY + drawH - marginBot },
+                { label: 'BL', cx: offsetX + marginX, cy: offsetY + drawH - marginBot },
             ];
 
             const rawFound = [];
