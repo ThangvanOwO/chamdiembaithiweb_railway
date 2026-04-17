@@ -32,18 +32,11 @@
         background: #000;
         border-radius: 12px;
         overflow: hidden;
-        
-        /* Ép tỉ lệ dọc 3:4 chống bóp méo/zoom cảm biến */
         width: 100%;
-        max-width: calc(85vh * 3 / 4); 
-        aspect-ratio: 3 / 4;
+        max-width: calc(85vh * 9 / 16);
+        aspect-ratio: 9 / 16;
         max-height: 85vh;
-        
         margin: 0 auto;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     }
 
     /* ── Fullscreen mode ── */
@@ -67,8 +60,8 @@
         max-width: none;
         aspect-ratio: auto;
         border-radius: 0;
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
     }
     .live-container.is-fullscreen .live-result-panel {
         position: fixed;
@@ -136,9 +129,7 @@
     .live-video-wrap video {
         width: 100%;
         height: 100%;
-        object-fit: contain; /* Tuyệt đối không phóng to camera */
-        max-height: 100%;
-        max-width: 100%;
+        object-fit: contain;
         display: block;
     }
     .live-overlay {
@@ -313,13 +304,6 @@
         gap: 6px;
         font-size: 0.85rem;
     }
-    /* Buoc portrait - giam nguy co chuyen ngang */
-    @media (orientation: landscape) {
-        .live-video-wrap video {
-            object-fit: contain !important;
-            max-height: 100% !important;
-        }
-    }
 </style>
 {% endblock %}
 
@@ -480,13 +464,12 @@ function liveCamera() {
 
         async init() {
             try {
-                const isPortrait = window.innerHeight > window.innerWidth;
+                // Request portrait camera — ideal hints, camera gives best match
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        facingMode: 'environment',
-                        // Mặc định cảm biến điện thoại là 4:3. Yêu cầu 3/4 ở chế độ dọc giúp
-                        // Lấy 100% trường nhìn, không bị phần cứng cắt xén (gây lỗi Zoom x2)
-                        aspectRatio: { ideal: isPortrait ? 3/4 : 4/3 }
+                        facingMode: { ideal: 'environment' },
+                        width: { ideal: 1080 },
+                        height: { ideal: 1920 },
                     },
                     audio: false
                 });
@@ -495,14 +478,14 @@ function liveCamera() {
                     this.cameraReady = true;
                     this.statusText = 'San sang — Nhan nut de cham';
 
-                    // Chống lỗi Zoom x2: Nếu thiết bị cứng đầu trả về video ngang (Landscape)
-                    // thay vì dọc như yêu cầu, ta bắt buộc dùng contain để không bị zoom nát màn hình
-                    const isVidLandscape = this.$refs.video.videoWidth > this.$refs.video.videoHeight;
-                    if (isVidLandscape && isPortrait) {
-                        this.$refs.video.style.objectFit = 'contain';
-                    } else {
-                        // Thiết bị chuẩn trả về video dọc -> Dùng cover để tràn viền tuyệt đối
-                        this.$refs.video.style.objectFit = 'cover';
+                    // Adapt container aspect-ratio to actual video ratio
+                    // This eliminates black bars AND prevents zoom
+                    const vw = this.$refs.video.videoWidth;
+                    const vh = this.$refs.video.videoHeight;
+                    if (vw && vh) {
+                        const wrap = this.$refs.video.closest('.live-video-wrap');
+                        wrap.style.aspectRatio = vw + ' / ' + vh;
+                        wrap.style.maxWidth = 'calc(85vh * ' + vw + ' / ' + vh + ')';
                     }
 
                     this.resizeOverlay();
@@ -591,23 +574,17 @@ function liveCamera() {
             overlay.width = vRect.width;
             overlay.height = vRect.height;
             
-            // Calculate object-fit dynamic mapping
-            const isCover = video.style.objectFit !== 'contain';
-            const scale = isCover 
-                ? Math.max(vRect.width / W, vRect.height / H) 
-                : Math.min(vRect.width / W, vRect.height / H);
-                
+            // object-fit:contain — calculate where video is drawn inside the element
+            const scale = Math.min(vRect.width / W, vRect.height / H);
             const drawW = W * scale;
             const drawH = H * scale;
             const offsetX = (vRect.width - drawW) / 2;
             const offsetY = (vRect.height - drawH) / 2;
 
-            // Search regions relative to the VISIBLE VIDEO
-            // If cover: regions bind to CSS frame. If contain: regions bind to letterboxed video frame.
-            const visW = isCover ? vRect.width : drawW;
-            const visH = isCover ? vRect.height : drawH;
-            const visX = isCover ? 0 : offsetX;
-            const visY = isCover ? 0 : offsetY;
+            const visW = drawW;
+            const visH = drawH;
+            const visX = offsetX;
+            const visY = offsetY;
 
             const marginX = visW * 0.08;
             const marginTop = visH * 0.16;
