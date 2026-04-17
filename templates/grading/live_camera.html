@@ -494,6 +494,17 @@ function liveCamera() {
                 this.$refs.video.onloadedmetadata = () => {
                     this.cameraReady = true;
                     this.statusText = 'San sang — Nhan nut de cham';
+
+                    // Chống lỗi Zoom x2: Nếu thiết bị cứng đầu trả về video ngang (Landscape)
+                    // thay vì dọc như yêu cầu, ta bắt buộc dùng contain để không bị zoom nát màn hình
+                    const isVidLandscape = this.$refs.video.videoWidth > this.$refs.video.videoHeight;
+                    if (isVidLandscape && isPortrait) {
+                        this.$refs.video.style.objectFit = 'contain';
+                    } else {
+                        // Thiết bị chuẩn trả về video dọc -> Dùng cover để tràn viền tuyệt đối
+                        this.$refs.video.style.objectFit = 'cover';
+                    }
+
                     this.resizeOverlay();
                     this.startCornerDetection();
                     // Auto-enter fullscreen on mobile
@@ -580,26 +591,35 @@ function liveCamera() {
             overlay.width = vRect.width;
             overlay.height = vRect.height;
             
-            // Calculate object-fit: contain mapping
-            const scale = Math.min(vRect.width / W, vRect.height / H);
+            // Calculate object-fit dynamic mapping
+            const isCover = video.style.objectFit !== 'contain';
+            const scale = isCover 
+                ? Math.max(vRect.width / W, vRect.height / H) 
+                : Math.min(vRect.width / W, vRect.height / H);
+                
             const drawW = W * scale;
             const drawH = H * scale;
             const offsetX = (vRect.width - drawW) / 2;
             const offsetY = (vRect.height - drawH) / 2;
 
-            // Search regions relative to the VISIBLE VIDEO (drawW, drawH) 
-            // Ensures markers stick to the camera feed even if letterboxed
-            const marginX = drawW * 0.08;
-            const marginTop = drawH * 0.16;
-            const marginBot = drawH * 0.16;
-            const roiSizeW = drawW * 0.12;
-            const roiSizeH = drawH * 0.12;
+            // Search regions relative to the VISIBLE VIDEO
+            // If cover: regions bind to CSS frame. If contain: regions bind to letterboxed video frame.
+            const visW = isCover ? vRect.width : drawW;
+            const visH = isCover ? vRect.height : drawH;
+            const visX = isCover ? 0 : offsetX;
+            const visY = isCover ? 0 : offsetY;
+
+            const marginX = visW * 0.08;
+            const marginTop = visH * 0.16;
+            const marginBot = visH * 0.16;
+            const roiSizeW = visW * 0.12;
+            const roiSizeH = visH * 0.12;
 
             const screenRegions = [
-                { label: 'TL', cx: offsetX + marginX, cy: offsetY + marginTop },
-                { label: 'TR', cx: offsetX + drawW - marginX, cy: offsetY + marginTop },
-                { label: 'BR', cx: offsetX + drawW - marginX, cy: offsetY + drawH - marginBot },
-                { label: 'BL', cx: offsetX + marginX, cy: offsetY + drawH - marginBot },
+                { label: 'TL', cx: visX + marginX, cy: visY + marginTop },
+                { label: 'TR', cx: visX + visW - marginX, cy: visY + marginTop },
+                { label: 'BR', cx: visX + visW - marginX, cy: visY + visH - marginBot },
+                { label: 'BL', cx: visX + marginX, cy: visY + visH - marginBot },
             ];
 
             const rawFound = [];
