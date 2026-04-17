@@ -37,7 +37,6 @@
         aspect-ratio: 9 / 16;
         max-height: 85vh;
         margin: 0 auto;
-        transition: aspect-ratio 0.3s, max-width 0.3s;
     }
 
     /* ── Fullscreen mode ── */
@@ -59,10 +58,10 @@
         flex: 1;
         max-height: none;
         max-width: none;
-        aspect-ratio: auto;
+        aspect-ratio: 9 / 16;
         border-radius: 0;
-        width: 100vw;
-        height: 100vh;
+        width: 100%;
+        height: 100%;
     }
     .live-container.is-fullscreen .live-result-panel {
         position: fixed;
@@ -130,7 +129,7 @@
     .live-video-wrap video {
         width: 100%;
         height: 100%;
-        object-fit: contain;
+        object-fit: cover;
         display: block;
     }
     .live-overlay {
@@ -489,25 +488,7 @@ function liveCamera() {
                 this.$refs.video.onloadedmetadata = () => {
                     this.cameraReady = true;
                     this.statusText = 'San sang — Nhan nut de cham';
-
-                    // Adapt container to actual video ratio
-                    // contain + matching ratio = perfect fill, NO zoom, NO bars
-                    const vw = this.$refs.video.videoWidth;
-                    const vh = this.$refs.video.videoHeight;
-                    const wrap = this.$refs.video.closest('.live-video-wrap');
-                    if (vw && vh) {
-                        const ratio = vw / vh;
-                        wrap.style.aspectRatio = vw + ' / ' + vh;
-                        if (vh >= vw) {
-                            // Portrait video
-                            wrap.style.maxWidth = 'calc(85vh * ' + ratio + ')';
-                        } else {
-                            // Landscape video (desktop webcam)
-                            wrap.style.maxWidth = '100%';
-                            wrap.style.maxHeight = '70vh';
-                        }
-                    }
-
+                    // Container stays 9:16. cover fills it. No adapt needed.
                     this.resizeOverlay();
                     this.startCornerDetection();
                     // Auto-enter fullscreen on mobile
@@ -594,17 +575,18 @@ function liveCamera() {
             overlay.width = vRect.width;
             overlay.height = vRect.height;
             
-            // object-fit:contain — container matches video ratio, so perfect fill
-            const scale = Math.min(vRect.width / W, vRect.height / H);
+            // object-fit:cover — video fills container, cropping sides
+            const scale = Math.max(vRect.width / W, vRect.height / H);
             const drawW = W * scale;
             const drawH = H * scale;
-            const offsetX = (vRect.width - drawW) / 2;
-            const offsetY = (vRect.height - drawH) / 2;
+            const offsetX = (vRect.width - drawW) / 2; // negative = left cropped
+            const offsetY = (vRect.height - drawH) / 2; // negative = top cropped
 
-            const visW = drawW;
-            const visH = drawH;
-            const visX = offsetX;
-            const visY = offsetY;
+            // Visible area = container bounds (cover fills entirely)
+            const visW = vRect.width;
+            const visH = vRect.height;
+            const visX = 0;
+            const visY = 0;
 
             const marginX = visW * 0.08;
             const marginTop = visH * 0.16;
@@ -889,13 +871,24 @@ function liveCamera() {
             this.statusText = 'Dang cham...';
             const startTime = performance.now();
 
-            // Capture full video frame — server engine finds the sheet
+            // Capture only the visible (cover-cropped) portion = what user sees
             const video = this.$refs.video;
             const canvas = this.$refs.capture;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            const W = video.videoWidth;
+            const H = video.videoHeight;
+            const vRect = video.getBoundingClientRect();
+            const coverScale = Math.max(vRect.width / W, vRect.height / H);
+            const offX = (vRect.width - W * coverScale) / 2;
+            const offY = (vRect.height - H * coverScale) / 2;
+            // Visible region in raw video coordinates
+            const srcX = Math.max(0, Math.round(-offX / coverScale));
+            const srcY = Math.max(0, Math.round(-offY / coverScale));
+            const srcW = Math.min(W - srcX, Math.round(vRect.width / coverScale));
+            const srcH = Math.min(H - srcY, Math.round(vRect.height / coverScale));
+            canvas.width = srcW;
+            canvas.height = srcH;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0);
+            ctx.drawImage(video, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
             const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
             try {
