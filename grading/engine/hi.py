@@ -2257,7 +2257,7 @@ def extract_part3(cleaned_img, y_offset=0):
         sign_score, r_neg, _ = _hybrid_score(
             cleaned_img, blk["sign_x"], PART3_SIGN_Y + y_offset, force_cnn=True
         )
-        is_neg = sign_score >= P3_SIGN_SCORE_MIN
+        is_neg = bool(sign_score >= P3_SIGN_SCORE_MIN)
         q_det["sign"] = round(r_neg, 3)
 
         # 2) Kiểm tra dấu phẩy (.) - cột nào được tô
@@ -2465,7 +2465,7 @@ COLOR_UNANSWERED = (0, 220, 255)  # Vàng (BGR) - chưa khoanh / bỏ trống
 THICKNESS_MARK  = 3
 
 
-def draw_results_part1(image, results):
+def draw_results_part1(image, results, y_offset=0):
     """Vẽ vòng tròn kết quả cho Part I."""
     for q, res in results.items():
         col_idx = (q - 1) // 10
@@ -2473,7 +2473,7 @@ def draw_results_part1(image, results):
         if col_idx >= len(PART1_COLS):
             continue
         cfg = PART1_COLS[col_idx]
-        cy = int(cfg["start_y"] + row_idx * cfg["step_y"])
+        cy = int(cfg["start_y"] + row_idx * cfg["step_y"] + y_offset)
         student_ans = res["student"]
         is_blank = student_ans in ("", "-", "X")
 
@@ -2492,7 +2492,7 @@ def draw_results_part1(image, results):
     return image
 
 
-def draw_results_part2(image, results):
+def draw_results_part2(image, results, y_offset=0):
     """Vẽ vòng tròn kết quả cho Part II."""
     for q, q_res in results.items():
         blk = PART2_BLOCKS[q - 1]
@@ -2501,7 +2501,7 @@ def draw_results_part2(image, results):
             res = q_res[label]
             student_ans = res["student"]
             is_blank = student_ans in ("", "X")
-            cy = int(sy + ri * PART2_STEP_Y)
+            cy = int(sy + ri * PART2_STEP_Y + y_offset)
             for ci, col_name in enumerate(["Dung", "Sai"]):
                 cx = int(sx + ci * PART2_STEP_X)
                 if col_name == student_ans:
@@ -2630,15 +2630,20 @@ def draw_results_part3(image, results, student_details, y_offset=0):
 # ║              CALIBRATION: VẼ LƯỚI BUBBLE DỰ KIẾN                    ║
 # ╚════════════════════════════════════════════════════════════════════════╝
 
-def draw_bubble_grid(warped_image):
-    """Vẽ tất cả vị trí bubble dự kiến lên ảnh warped (debug/calibration)."""
+def draw_bubble_grid(warped_image, offsets=None):
+    """Vẽ tất cả vị trí bubble dự kiến lên ảnh warped (debug/calibration).
+    offsets: dict {"part1": dy, "part2": dy, "part3": dy} — bù lệch y cục bộ.
+    """
     vis = warped_image.copy()
+    dy1 = offsets.get("part1", 0) if offsets else 0
+    dy2 = offsets.get("part2", 0) if offsets else 0
+    dy3 = offsets.get("part3", 0) if offsets else 0
 
     # Part I: vòng tròn xanh lá
     for cfg in PART1_COLS:
         col_rows = cfg.get("num_rows", PART1_NUM_ROWS)
         for row in range(col_rows):
-            cy = int(cfg["start_y"] + row * cfg["step_y"])
+            cy = int(cfg["start_y"] + row * cfg["step_y"] + dy1)
             for ci in range(4):
                 cx = int(cfg["start_x"] + ci * cfg["step_x"])
                 cv2.circle(vis, (cx, cy), BUBBLE_RADIUS, (0, 255, 0), 1)
@@ -2646,7 +2651,7 @@ def draw_bubble_grid(warped_image):
     # Part II: vòng tròn xanh dương
     for blk in PART2_BLOCKS:
         for ri in range(4):
-            cy = int(blk["start_y"] + ri * PART2_STEP_Y)
+            cy = int(blk["start_y"] + ri * PART2_STEP_Y + dy2)
             for ci in range(2):
                 cx = int(blk["start_x"] + ci * PART2_STEP_X)
                 cv2.circle(vis, (cx, cy), BUBBLE_RADIUS, (255, 100, 0), 1)
@@ -2678,13 +2683,13 @@ def draw_bubble_grid(warped_image):
     # Part III: vòng tròn đỏ
     for blk in PART3_BLOCKS:
         # Dấu trừ
-        cv2.circle(vis, (int(blk["sign_x"]), PART3_SIGN_Y), BUBBLE_RADIUS, (0, 0, 255), 1)
+        cv2.circle(vis, (int(blk["sign_x"]), PART3_SIGN_Y + dy3), BUBBLE_RADIUS, (0, 0, 255), 1)
         for cx in blk["cols_x"]:
             # Dấu phẩy
-            cv2.circle(vis, (int(cx), PART3_COMMA_Y), BUBBLE_RADIUS, (0, 0, 255), 1)
+            cv2.circle(vis, (int(cx), PART3_COMMA_Y + dy3), BUBBLE_RADIUS, (0, 0, 255), 1)
             # Số 0-9
             for d in range(10):
-                cy = int(PART3_DIGIT_START_Y + d * PART3_DIGIT_STEP_Y)
+                cy = int(PART3_DIGIT_START_Y + d * PART3_DIGIT_STEP_Y + dy3)
                 cv2.circle(vis, (int(cx), cy), BUBBLE_RADIUS, (0, 0, 255), 1)
 
     # Vẽ vùng erase mask (vàng mờ = vùng xóa, lỗ tròn = bubble bảo vệ)
@@ -2798,14 +2803,6 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     gray, thresh, cleaned = preprocess(warped)
     print("[OK] Grayscale detection (pencil-friendly)")
 
-    # --- Debug output ---
-    if debug:
-        cv2.imwrite(f"{base}_calibration.jpg", draw_bubble_grid(warped))
-        cv2.imwrite(f"{base}_gray.jpg", gray)
-        cv2.imwrite(f"{base}_thresh.jpg", thresh)
-        cv2.imwrite(f"{base}_cleaned.jpg", cleaned)
-        print(f"[DEBUG] Đã lưu: _calibration.jpg, _gray.jpg, _thresh.jpg, _cleaned.jpg")
-
     # --- Bước 3b: Detect marker offsets (bù ảnh phồng) ---
     offsets = detect_section_offsets(gray)
     any_offset = any(v != 0 for v in offsets.values())
@@ -2818,6 +2815,14 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     if p3_offset is not None:
         offsets["part3"] = p3_offset
         print(f"[OK] Part3 offset (digits): {p3_offset:+d}px")
+
+    # --- Debug output (SAU khi có offsets để calibration chính xác) ---
+    if debug:
+        cv2.imwrite(f"{base}_calibration.jpg", draw_bubble_grid(warped, offsets=offsets))
+        cv2.imwrite(f"{base}_gray.jpg", gray)
+        cv2.imwrite(f"{base}_thresh.jpg", thresh)
+        cv2.imwrite(f"{base}_cleaned.jpg", cleaned)
+        print(f"[DEBUG] Đã lưu: _calibration.jpg, _gray.jpg, _thresh.jpg, _cleaned.jpg")
 
     # --- Bước 4-5: Đọc đáp án (dùng ảnh GRAYSCALE, không binary) ---
     sbd, made, sbd_det = extract_sbd_made(gray)
@@ -2839,7 +2844,7 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
 
     # --- Ghi lại debug images nếu retry đã chuyển method ---
     if debug and not pre_warped and method != _orig_method:
-        cv2.imwrite(f"{base}_calibration.jpg", draw_bubble_grid(warped))
+        cv2.imwrite(f"{base}_calibration.jpg", draw_bubble_grid(warped, offsets=offsets))
         cv2.imwrite(f"{base}_gray.jpg", gray)
         cv2.imwrite(f"{base}_thresh.jpg", thresh)
         cv2.imwrite(f"{base}_cleaned.jpg", cleaned)
@@ -2861,13 +2866,13 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
         if "part1" in correct_answers:
             s, r = grade_part1(p1_ans, correct_answers["part1"])
             scores["part1"] = s
-            draw_results_part1(result_mask, r)
+            draw_results_part1(result_mask, r, y_offset=offsets["part1"])
             print(f"\n  Phần I  : {s}/40")
 
         if "part2" in correct_answers:
             s, r = grade_part2(p2_ans, correct_answers["part2"])
             scores["part2"] = s
-            draw_results_part2(result_mask, r)
+            draw_results_part2(result_mask, r, y_offset=offsets["part2"])
             print(f"  Phần II : {s}/8")
 
         if "part3" in correct_answers:

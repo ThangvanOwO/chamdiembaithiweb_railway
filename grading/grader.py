@@ -355,7 +355,7 @@ def grade_image(image_path, answer_key_str='', template_code='', corners=None):
         'part1': result.get('part1', {}),
         'part2': result.get('part2', {}),
         'part3': result.get('part3', {}),
-        'detail_json': json.dumps(detail, ensure_ascii=False),
+        'detail_json': json.dumps(detail, ensure_ascii=False, default=str),
         'result_image_path': result_img if os.path.exists(result_img) else '',
         'processing_time': processing_time,
         'detect_method': detect_method,

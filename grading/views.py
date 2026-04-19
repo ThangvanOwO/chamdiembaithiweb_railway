@@ -367,7 +367,7 @@ def upload_view(request):
                             'part1': result.get('part1', {}),
                             'part2': result.get('part2', {}),
                             'part3': result.get('part3', {}),
-                        }, ensure_ascii=False)
+                        }, ensure_ascii=False, default=str)
 
                         # Save full detail with breakdown
                         engine_detail = result.get('detail_json', '{}')
@@ -1285,7 +1285,7 @@ def submission_regrade_view(request, submission_id):
             'part1': result.get('part1', {}),
             'part2': result.get('part2', {}),
             'part3': result.get('part3', {}),
-        }, ensure_ascii=False)
+        }, ensure_ascii=False, default=str)
 
         # Build detail with scoring breakdown
         engine_detail = result.get('detail_json', '{}')
