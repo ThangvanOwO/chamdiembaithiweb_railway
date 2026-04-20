@@ -1,6 +1,6 @@
 # GradeFlow — Hệ thống chấm điểm trắc nghiệm tự động
 
-> Ứng dụng web giúp giáo viên chấm bài thi trắc nghiệm tự động bằng công nghệ nhận dạng ảnh (OMR — Optical Mark Recognition).
+> Hệ thống chấm điểm trắc nghiệm tự động bằng công nghệ nhận dạng ảnh (OMR — Optical Mark Recognition) — hỗ trợ cả **Web** và **Mobile App**.
 
 ---
 
@@ -13,7 +13,10 @@
 - [Cài đặt](#cài-đặt)
 - [Chạy ứng dụng](#chạy-ứng-dụng)
 - [Hướng dẫn sử dụng](#hướng-dẫn-sử-dụng)
+- [Ứng dụng Mobile (Flutter)](#ứng-dụng-mobile-flutter)
+- [REST API](#rest-api)
 - [Cấu hình nâng cao](#cấu-hình-nâng-cao)
+- [Nhóm phát triển](#nhóm-phát-triển)
 
 ---
 
@@ -61,11 +64,15 @@
 | Thành phần | Công nghệ |
 |---|---|
 | **Backend** | Django 5.2 (Python) |
-| **Database** | SQLite (dev) / MySQL (production) |
-| **Frontend** | Alpine.js, HTMX, CSS thuần (design system) |
-| **OMR Engine** | OpenCV + NumPy (nhận dạng bubble) |
+| **Database** | SQLite (dev) / PostgreSQL (production) |
+| **Web Frontend** | Alpine.js, HTMX, CSS thuần (design system) |
+| **Mobile App** | Flutter (Dart) — Android & iOS |
+| **OMR Engine** | OpenCV + CNN (nhận dạng bubble) |
+| **REST API** | Django REST Framework + Token Auth |
+| **Document Scanner** | Google ML Kit Document Scanner |
 | **Task Queue** | Celery + Redis (chấm điểm bất đồng bộ) |
-| **Auth** | django-allauth (email/password) |
+| **Auth** | django-allauth (web) / DRF Token (mobile) |
+| **Hosting** | Railway |
 | **Static files** | WhiteNoise |
 
 ---
@@ -91,6 +98,17 @@ chamdiembaithiweb/
 │   ├── base.html        # Layout chung
 │   ├── dashboard/       # Templates trang chủ
 │   └── grading/         # Templates chấm điểm
+├── api/                 # REST API cho mobile app (DRF)
+│   ├── views.py         # API views: login, grade, exams, submissions
+│   └── urls.py          # API endpoints (/api/v1/...)
+├── gradeflow_app/       # Flutter mobile app
+│   ├── lib/
+│   │   ├── screens/     # 7 màn hình: Login, Dashboard, Scan, ...
+│   │   ├── services/    # API service, Auth service
+│   │   ├── models/      # Exam, Submission, GradeResult
+│   │   └── config/      # Theme, API config
+│   ├── android/         # Android platform config
+│   └── ios/             # iOS platform config
 ├── media/               # Ảnh upload (gitignored)
 ├── requirements.txt     # Danh sách thư viện
 └── manage.py            # Django CLI
@@ -222,6 +240,62 @@ celery -A chamdiemtudong worker --loglevel=info
 
 ---
 
+## Ứng dụng Mobile (Flutter)
+
+### Tải APK
+
+Tải file APK mới nhất tại [**GitHub Releases**](https://github.com/Haxodraschool/chamdiembaithiweb/releases).
+
+### Tính năng mobile
+
+- **Google ML Kit Document Scanner** — tự động crop, nắn phẳng, tăng cường ảnh phiếu thi
+- **Chụp camera / chọn từ thư viện** — fallback khi scanner không khả dụng
+- **Chấm điểm tức thì** — gửi ảnh lên server, nhận kết quả trong vài giây
+- **Dashboard** — xem thống kê, lịch sử chấm bài
+- **Quản lý đề thi** — xem danh sách đề, chọn đề để chấm
+
+### Cài đặt trên Android
+
+1. Tải file `GradeFlow.apk` từ Releases
+2. Mở file → cho phép "Cài từ nguồn không xác định"
+3. Cài đặt → mở app **GradeFlow**
+4. Đăng nhập bằng tài khoản đã đăng ký trên web
+
+### Trạng thái phát triển
+
+| Tính năng | Trạng thái |
+|---|---|
+| Đăng nhập / Đăng xuất | ✅ Hoàn thành |
+| Dashboard thống kê | ✅ Hoàn thành |
+| Danh sách đề thi | ✅ Hoàn thành |
+| Quét phiếu (Document Scanner) | ✅ Hoàn thành |
+| Chấm điểm + xem kết quả | ✅ Hoàn thành |
+| Lịch sử chấm bài | ✅ Hoàn thành |
+| Hồ sơ người dùng | ✅ Hoàn thành |
+| Tạo đề thi trên mobile | 🔜 Đang phát triển |
+| Chế độ offline | 🔜 Đang phát triển |
+| Thông báo đẩy (Push) | 🔜 Đang phát triển |
+
+---
+
+## REST API
+
+Mobile app giao tiếp với server qua REST API:
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| POST | `/api/v1/auth/login/` | Đăng nhập, nhận token |
+| POST | `/api/v1/auth/logout/` | Đăng xuất |
+| GET | `/api/v1/auth/me/` | Thông tin người dùng |
+| GET | `/api/v1/dashboard/` | Thống kê tổng quan |
+| GET | `/api/v1/exams/` | Danh sách đề thi |
+| POST | `/api/v1/grade/` | Chấm điểm ảnh (multipart) |
+| GET | `/api/v1/submissions/` | Lịch sử bài chấm |
+
+Xác thực: `Authorization: Token <token>`
+
+---
+
 ## Cấu hình nâng cao
 
 ### Biến môi trường
@@ -247,6 +321,15 @@ Hệ thống hỗ trợ cấu hình thang điểm linh hoạt:
 ## Giấy phép
 
 Dự án được phát triển phục vụ mục đích giáo dục.
+
+---
+
+## Nhóm phát triển
+
+| Thành viên | Vai trò |
+|---|---|
+| **V.Thắng** | Backend — Django, OMR Engine, REST API, Database |
+| **B.Việt** | Frontend — Web UI, Flutter Mobile App, UX Design |
 
 ---
 
