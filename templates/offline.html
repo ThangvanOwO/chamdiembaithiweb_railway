@@ -1,0 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Không có kết nối — GradeFlow</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Manrope', 'DM Sans', system-ui, sans-serif;
+            background: #F0FDFA;
+            color: #134E4A;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+        }
+        .offline-card {
+            text-align: center;
+            max-width: 400px;
+        }
+        .offline-icon {
+            width: 80px; height: 80px;
+            margin: 0 auto 24px;
+            border-radius: 50%;
+            background: #CCFBF1;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 36px;
+        }
+        h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
+        p { font-size: 16px; color: #5F7A76; line-height: 1.6; margin-bottom: 24px; }
+        .retry-btn {
+            display: inline-block;
+            padding: 12px 32px;
+            background: #0F766E;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .retry-btn:hover { background: #0D6B63; }
+    </style>
+</head>
+<body>
+    <div class="offline-card">
+        <div class="offline-icon">📡</div>
+        <h1>Không có kết nối</h1>
+        <p>GradeFlow cần kết nối internet để hoạt động. Vui lòng kiểm tra mạng và thử lại.</p>
+        <button class="retry-btn" onclick="location.reload()">Thử lại</button>
+    </div>
+</body>
+</html>
