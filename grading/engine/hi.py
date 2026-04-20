@@ -101,10 +101,10 @@ _CNN_ERROR = None
 # step_x: khoảng cách ngang giữa A→B→C→D (~73px)
 # step_y: khoảng cách dọc giữa các câu (~33px)
 PART1_COLS = [
-    {"start_x": 86,   "start_y": 692, "step_x": 72.3, "step_y": 33.1, "q_start": 1},   # Cột 1: Q1-Q10
-    {"start_x": 434,  "start_y": 694, "step_x": 74,   "step_y": 33.1, "q_start": 11},  # Cột 2: Q11-Q20
-    {"start_x": 785,  "start_y": 694, "step_x": 73,   "step_y": 33.1, "q_start": 21},  # Cột 3: Q21-Q30
-    {"start_x": 1134, "start_y": 694, "step_x": 73,   "step_y": 33.1, "q_start": 31},  # Cột 4: Q31-Q40
+    {"start_x": 82,   "start_y": 689, "step_x": 72.3, "step_y": 33.1, "q_start": 1},   # Cột 1: Q1-Q10
+    {"start_x": 430,  "start_y": 691, "step_x": 74,   "step_y": 33.1, "q_start": 11},  # Cột 2: Q11-Q20
+    {"start_x": 781,  "start_y": 691, "step_x": 73,   "step_y": 33.1, "q_start": 21},  # Cột 3: Q21-Q30
+    {"start_x": 1130, "start_y": 691, "step_x": 73,   "step_y": 33.1, "q_start": 31},  # Cột 4: Q31-Q40
 ]
 PART1_NUM_ROWS = 10
 PART1_CHOICES = ["A", "B", "C", "D"]
@@ -114,14 +114,14 @@ PART1_CHOICES = ["A", "B", "C", "D"]
 # ╚════════════════════════════════════════════════════════════════════════╝
 # Mỗi block: start_x = tâm cột Đúng, start_x + step = tâm cột Sai
 PART2_BLOCKS = [
-    {"start_x": 85,   "start_y": 1190, "q": 1},
-    {"start_x": 232,  "start_y": 1190, "q": 2},
-    {"start_x": 434,  "start_y": 1190, "q": 3},
-    {"start_x": 581,  "start_y": 1190, "q": 4},
-    {"start_x": 785,  "start_y": 1190, "q": 5},
-    {"start_x": 931,  "start_y": 1190, "q": 6},
-    {"start_x": 1134, "start_y": 1190, "q": 7},
-    {"start_x": 1280, "start_y": 1190, "q": 8},
+    {"start_x": 81,   "start_y": 1187, "q": 1},
+    {"start_x": 228,  "start_y": 1187, "q": 2},
+    {"start_x": 430,  "start_y": 1187, "q": 3},
+    {"start_x": 577,  "start_y": 1187, "q": 4},
+    {"start_x": 781,  "start_y": 1187, "q": 5},
+    {"start_x": 927,  "start_y": 1187, "q": 6},
+    {"start_x": 1130, "start_y": 1187, "q": 7},
+    {"start_x": 1276, "start_y": 1187, "q": 8},
 ]
 PART2_STEP_X = 73   # Khoảng cách Đúng → Sai
 PART2_STEP_Y = 33   # Khoảng cách a → b → c → d
