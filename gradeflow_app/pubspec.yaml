@@ -31,6 +31,9 @@ dependencies:
   image_cropper: ^8.0.2
   path_provider: ^2.1.4
 
+  # File picker (for Excel import)
+  file_picker: ^8.0.0+1
+
   # Local storage
   shared_preferences: ^2.3.2
 

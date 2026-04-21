@@ -322,6 +322,146 @@ def _create_exam(request):
 
 
 # =============================================================================
+# EXAM DELETE
+# =============================================================================
+
+@api_view(['DELETE'])
+def exam_delete_api(request, exam_id):
+    """DELETE /api/v1/exams/{id}/ — Xóa đề thi."""
+    try:
+        exam = Exam.objects.get(id=exam_id, teacher=request.user)
+    except Exam.DoesNotExist:
+        return Response({'error': 'Không tìm thấy đề thi'}, status=404)
+    title = exam.title
+    exam.delete()
+    return Response({'message': f'Đã xóa: {title}'})
+
+
+# =============================================================================
+# PARSE EXCEL / IMAGE — For exam import on mobile
+# =============================================================================
+
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def parse_excel_api(request):
+    """
+    POST /api/v1/parse-excel/
+    Multipart: file (Excel .xlsx)
+    Returns parsed answer data for review.
+    """
+    f = request.FILES.get('file')
+    if not f:
+        return Response({'error': 'Không có file nào được upload'}, status=400)
+
+    if not f.name.endswith(('.xlsx', '.xls')):
+        return Response({'error': 'Chỉ hỗ trợ file Excel (.xlsx, .xls)'}, status=400)
+
+    try:
+        from grading.views import _parse_excel_answer_key
+        result, error = _parse_excel_answer_key(f)
+        if error:
+            return Response({'error': error}, status=400)
+        return Response({'success': True, 'data': result})
+    except Exception as e:
+        logger.exception('Error parsing Excel file')
+        return Response({'error': f'Lỗi đọc file: {str(e)}'}, status=400)
+
+
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def parse_image_api(request):
+    """
+    POST /api/v1/parse-image/
+    Multipart: file (image .jpg/.png)
+    Returns parsed answer data from answer sheet image.
+    """
+    f = request.FILES.get('file')
+    if not f:
+        return Response({'error': 'Không có file nào được upload'}, status=400)
+
+    allowed_ext = ('.jpg', '.jpeg', '.png', '.bmp', '.webp')
+    if not f.name.lower().endswith(allowed_ext):
+        return Response({'error': f'Chỉ hỗ trợ ảnh: {", ".join(allowed_ext)}'}, status=400)
+
+    try:
+        import tempfile as _tempfile
+        suffix = os.path.splitext(f.name)[1]
+        with _tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            for chunk in f.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        from grading.engine import hi as engine
+        result = engine.process_sheet(tmp_path, correct_answers=None, debug=False)
+
+        # Cleanup
+        base_tmp = os.path.splitext(tmp_path)[0]
+        for sfx in ['', '_result.jpg', '_overlay.jpg', '_name.jpg',
+                     '_calibration.jpg', '_gray.jpg', '_thresh.jpg',
+                     '_cleaned.jpg', '_detect.jpg']:
+            try:
+                p = tmp_path if sfx == '' else f"{base_tmp}{sfx}"
+                if os.path.exists(p):
+                    os.unlink(p)
+            except OSError:
+                pass
+
+        if not result:
+            return Response({'error': 'Không thể đọc phiếu. Hãy chụp rõ hơn.'}, status=400)
+
+        p1_ans = result.get('part1', {})
+        p2_ans = result.get('part2', {})
+        p3_ans = result.get('part3', {})
+        made = result.get('made', '')
+
+        p1 = {}
+        for q, a in p1_ans.items():
+            if a and a not in ('', 'X'):
+                p1[str(q)] = a.upper()
+
+        p2 = {}
+        for q, opts in p2_ans.items():
+            if isinstance(opts, dict):
+                q_data = {}
+                for opt_key in ('a', 'b', 'c', 'd'):
+                    val = opts.get(opt_key, '')
+                    if val in ('Dung', 'Đ', 'ĐÚNG'):
+                        q_data[opt_key] = 'Đ'
+                    elif val in ('Sai', 'S', 'SAI'):
+                        q_data[opt_key] = 'S'
+                    elif val:
+                        q_data[opt_key] = val
+                if q_data:
+                    p2[str(q)] = q_data
+
+        p3 = {}
+        for q, a in p3_ans.items():
+            if a and str(a).strip():
+                p3[str(q)] = a
+
+        variant_code = made if made and '?' not in str(made) else '001'
+
+        data = {
+            'variants': [{
+                'code': str(variant_code),
+                'p1': p1, 'p2': p2, 'p3': p3,
+                'p1_count': len(p1), 'p2_count': len(p2), 'p3_count': len(p3),
+            }],
+            'part1Count': len(p1_ans),
+            'part2Count': len(p2_ans),
+            'part3Count': len(p3_ans),
+            'totalQuestions': len(p1_ans) + len(p2_ans) + len(p3_ans),
+            'variantCount': 1,
+            'source': 'image',
+        }
+        return Response({'success': True, 'data': data})
+
+    except Exception as e:
+        logger.exception('Error parsing answer image')
+        return Response({'error': f'Lỗi xử lý ảnh: {str(e)}'}, status=400)
+
+
+# =============================================================================
 # GRADING — Core endpoint for mobile app
 # =============================================================================
 

@@ -15,9 +15,12 @@ class ApiConfig {
   static const String me = '$apiPrefix/auth/me/';
   static const String dashboard = '$apiPrefix/dashboard/';
   static const String exams = '$apiPrefix/exams/';
+  static const String parseExcel = '$apiPrefix/parse-excel/';
+  static const String parseImage = '$apiPrefix/parse-image/';
   static const String grade = '$apiPrefix/grade/';
   static const String submissions = '$apiPrefix/submissions/';
 
   static String examDetail(int id) => '$apiPrefix/exams/$id/';
+  static String examDelete(int id) => '$apiPrefix/exams/$id/delete/';
   static String submissionDetail(int id) => '$apiPrefix/submissions/$id/';
 }

@@ -56,6 +56,49 @@ class ApiService {
     throw Exception('Failed to load exam detail: ${response.statusCode}');
   }
 
+  // ─── Exam Delete ───────────────────────────────────────────────────
+
+  Future<void> deleteExam(int examId) async {
+    final response = await http.delete(
+      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.examDelete(examId)}'),
+      headers: _headers,
+    );
+    if (response.statusCode != 200) {
+      final data = json.decode(response.body);
+      throw Exception(data['error'] ?? 'Xóa đề thi thất bại');
+    }
+  }
+
+  // ─── Parse Excel / Image ──────────────────────────────────────────
+
+  Future<Map<String, dynamic>> parseExcelFile(Uint8List bytes, String fileName) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.parseExcel}');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Authorization'] = 'Token $token';
+    request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+    final streamed = await request.send();
+    final body = await streamed.stream.bytesToString();
+    final data = json.decode(body);
+    if (streamed.statusCode == 200 && data['success'] == true) {
+      return data['data'];
+    }
+    throw Exception(data['error'] ?? 'Lỗi phân tích file');
+  }
+
+  Future<Map<String, dynamic>> parseImageFile(Uint8List bytes, String fileName) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.parseImage}');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['Authorization'] = 'Token $token';
+    request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: fileName));
+    final streamed = await request.send();
+    final body = await streamed.stream.bytesToString();
+    final data = json.decode(body);
+    if (streamed.statusCode == 200 && data['success'] == true) {
+      return data['data'];
+    }
+    throw Exception(data['error'] ?? 'Lỗi phân tích ảnh');
+  }
+
   // ─── Exam Create ───────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> createExam({
