@@ -34,6 +34,48 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Register new account.
+  Future<String?> register(String email, String password, String firstName, String lastName) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.register}'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'password': password,
+          'first_name': firstName,
+          'last_name': lastName,
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if ((response.statusCode == 200 || response.statusCode == 201) && data['token'] != null) {
+        _token = data['token'];
+        _user = data['user'];
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('auth_token', _token!);
+        await prefs.setString('auth_user', json.encode(_user));
+
+        _isLoading = false;
+        notifyListeners();
+        return null; // success
+      } else {
+        _isLoading = false;
+        notifyListeners();
+        return data['error'] ?? 'Đăng ký thất bại';
+      }
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return 'Không thể kết nối server.';
+    }
+  }
+
   /// Login with email + password.
   Future<String?> login(String email, String password) async {
     _isLoading = true;

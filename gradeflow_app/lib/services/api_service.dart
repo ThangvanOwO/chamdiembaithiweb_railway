@@ -56,6 +56,33 @@ class ApiService {
     throw Exception('Failed to load exam detail: ${response.statusCode}');
   }
 
+  // ─── Exam Create ───────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> createExam({
+    required String title,
+    String subject = '',
+    String templateCode = '',
+    List<int> parts = const [24, 4, 0],
+    List<Map<String, dynamic>> variants = const [],
+  }) async {
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.exams}'),
+      headers: _headers,
+      body: json.encode({
+        'title': title,
+        'subject': subject,
+        'template_code': templateCode,
+        'parts': parts,
+        'variants': variants,
+      }),
+    );
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      return json.decode(response.body);
+    }
+    final data = json.decode(response.body);
+    throw Exception(data['error'] ?? 'Tạo đề thi thất bại: ${response.statusCode}');
+  }
+
   // ─── Grading (Core) ─────────────────────────────────────────────────
 
   /// Send image to API for grading.

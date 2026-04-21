@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../config/theme.dart';
 import '../services/auth_service.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -206,6 +207,29 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ],
                               ),
                       ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('Chưa có tài khoản? ',
+                            style: GoogleFonts.dmSans(
+                                fontSize: 14,
+                                color: GradeFlowTheme.onSurfaceVariant)),
+                        GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const RegisterScreen()),
+                          ),
+                          child: Text('Đăng ký',
+                              style: GoogleFonts.dmSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: GradeFlowTheme.primary)),
+                        ),
+                      ],
                     ),
                   ],
                 ),

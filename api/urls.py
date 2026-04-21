@@ -8,6 +8,7 @@ app_name = 'api'
 
 urlpatterns = [
     # Auth
+    path('v1/auth/register/', views.register_api, name='register'),
     path('v1/auth/login/', views.login_api, name='login'),
     path('v1/auth/logout/', views.logout_api, name='logout'),
     path('v1/auth/me/', views.me_api, name='me'),

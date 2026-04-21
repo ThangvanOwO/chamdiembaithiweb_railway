@@ -9,6 +9,7 @@ class ApiConfig {
   static const String apiPrefix = '/api/v1';
 
   // Endpoints
+  static const String register = '$apiPrefix/auth/register/';
   static const String login = '$apiPrefix/auth/login/';
   static const String logout = '$apiPrefix/auth/logout/';
   static const String me = '$apiPrefix/auth/me/';

@@ -7,6 +7,7 @@ import '../config/theme.dart';
 import '../models/submission.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import 'submission_detail_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -95,9 +96,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
+          child: InkWell(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SubmissionDetailScreen(submissionId: sub.id),
+              ),
+            ),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
               children: [
                 // Score
                 Container(
@@ -164,6 +173,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
               ],
+            ),
             ),
           ),
         );

@@ -9,6 +9,7 @@ import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import 'scan_screen.dart';
 import 'results_screen.dart';
+import 'exam_create_screen.dart';
 
 class ExamsScreen extends StatefulWidget {
   const ExamsScreen({super.key});
@@ -60,6 +61,14 @@ class _ExamsScreenState extends State<ExamsScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createExam,
+        icon: const Icon(LucideIcons.plus, size: 20),
+        label: Text('Tạo đề thi',
+            style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+        backgroundColor: GradeFlowTheme.primary,
+        foregroundColor: Colors.white,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -105,9 +114,15 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 style: GoogleFonts.manrope(
                     fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
-            Text('Tạo bài thi trên web để bắt đầu chấm điểm.',
+            Text('Tạo bài thi để bắt đầu chấm điểm.',
                 style: GoogleFonts.dmSans(
                     fontSize: 14, color: GradeFlowTheme.onSurfaceVariant)),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _createExam,
+              icon: const Icon(LucideIcons.plus, size: 18),
+              label: const Text('Tạo đề thi'),
+            ),
           ],
         ),
       );
@@ -131,6 +146,14 @@ class _ExamsScreenState extends State<ExamsScreen> {
         builder: (_) => ScanScreen(preselectedExam: exam),
       ),
     );
+  }
+
+  void _createExam() async {
+    final created = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const ExamCreateScreen()),
+    );
+    if (created == true) _loadExams();
   }
 
   void _navigateToResults(Exam exam) {
