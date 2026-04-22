@@ -12,6 +12,8 @@ import 'package:image_picker/image_picker.dart';
 import '../config/theme.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../services/coach_mark_service.dart';
+import '../services/tutorial_flow.dart';
 
 class ExamImportScreen extends StatefulWidget {
   const ExamImportScreen({super.key});
@@ -41,10 +43,46 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
   // Document scanner
   DocumentScanner? _documentScanner;
 
+  // Coach mark targets (flow step 3)
+  final GlobalKey _dropZoneKey = GlobalKey();
+  final GlobalKey _scanBtnKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
     _titleCtrl.addListener(_onTitleChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowStep3());
+  }
+
+  Future<void> _maybeShowStep3() async {
+    if (TutorialFlow.instance.step.value != TutorialFlow.stepImportScreen) {
+      return;
+    }
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    await CoachMarkService.show(
+      context: context,
+      screenKey: 'flow_step3_import_options',
+      force: true,
+      targets: [
+        CoachMarkService.buildTarget(
+          identify: 'drop_zone',
+          key: _dropZoneKey,
+          title: 'Bước 3a: Tải file Excel',
+          description:
+              'Nếu bạn có file Excel chứa đáp án, thả vào đây (hoặc nhấn để chọn).',
+          align: ContentAlign.bottom,
+        ),
+        CoachMarkService.buildTarget(
+          identify: 'scan_sheet',
+          key: _scanBtnKey,
+          title: 'Bước 3b: Quét phiếu thi',
+          description:
+              'Hoặc dùng camera để quét trực tiếp phiếu đáp án mẫu đã tô sẵn.',
+          align: ContentAlign.top,
+        ),
+      ],
+    );
   }
 
   void _onTitleChanged() {
@@ -258,6 +296,7 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
         GestureDetector(
           onTap: _uploading ? null : _pickExcelFile,
           child: Container(
+            key: _dropZoneKey,
             padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
             decoration: BoxDecoration(
               color: _uploadError != null
@@ -353,6 +392,7 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
         // Scan button — uses Google ML Kit Document Scanner
         Center(
           child: ElevatedButton.icon(
+            key: _scanBtnKey,
             onPressed: _uploading ? null : _scanAnswerSheet,
             icon: const Icon(LucideIcons.scan, size: 20),
             label: Text('Quét phiếu thi',

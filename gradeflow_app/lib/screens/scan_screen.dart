@@ -14,6 +14,7 @@ import '../models/grade_result.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/coach_mark_service.dart';
+import '../services/tutorial_flow.dart';
 import '../services/training_uploader.dart';
 import 'grade_result_screen.dart';
 import 'batch_scan_screen.dart';
@@ -45,26 +46,39 @@ class _ScanScreenState extends State<ScanScreen> {
   final GlobalKey _scanKey = GlobalKey();
   final GlobalKey _pickersKey = GlobalKey();
 
+  VoidCallback? _flowListener;
+
   @override
   void initState() {
     super.initState();
     _selectedExam = widget.preselectedExam;
     _loadExams();
-    // Show coach marks on first visit after first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowCoachMarks());
+    _flowListener = _onFlowStepChanged;
+    TutorialFlow.instance.step.addListener(_flowListener!);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onFlowStepChanged());
+  }
+
+  void _onFlowStepChanged() {
+    if (!mounted) return;
+    if (TutorialFlow.instance.step.value == TutorialFlow.stepScanScreen) {
+      _maybeShowCoachMarks();
+    }
   }
 
   Future<void> _maybeShowCoachMarks() async {
-    await Future.delayed(const Duration(milliseconds: 400));
+    await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
+    if (TutorialFlow.instance.step.value != TutorialFlow.stepScanScreen) return;
     await CoachMarkService.show(
       context: context,
-      screenKey: 'scan_screen',
+      screenKey: 'flow_step5_scan_screen',
+      force: true,
+      onFinish: () => TutorialFlow.instance.finish(),
       targets: [
         CoachMarkService.buildTarget(
           identify: 'exam',
           key: _examKey,
-          title: 'Bước 1: Chọn đề thi',
+          title: 'Bước 5a: Chọn đề thi',
           description:
               'Chọn đề thi tương ứng với phiếu bạn sắp quét. Nếu chưa chọn, hệ thống chỉ quét không chấm.',
           align: ContentAlign.bottom,
@@ -72,7 +86,7 @@ class _ScanScreenState extends State<ScanScreen> {
         CoachMarkService.buildTarget(
           identify: 'scan',
           key: _scanKey,
-          title: 'Bước 2: Quét phiếu',
+          title: 'Bước 5b: Quét phiếu',
           description:
               'Nhấn để mở Google ML Kit Scanner. Đưa camera vào phiếu, hệ thống tự cắt viền và nắn thẳng.',
           align: ContentAlign.bottom,
@@ -91,6 +105,9 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   void dispose() {
+    if (_flowListener != null) {
+      TutorialFlow.instance.step.removeListener(_flowListener!);
+    }
     _documentScanner?.close();
     super.dispose();
   }

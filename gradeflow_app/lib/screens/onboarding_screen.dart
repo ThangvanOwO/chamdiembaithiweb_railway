@@ -5,6 +5,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/theme.dart';
+import '../services/tutorial_flow.dart';
 
 /// Onboarding screens shown on first launch.
 /// After completion, stores `has_seen_onboarding = true` in SharedPreferences.
@@ -29,6 +30,7 @@ class OnboardingScreen extends StatelessWidget {
   Future<void> _complete() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefsKey, true);
+    await TutorialFlow.instance.restart();
     onDone();
   }
 

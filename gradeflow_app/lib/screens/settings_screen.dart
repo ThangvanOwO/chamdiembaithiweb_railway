@@ -7,6 +7,7 @@ import '../config/theme.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/coach_mark_service.dart';
+import '../services/tutorial_flow.dart';
 import 'onboarding_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -159,6 +160,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _replayTutorial() async {
     await OnboardingScreen.reset();
     await CoachMarkService.resetAll();
+    await TutorialFlow.instance.restart();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -8,6 +8,7 @@ import '../models/exam.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/coach_mark_service.dart';
+import '../services/tutorial_flow.dart';
 import 'scan_screen.dart';
 import 'results_screen.dart';
 import 'exam_create_screen.dart';
@@ -28,34 +29,51 @@ class _ExamsScreenState extends State<ExamsScreen> {
   final GlobalKey _importBtnKey = GlobalKey();
   final GlobalKey _manualBtnKey = GlobalKey();
 
+  VoidCallback? _flowListener;
+
   @override
   void initState() {
     super.initState();
     _loadExams();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowCoachMarks());
+    _flowListener = _onFlowStepChanged;
+    TutorialFlow.instance.step.addListener(_flowListener!);
+    // Initial check (in case we are built after step was set).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onFlowStepChanged());
   }
 
-  Future<void> _maybeShowCoachMarks() async {
-    await Future.delayed(const Duration(milliseconds: 500));
+  @override
+  void dispose() {
+    if (_flowListener != null) {
+      TutorialFlow.instance.step.removeListener(_flowListener!);
+    }
+    super.dispose();
+  }
+
+  void _onFlowStepChanged() {
     if (!mounted) return;
+    if (TutorialFlow.instance.step.value == TutorialFlow.stepClickImport) {
+      _showStep2CoachMark();
+    }
+  }
+
+  Future<void> _showStep2CoachMark() async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    // Still on right step?
+    if (TutorialFlow.instance.step.value != TutorialFlow.stepClickImport) {
+      return;
+    }
     await CoachMarkService.show(
       context: context,
-      screenKey: 'exams_screen',
+      screenKey: 'flow_step2_import_btn',
+      force: true,
       targets: [
         CoachMarkService.buildTarget(
           identify: 'import',
           key: _importBtnKey,
-          title: 'Tạo đề từ file',
+          title: 'Bước 2: Tạo đề từ file',
           description:
-              'Import nhanh từ file Excel (.xlsx) chứa đáp án, hoặc quét ảnh phiếu đáp án mẫu để tạo đề.',
-          align: ContentAlign.bottom,
-        ),
-        CoachMarkService.buildTarget(
-          identify: 'manual',
-          key: _manualBtnKey,
-          title: 'Tạo thủ công',
-          description:
-              'Tự nhập thông tin đề thi và đáp án theo 3 bước: thông tin, chọn mẫu phiếu, nhập đáp án.',
+              'Nhấn vào đây để tạo đề thi nhanh từ file Excel đáp án hoặc ảnh phiếu mẫu.',
           align: ContentAlign.bottom,
         ),
       ],
@@ -117,11 +135,20 @@ class _ExamsScreenState extends State<ExamsScreen> {
   }
 
   void _importFromFile() async {
+    // Advance tutorial step 2 → 3 on entering import screen
+    await TutorialFlow.instance
+        .advanceIf(TutorialFlow.stepClickImport, TutorialFlow.stepImportScreen);
+
     final created = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => const ExamImportScreen()),
     );
     if (created == true) _loadExams();
+
+    // When user returns (regardless of whether exam was created), advance
+    // step 3 → 4 so that MainShell shows the "Chấm điểm" hint.
+    await TutorialFlow.instance
+        .advanceIf(TutorialFlow.stepImportScreen, TutorialFlow.stepClickChamDiem);
   }
 
   void _createManual() async {
