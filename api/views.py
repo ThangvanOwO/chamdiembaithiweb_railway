@@ -1122,3 +1122,43 @@ def _safe_json_loads(s):
         return _j.loads(s) if s else None
     except Exception:
         return None
+
+
+# =============================================================================
+# ADMIN — Users management
+# =============================================================================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def admin_users_api(request):
+    """
+    GET /api/v1/admin/users/
+    Admin-only. Danh sách tất cả user + số đề thi mỗi người tạo.
+    """
+    if not request.user.is_superuser:
+        return Response({'error': 'Chỉ admin mới xem được.'}, status=403)
+
+    from django.contrib.auth.models import User
+
+    users = User.objects.all().order_by('-date_joined')
+    result = []
+    for u in users:
+        exam_count = Exam.objects.filter(teacher=u).count()
+        submission_count = Submission.objects.filter(teacher=u).count()
+        result.append({
+            'id': u.id,
+            'username': u.username,
+            'email': u.email,
+            'full_name': f"{u.first_name} {u.last_name}".strip() or u.username,
+            'is_admin': u.is_superuser,
+            'is_active': u.is_active,
+            'date_joined': u.date_joined.isoformat(),
+            'last_login': u.last_login.isoformat() if u.last_login else None,
+            'exam_count': exam_count,
+            'submission_count': submission_count,
+        })
+
+    return Response({
+        'total': len(result),
+        'users': result,
+    })

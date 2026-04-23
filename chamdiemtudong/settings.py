@@ -276,6 +276,8 @@ LOGGING = {
     'loggers': {
         'allauth': {'handlers': ['console'], 'level': 'DEBUG'},
         'django.request': {'handlers': ['console'], 'level': 'DEBUG'},
+        'grading.engine.hi': {'handlers': ['console'], 'level': 'WARNING'},
+        'grading': {'handlers': ['console'], 'level': 'INFO'},
     },
 }
 

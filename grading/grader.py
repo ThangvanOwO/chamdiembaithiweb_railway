@@ -227,8 +227,12 @@ def compute_weighted_score(result, scoring_config, correct_answers=None):
         if max_score == 0:
             max_score = raw_weighted  # Last fallback
 
-    # Apply scale factor if configured (quy về thang 10)
-    scale_factor = scoring_config.get('scale_factor', 1.0) or 1.0
+    # Apply scale factor — tự quy về thang 10 nếu chưa cấu hình
+    scale_factor = scoring_config.get('scale_factor', None)
+    if scale_factor is None and max_score > 0 and max_score != 10:
+        scale_factor = round(10.0 / max_score, 6)
+    elif scale_factor is None:
+        scale_factor = 1.0
     weighted = round(raw_weighted * scale_factor, 2)
     p1_score_scaled = round(p1_score * scale_factor, 2)
     p2_score_scaled = round(p2_score * scale_factor, 2)
@@ -236,7 +240,7 @@ def compute_weighted_score(result, scoring_config, correct_answers=None):
 
     return {
         'weighted_score': weighted,
-        'max_score': round(max_score, 2),
+        'max_score': round(max_score * scale_factor, 2),
         'p1_score': p1_score_scaled,
         'p2_score': p2_score_scaled,
         'p3_score': p3_score_scaled,

@@ -44,4 +44,7 @@ urlpatterns = [
     path('v1/training/upload/', views.training_upload_api, name='training_upload'),
     path('v1/training/stats/', views.training_stats_api, name='training_stats'),
     path('v1/training/download/', views.training_download_api, name='training_download'),
+
+    # Admin
+    path('v1/admin/users/', views.admin_users_api, name='admin_users'),
 ]

@@ -48,6 +48,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
   VoidCallback? _flowListener;
   VoidCallback? _tabListener;
+  bool _showingCoachMark = false;
 
   @override
   void initState() {
@@ -78,16 +79,22 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   Future<void> _maybeShowCoachMarks() async {
+    // Prevent duplicate overlays
+    if (_showingCoachMark) return;
     await Future.delayed(const Duration(milliseconds: 500));
     if (!mounted) return;
     // Gate: must be on the Scan tab AND right step.
     if (TutorialFlow.instance.activeTabIndex.value != 2) return;
     if (TutorialFlow.instance.step.value != TutorialFlow.stepScanScreen) return;
+    _showingCoachMark = true;
     await CoachMarkService.show(
       context: context,
       screenKey: 'flow_step5_scan_screen',
       force: true,
-      onFinish: () => TutorialFlow.instance.finish(),
+      onFinish: () {
+        _showingCoachMark = false;
+        TutorialFlow.instance.finish();
+      },
       targets: [
         CoachMarkService.buildTarget(
           identify: 'exam',
@@ -115,6 +122,7 @@ class _ScanScreenState extends State<ScanScreen> {
         ),
       ],
     );
+    _showingCoachMark = false;
   }
 
   @override

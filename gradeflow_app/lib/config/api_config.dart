@@ -26,6 +26,9 @@ class ApiConfig {
   static const String trainingStats = '$apiPrefix/training/stats/';
   static const String trainingDownload = '$apiPrefix/training/download/';
 
+  // Admin
+  static const String adminUsers = '$apiPrefix/admin/users/';
+
   static String examDetail(int id) => '$apiPrefix/exams/$id/';
   static String examDelete(int id) => '$apiPrefix/exams/$id/delete/';
   static String submissionDetail(int id) => '$apiPrefix/submissions/$id/';

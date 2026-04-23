@@ -306,6 +306,22 @@ class ApiService {
     throw Exception('Failed to load submissions: ${response.statusCode}');
   }
 
+  // ─── Admin ──────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getAdminUsers() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}${ApiConfig.adminUsers}'),
+      headers: _headers,
+    );
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(json.decode(response.body));
+    }
+    if (response.statusCode == 403) {
+      throw Exception('Chỉ admin mới xem được.');
+    }
+    throw Exception('Failed to load users: ${response.statusCode}');
+  }
+
   Future<Map<String, dynamic>> getSubmissionDetail(int id) async {
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}${ApiConfig.submissionDetail(id)}'),

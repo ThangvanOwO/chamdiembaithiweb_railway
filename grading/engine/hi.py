@@ -21,9 +21,12 @@ import cv2
 import numpy as np
 import os
 import json
+import logging
 from datetime import datetime
 from PIL import Image, ExifTags
 from skimage import exposure
+
+logger = logging.getLogger(__name__)
 
 # ╔════════════════════════════════════════════════════════════════════════╗
 # ║                        CẤU HÌNH CHUNG                               ║
@@ -2196,7 +2199,19 @@ def extract_part1(cleaned_img, y_offset=0):
                 ratios[choice] = round(score, 3)
 
             details[q] = ratios
-            answers[q] = _pick_answer(_detect_filled_choices(ratios))
+            filled_choices = _detect_filled_choices(ratios)
+            ans = _pick_answer(filled_choices)
+            answers[q] = ans
+
+            # Debug: log fill ratios cho câu bị blank hoặc tất cả câu
+            if ans in ("", "X"):
+                logger.warning(
+                    f"P1 Q{q} BLANK: ratios={ratios}  "
+                    f"max={max(ratios.values()):.3f}  "
+                    f"threshold={FILL_THRESHOLD}"
+                )
+            else:
+                logger.debug(f"P1 Q{q}={ans}: ratios={ratios}")
 
     return answers, details
 
