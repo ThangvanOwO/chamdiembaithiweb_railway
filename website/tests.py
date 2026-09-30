@@ -67,6 +67,7 @@ class PublicWebsiteTests(SimpleTestCase):
         self.assertContains(response, "mailto:zephuyaa@gmail.com?subject=")
         self.assertContains(response, "Không cần đăng nhập")
         self.assertContains(response, "Dữ liệu được xóa hoặc giữ lại")
+        self.assertEqual(response["Cache-Control"], "no-store, no-transform")
         self.assertNotContains(response, "adsbygoogle.js")
         self.assertNotContains(response, "<script")
         self.assertContains(self.client.get(reverse("website:privacy")),

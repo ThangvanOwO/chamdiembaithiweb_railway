@@ -29,7 +29,8 @@ def public_response(view):
             response = HttpResponseNotFound("The Android download is currently unavailable.")
         response["Permissions-Policy"] = "camera=(), microphone=()"
         response["X-Content-Type-Options"] = "nosniff"
-        response["Cache-Control"] = "no-store"
+        if "Cache-Control" not in response:
+            response["Cache-Control"] = "no-store"
         return response
     return wrapped
 
@@ -110,7 +111,10 @@ def privacy(request):
 @public_response
 @require_safe
 def account_deletion(request):
-    return render(request, "website/account_deletion.html", _page_context("account_deletion"))
+    response = render(request, "website/account_deletion.html", _page_context("account_deletion"))
+    # Cloudflare must leave the contact address visible to users and Play's crawler.
+    response["Cache-Control"] = "no-store, no-transform"
+    return response
 
 
 @public_response
