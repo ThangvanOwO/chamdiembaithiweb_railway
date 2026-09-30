@@ -56,6 +56,41 @@ người quét, thời gian chờ khóa tăng theo tải; ưu tiên độ chính
 Kết quả đầy đủ trên máy anh ở `tests/test_ketqua/vps_cpu_20261001/` gồm
 `optimized_report.json`, `stress_report.json`, `api_report.json`.
 
+## Sau khi triển khai lên website
+
+Đã push commit `d304ed7`, build và bật cờ trên VPS thật. DB/web/proxy healthy,
+`manage.py check` đạt, trang chủ/đăng ký/ads.txt trả HTTP 200. Không cần APK mới
+cho app đang gửi `live_capture_v3`, `fast=1` và tọa độ 4 góc.
+
+Đo từ Windows qua HTTPS/Cloudflare, tài khoản thường tạm thời, xác thực Token,
+PostgreSQL và tính tín dụng thật, không mock:
+
+| Phép đo | Kết quả |
+|---|---:|
+| 8 lượt tuần tự, mỗi lượt kết nối mới, gồm truyền cả ảnh | trung bình 1,797 s; 1,564–2,195 s |
+| Lượt đo cuối: 4 ảnh tuần tự | trung bình 1,705 s; 1,564–1,824 s |
+| Một lượt `save=true`, ghi bài nộp và ảnh vào storage | 1,784 s; xử lý ảnh 0,49 s |
+| Hai request đồng thời, 2 lần thử | 1,545–2,888 s/request, có thời gian chờ khóa |
+| Import đáp án từ camera, subprocess riêng khởi động mỗi lượt | 2,318 và 3,597 s |
+
+8 lượt tuần tự có 7 lượt trong khoảng 1–2 s; không suy rộng tỷ lệ này ra mọi
+lượt quét. Chụp/chuẩn bị ảnh và vẽ UI trên điện thoại chưa nằm trong phép đo.
+Import có thời gian khởi động tiến trình riêng nên chưa đạt 1–2 s ở hai lượt
+này. Upload legacy vẫn dùng tiền xử lý cũ và không được tính vào kết quả Live.
+
+Nhận diện và điểm Live khớp engine cũ sau khi áp dụng hàm quy thang 10 hiện
+có của API; import khớp P1/P2/P3. Hai lượt gửi lại cùng Idempotency-Key trả
+đúng phản hồi cũ, không tạo thêm giao dịch/trừ điểm. 14 lượt quét thành công
+thực tế tạo đúng 14 giao dịch tính điểm; import không tính điểm. Đã xóa hai
+tài khoản thử, token, đề tổng hợp, bài nộp/ảnh và giao dịch riêng của chúng.
+Không dùng tài khoản hoặc tín dụng người dùng có sẵn.
+
+Report HTTPS cuối ở `public_https_final/report.json`, lượt lưu bài ở
+`public_saved_report.json`, import ở `public_import_report.json` trong thư mục
+kết quả trên. Lượt đo đầu so score raw engine với score quy thang 10 API làm
+harness báo khác score; đã sửa phép so sang cùng thang điểm và xác minh lại.
+Không thay hàm chấm điểm để làm phép thử đạt.
+
 ## Đo lại
 
 Manifest JSON gồm `name`, `image`, `corners`, hoặc `pre_warped: true`.
