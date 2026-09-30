@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../config/api_config.dart';
 import '../services/ad_service.dart';
 import '../services/auth_service.dart';
@@ -65,6 +66,27 @@ class ProfileScreen extends StatelessWidget {
                             },
                     )
                   : const SizedBox.shrink(),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_remove_outlined),
+              title: const Text('Yêu cầu xóa tài khoản'),
+              subtitle: const Text('Mở trang hướng dẫn và gửi yêu cầu'),
+              trailing: const Icon(Icons.open_in_new),
+              onTap: () async {
+                final url = Uri.parse(
+                    '${ApiConfig.defaultBaseUrl}/xoa-tai-khoan/');
+                bool opened = false;
+                try {
+                  opened = await launchUrl(url,
+                      mode: LaunchMode.externalApplication);
+                } catch (_) {
+                  // Report the same actionable error as when no browser is available.
+                }
+                if (!opened && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Không thể mở trang xóa tài khoản.')));
+                }
+              },
             ),
             ExpansionTile(
               leading: const Icon(Icons.info_outline),

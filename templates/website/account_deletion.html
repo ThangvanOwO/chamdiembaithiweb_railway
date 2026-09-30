@@ -1,0 +1,38 @@
+{% extends 'website/base.html' %}
+{% block title %}Yêu cầu xóa tài khoản{% endblock %}
+{% block content %}
+<div class="wrap">
+  <header class="page-intro">
+    <p class="eyebrow">QUYỀN KIỂM SOÁT DỮ LIỆU</p>
+    <h1>Yêu cầu xóa tài khoản GradeFlow</h1>
+    <p class="lead">Bạn có thể yêu cầu xóa tài khoản GradeFlow – Chấm Trắc Nghiệm và dữ liệu liên quan, kể cả khi đã gỡ ứng dụng khỏi điện thoại. Không cần đăng nhập để bắt đầu.</p>
+  </header>
+
+  <div class="guide-layout">
+    <nav class="guide-nav" aria-label="Các bước yêu cầu xóa tài khoản">
+      <strong>TRÊN TRANG NÀY</strong>
+      <a href="#gui-yeu-cau">01 · Gửi yêu cầu</a>
+      <a href="#xu-ly">02 · Xác minh và xử lý</a>
+      <a href="#du-lieu">03 · Dữ liệu được xóa hoặc giữ lại</a>
+    </nav>
+    <div>
+      <section class="guide-section" id="gui-yeu-cau">
+        <h2>01 / Gửi yêu cầu xóa</h2>
+        <p>Gửi email tới <a href="mailto:zephuyaa@gmail.com?subject=GradeFlow%20-%20Yeu%20cau%20xoa%20tai%20khoan">zephuyaa@gmail.com</a> với tiêu đề <strong>GradeFlow - Yêu cầu xóa tài khoản</strong>. Trong email, ghi địa chỉ email dùng để đăng ký GradeFlow và xác nhận bạn muốn xóa tài khoản cùng dữ liệu liên quan.</p>
+        <p>Nên gửi từ chính địa chỉ email đã đăng ký. Nếu bạn không còn truy cập địa chỉ đó, hãy mô tả tình huống để bên vận hành hướng dẫn cách xác minh khác. Không gửi mật khẩu, mã đăng nhập hoặc ảnh phiếu học sinh trong yêu cầu ban đầu.</p>
+        <div class="actions"><a class="button" href="mailto:zephuyaa@gmail.com?subject=GradeFlow%20-%20Yeu%20cau%20xoa%20tai%20khoan">Gửi email yêu cầu xóa <span aria-hidden="true">↗</span></a></div>
+      </section>
+      <section class="guide-section" id="xu-ly">
+        <h2>02 / Xác minh và xử lý</h2>
+        <p>Bên vận hành sẽ xác minh bạn là chủ tài khoản trước khi xóa. Sau khi xác minh, chúng tôi xử lý yêu cầu và phản hồi qua email về việc xóa đã hoàn tất hoặc giải thích phần dữ liệu phải giữ lại. Việc gỡ ứng dụng hoặc đăng xuất không tự xóa tài khoản trên máy chủ.</p>
+      </section>
+      <section class="guide-section" id="du-lieu">
+        <h2>03 / Dữ liệu được xóa hoặc giữ lại</h2>
+        <p>Yêu cầu xóa tài khoản bao gồm hồ sơ đăng nhập, đề thi, đáp án, ảnh phiếu và file đã tải lên, bài chấm và kết quả gắn với tài khoản. Nếu bạn từng tự nguyện đóng góp ảnh huấn luyện, hãy nêu rõ để chúng tôi đối chiếu và xử lý các mẫu có thể xác định thuộc tài khoản của bạn.</p>
+        <p>Một số bản ghi tối thiểu phục vụ bảo mật, chống gian lận, đối soát tín dụng hoặc nghĩa vụ pháp lý có thể phải được giữ lại trong thời gian cần thiết. Bản sao lưu có thể còn tồn tại đến khi hết chu kỳ lưu giữ. Chúng tôi sẽ nêu phạm vi và thời gian giữ lại cụ thể khi phản hồi yêu cầu của bạn.</p>
+        <p>Để chỉ yêu cầu xóa một phần dữ liệu mà vẫn giữ tài khoản, hãy ghi rõ dữ liệu cần xóa trong email. Xem thêm <a href="{% url 'website:privacy' %}#quyen">chính sách bảo mật GradeFlow</a>.</p>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -13,6 +13,7 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("huong-dan/", views.guide, name="guide"),
     path("chinh-sach-bao-mat/", views.privacy, name="privacy"),
+    path("xoa-tai-khoan/", views.account_deletion, name="account_deletion"),
     path("tai-ung-dung/", views.download, name="download"),
     path("downloads/gradeflow.apk", views.apk_download, name="apk_download"),
 ]

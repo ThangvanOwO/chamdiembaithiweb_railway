@@ -109,6 +109,12 @@ def privacy(request):
 
 @public_response
 @require_safe
+def account_deletion(request):
+    return render(request, "website/account_deletion.html", _page_context("account_deletion"))
+
+
+@public_response
+@require_safe
 def download(request):
     return render(request, "website/download.html", _page_context("download"))
 

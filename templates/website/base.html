@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#173447">
     <meta name="description" content="GradeFlow dành cho giáo viên: tạo đề từ Excel hoặc ảnh đáp án, chấm bài từ ảnh trên web và quét Live Camera bằng ứng dụng Android.">
     <title>{% block title %}Chấm bài gọn hơn, dành thời gian cho học trò{% endblock %} — GradeFlow</title>
-    {% if active_page != 'privacy' %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6695808615282253"
+    {% if active_page != 'privacy' and active_page != 'account_deletion' %}<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6695808615282253"
             crossorigin="anonymous"></script>{% endif %}
     <link rel="icon" href="{% static 'img/gradeflow_logo.png' %}" type="image/png">
     <link rel="stylesheet" href="{% static 'css/website.css' %}?v=1">
@@ -28,10 +28,10 @@
 </header>
 <main id="main">{% block content %}{% endblock %}</main>
 <footer class="site-footer">
-    <div class="wrap footer-row"><div><a class="brand" href="{% url 'website:home' %}">GradeFlow<span class="brand-dot" aria-hidden="true"></span></a><p>Công cụ hỗ trợ chấm bài. Giáo viên luôn là người xác nhận kết quả.</p></div><nav aria-label="Liên kết cuối trang"><a href="{% url 'website:guide' %}">Hướng dẫn</a><a href="{% url 'website:download' %}">Tải APK</a><a href="{% url 'website:privacy' %}">Chính sách bảo mật</a><a href="{% url 'dashboard:index' %}">Không gian giáo viên</a></nav></div>
+    <div class="wrap footer-row"><div><a class="brand" href="{% url 'website:home' %}">GradeFlow<span class="brand-dot" aria-hidden="true"></span></a><p>Công cụ hỗ trợ chấm bài. Giáo viên luôn là người xác nhận kết quả.</p></div><nav aria-label="Liên kết cuối trang"><a href="{% url 'website:guide' %}">Hướng dẫn</a><a href="{% url 'website:download' %}">Tải APK</a><a href="{% url 'website:privacy' %}">Chính sách bảo mật</a><a href="{% url 'website:account_deletion' %}">Xóa tài khoản</a><a href="{% url 'dashboard:index' %}">Không gian giáo viên</a></nav></div>
     <div class="wrap footer-bottom">© {% now "Y" %} GradeFlow <span>Web để quản lý & tải file · Android để quét Live Camera</span></div>
 </footer>
-{% if active_page != 'privacy' %}<script>
+{% if active_page != 'privacy' and active_page != 'account_deletion' %}<script>
 // Refresh older app-shell workers when a returning user visits the new website.
 if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistration('/').then(function (registration) { if (registration) registration.update(); }).catch(function () {});
 </script>{% endif %}

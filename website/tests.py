@@ -24,12 +24,13 @@ TEST_STORAGES = {
 }
 
 
-@override_settings(STORAGES=TEST_STORAGES)
+@override_settings(STORAGES=TEST_STORAGES, SECURE_SSL_REDIRECT=False)
 class PublicWebsiteTests(SimpleTestCase):
     pages = (
         ("home", "/", "website/home.html"),
         ("guide", "/huong-dan/", "website/guide.html"),
         ("privacy", "/chinh-sach-bao-mat/", "website/privacy.html"),
+        ("account_deletion", "/xoa-tai-khoan/", "website/account_deletion.html"),
         ("download", "/tai-ung-dung/", "website/download.html"),
     )
 
@@ -58,6 +59,18 @@ class PublicWebsiteTests(SimpleTestCase):
         home = self.client.get(reverse("website:home"))
         self.assertContains(home, 'href="/chinh-sach-bao-mat/"')
         self.assertContains(home, "adsbygoogle.js")
+
+    def test_account_deletion_has_public_request_path_and_no_ads(self):
+        response = self.client.get(reverse("website:account_deletion"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "GradeFlow – Chấm Trắc Nghiệm")
+        self.assertContains(response, "mailto:zephuyaa@gmail.com?subject=")
+        self.assertContains(response, "Không cần đăng nhập")
+        self.assertContains(response, "Dữ liệu được xóa hoặc giữ lại")
+        self.assertNotContains(response, "adsbygoogle.js")
+        self.assertNotContains(response, "<script")
+        self.assertContains(self.client.get(reverse("website:privacy")),
+                            'href="/xoa-tai-khoan/"')
 
     def setUp(self):
         temporary = TemporaryDirectory()
