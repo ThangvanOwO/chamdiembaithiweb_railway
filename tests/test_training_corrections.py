@@ -108,7 +108,10 @@ class TrainingCorrectionTests(TestCase):
         response = self.client.get(sample.image.url)
         self.assertEqual(response.status_code,200)
         self.assertIn('no-store',response['Cache-Control'])
-        response.close()
+        # Consume through TestClient's streaming wrapper, which disconnects
+        # close_old_connections while closing the response inside TestCase's
+        # enclosing transaction. Closing manually breaks PostgreSQL tests.
+        self.assertEqual(b''.join(response.streaming_content), self.png)
 
     def test_export_excludes_unreviewed_and_includes_raw_32px_labels(self):
         self.save()
