@@ -35,6 +35,7 @@ desktop.ini
 .env
 .env.*
 !.env.vps.example
+*.pem
 
 # Misc
 *.xlsx
