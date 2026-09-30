@@ -3,9 +3,13 @@
 param(
     [string]$VpsIp = '52.220.123.56',
     [string]$Key = "$env:USERPROFILE\.ssh\LightsailDefaultKey-ap-southeast-1.pem",
-    [string]$OutputDirectory = (Join-Path (Split-Path $PSScriptRoot -Parent) 'Traing')
+    [string]$OutputDirectory = ''
 )
 $ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
+    $trainingScriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $OutputDirectory = Join-Path (Split-Path -Parent $trainingScriptDirectory) 'Traing'
+}
 if (-not (Test-Path -LiteralPath $Key -PathType Leaf)) { throw "SSH key not found: $Key" }
 if ($VpsIp -notmatch '^[a-zA-Z0-9.-]+$') { throw 'Invalid VPS host.' }
 $outputRoot = [IO.Path]::GetFullPath($OutputDirectory)

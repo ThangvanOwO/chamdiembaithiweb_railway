@@ -7,7 +7,7 @@ Quy trình mới dùng ảnh gốc, cắt riêng câu đã chọn và lưu nhãn
 1. Quét phiếu và mở kết quả bằng tài khoản admin.
 2. Nhấn **Training AI · Chọn câu cần sửa**.
 3. Chọn phần, câu và ý a–d nếu là Phần II. Ý Phần II chưa đọc được sẽ được chọn trước. Với trường hợp anh gửi: chọn **Phần II → Câu 6 → Ý c**.
-4. Nhấn **Xem ảnh câu đã chọn**. Đối chiếu hai vòng tròn trên ảnh gốc; có thể phóng to. Nếu cắt lệch hoặc thiếu ô, quét lại và không xác nhận mẫu này.
+4. Nhấn **Xem ảnh câu đã chọn**. Đối chiếu hai vòng tròn trên ảnh gốc; có thể phóng to. Nếu cắt lệch hoặc thiếu ô, quét lại và không xác nhận mẫu này. Khi không căn được lưới, cả giao diện và backend đều chặn lưu.
 5. Chọn dấu tô thực tế: Đúng/Sai, cả hai, không tô hoặc không rõ. Phần I chọn A–D; Phần III xác nhận dấu âm, dấu phẩy và từng cột số, không lấy chữ viết tay.
 6. Xác nhận đã đối chiếu ảnh và nhãn; nhấn **Lưu mẫu câu này**. Chọn thêm câu khác nếu cần.
 7. Vào **Hồ sơ → Dữ liệu huấn luyện**, xem ảnh và từng nhãn, rồi duyệt hoặc loại. Chỉ mẫu đã duyệt được xuất.
@@ -42,7 +42,7 @@ Các API cũ giữ nguyên. Các API mới nằm dưới `/api/v1/training/corre
 - POST `preview/`: ảnh gốc, mã phiếu, phần/câu/ý, góc Live nếu có. Trả crop và token ký có hiệu lực 30 phút, gắn với admin hiện tại.
 - POST `save/`: token, toàn bộ nhãn vòng tròn và `confirmed: true`. Lưu hoặc cập nhật một câu; thay nhãn đưa mẫu về chờ duyệt.
 - GET danh sách: lọc pending/approved/rejected, phân trang 20 mẫu.
-- POST `<id>/review/`: duyệt/loại và xác nhận đã kiểm tra.
+- POST `<id>/review/`: duyệt/loại và xác nhận đã kiểm tra, gửi `revision` của nhãn đang xem. Mẫu đã bị sửa trong lúc mở màn hình trả HTTP 409 để tải lại.
 - GET `export/`: ZIP chỉ chứa mẫu đã duyệt.
 
 Ảnh được phục vụ qua private media có kiểm tra tài khoản. Preview không lưu nguyên phiếu trên server. Không thay đáp án bài thi, điểm, tín dụng hoặc ngưỡng OMR. Crop/align chỉ chạy khi mở Training AI, dùng cùng khóa bảo vệ trạng thái template của grader. Migration 0007 chỉ tạo bảng mới, không sửa dữ liệu cũ.
@@ -50,9 +50,9 @@ Các API cũ giữ nguyên. Các API mới nằm dưới `/api/v1/training/corre
 ## BUG FIX REPORT
 
 - **ROOT CAUSE**: Kho training cũ lưu nhãn máy tự đọc và không có chọn câu, nhãn xác nhận hay hàng chờ duyệt. Kết quả trống như 6c không trở thành ví dụ sửa lỗi có giám sát. Chỉ từ ảnh màn hình chưa đủ để xác định nguyên nhân OMR bỏ sót 6c.
-- **FILES CHANGED**: `grading/training_data.py`, `api/training_views.py`, model/migration TrainingCorrection, private media/admin, màn hình Flutter Training AI và quản trị, lệnh export và script sync. Các tệp lõi OMR và trọng số giữ nguyên.
+- **FILES CHANGED**: [Crop/dataset](<D:/chamtrac nghien v2/grading/training_data.py>), [API](<D:/chamtrac nghien v2/api/training_views.py>), [Training AI](<D:/chamtrac nghien v2/gradeflow_app/lib/screens/training_correction_screen.dart>), [admin](<D:/chamtrac nghien v2/gradeflow_app/lib/screens/admin_training_screen.dart>), [đồng bộ](<D:/chamtrac nghien v2/scripts/sync_training.ps1>); model/migration TrainingCorrection, private media/admin và lệnh export. Các tệp lõi OMR và trọng số giữ nguyên.
 - **CHANGES MADE**: Crop theo câu; nhãn tô/trống/bỏ qua; token ký; phân quyền; chống trùng; duyệt/loại; export có nhóm ảnh và snapshot Traing.
 - **TESTS RUN**: Django tests training corrections, accounts; unittest Live CPU; Flutter widget/answer-key/Live capture; Dart analyze; APK debug; Docker health/check; đồng bộ VPS.
-- **TEST RESULTS**: Kết quả cuối cùng và giới hạn kiểm tra ghi trong `tests/test_ketqua/training_20261001/SUMMARY.md` trên máy.
+- **TEST RESULTS**: 13 kiểm thử mới đạt trên SQLite local/Docker và PostgreSQL VPS; 76 kiểm thử accounts, 8 Live CPU, 4 widget, 3 answer-key và 7 Live capture đạt. 7 case Live capture phụ thuộc fixture chưa được cung cấp bị skip. Dart analyze các tệp mới/API: không có lỗi. APK debug build 2007 thành công; Docker local/VPS healthy, `check` và migration check sạch. PowerShell 5.1 đồng bộ được snapshot 0 mẫu đã duyệt; không giả tạo nhãn thật. Chi tiết: [SUMMARY](<D:/chamtrac nghien v2/tests/test_ketqua/training_20261001/SUMMARY.md>).
 - **REGRESSION RISK**: Migration thêm bảng và private-media mới; API cũ giữ nguyên. Độ chính xác bộ dữ liệu vẫn phụ thuộc việc admin đối chiếu nhãn với crop đúng vị trí. Chưa xác nhận camera trên điện thoại thật khi thiết bị ADB chưa kết nối.
 - **UNRELATED ISSUES FOUND**: Phân loại CNN trong script cũ chưa dùng manifest chia nhóm; không dùng trực tiếp cách random-split cũ cho dataset mới. Chưa huấn luyện/thay trọng số trong thay đổi này.
