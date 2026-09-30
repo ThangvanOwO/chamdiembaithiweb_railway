@@ -53,6 +53,7 @@ test_image_debug/
 test_scan_output/
 test_*.py
 !tests/test_part3_shadow.py
+!tests/test_live_cpu.py
 test_*.txt
 find_cameras.py
 gen_calibration.py

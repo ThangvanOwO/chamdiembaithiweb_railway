@@ -13,6 +13,7 @@ import logging
 import io
 from pathlib import Path
 from django.conf import settings
+from grading.cpu_runtime import serialized_grading
 
 logger = logging.getLogger(__name__)
 
@@ -256,6 +257,7 @@ def compute_weighted_score(result, scoring_config, correct_answers=None):
     }
 
 
+@serialized_grading
 def grade_image(image_path, answer_key_str='', template_code='', corners=None, parts_config=None, fast_mode=False,
                 live_bubble_mode=False, live_answer_key_resolver=None, live_validation=False,
                 fast_background_trial=False):

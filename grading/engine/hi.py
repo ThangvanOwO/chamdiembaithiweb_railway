@@ -26,6 +26,12 @@ from datetime import datetime
 from PIL import Image, ExifTags
 from skimage import exposure
 
+# Preserve direct CLI/legacy import of hi.py outside the repository root.
+if not __package__:
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from grading.cpu_runtime import serialized_grading
+
 logger = logging.getLogger(__name__)
 
 # ╔════════════════════════════════════════════════════════════════════════╗
@@ -3607,9 +3613,10 @@ def draw_bubble_grid(warped_image, offsets=None):
 # ║                     PIPELINE CHÍNH (Main)                            ║
 # ╚════════════════════════════════════════════════════════════════════════╝
 
+@serialized_grading
 def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=False, provided_corners=None, parts_config=None, fast_mode=False,
                   live_bubble_mode=False, live_answer_key_resolver=None, live_validation=False,
-                  fast_background_trial=False):
+                  fast_background_trial=False, live_cpu_fast=None):
     """
     Pipeline đầy đủ: phát hiện góc → warp → tiền xử lý → đọc đáp án → chấm điểm.
 
@@ -3620,7 +3627,8 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
       pre_warped      : True → bỏ qua detect corner (ảnh đã thẳng)
       provided_corners: Tọa độ 4 góc được truyền từ frontend (nếu có)
       parts_config    : [p1_count, p2_count, p3_count] — giới hạn số câu quét mỗi phần.
-      fast_mode       : True → Chạy 1 pass siêu nhanh cho live camera stream (<0.4s).
+      fast_mode       : True → Bỏ các lượt thử lại tiền xử lý cho camera Live.
+      live_cpu_fast   : None → dùng LIVE_CPU_FAST; False → đường lui tiền xử lý cũ.
     """
     # --- Parse parts_config → giới hạn số câu quét mỗi phần ---
     p1_limit = None
@@ -3762,14 +3770,25 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     import time as _time
     _t0 = _time.time()
     preprocess_mode = "fast"
+    raw_live = (
+        (os.environ.get('LIVE_CPU_FAST', '0') == '1' if live_cpu_fast is None else live_cpu_fast)
+        and live_bubble_mode and live_validation and fast_mode
+        and method in ('frontend_corners', 'pre_warped') and not fast_background_trial
+    )
     fast_global_background = (
         os.environ.get("LIVE_FAST_BACKGROUND", "0") == "1"
         and fast_background_trial and live_bubble_mode and live_validation and fast_mode
         and method == "frontend_corners"
     )
-    gray, thresh, cleaned = preprocess(
-        warped, mode="fast", fast_global_background=fast_global_background
-    )
+    if raw_live:
+        from grading.engine.live_cpu import raw_gray, part3_grids_aligned
+        gray = raw_gray(warped)
+        thresh = cleaned = None  # No artificial threshold image feeds the Live reader.
+        preprocess_mode = 'live_raw'
+    else:
+        gray, thresh, cleaned = preprocess(
+            warped, mode="fast", fast_global_background=fast_global_background
+        )
     print(f"[OK] Preprocess FAST ({_time.time()-_t0:.2f}s)")
 
     # --- Bước 3b: Detect marker offsets (bù ảnh phồng) ---
@@ -3786,8 +3805,12 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
         print(f"[OK] Part3 offset (digits): {p3_offset:+d}px")
 
     # --- Bước 4-5: Đọc đáp án (FAST pass) ---
-    sbd, made, sbd_det = extract_sbd_made(gray)
-    p1_ans, p1_det = extract_part1(gray, y_offset=offsets["part1"], num_questions=p1_limit, fast_mode=fast_mode)
+    if raw_live:
+        # These legacy answers would be overwritten by validated raw evidence.
+        sbd, made, sbd_det, p1_ans, p1_det = '', '', {}, {}, {}
+    else:
+        sbd, made, sbd_det = extract_sbd_made(gray)
+        p1_ans, p1_det = extract_part1(gray, y_offset=offsets["part1"], num_questions=p1_limit, fast_mode=fast_mode)
 
     # --- Hybrid Decision: try multiple preprocessing, KEEP THE BEST ---
     fast_confs = [_confidence_score(ratios) for ratios in p1_det.values()]
@@ -3865,7 +3888,7 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
         # Evidence must precede text whitening and contrast enhancement.
         # Upload/import defaults remain unchanged; the grading API explicitly
         # opts into the additional raw Part I validation below.
-        live_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY) if warped.ndim == 3 else warped.copy()
+        live_gray = gray if raw_live else (cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY) if warped.ndim == 3 else warped.copy())
         sbd, made, sbd_det = live_reader.read_identifiers(
             live_gray, SBD_COLS_X, MADE_COLS_X, SBD_MADE_DIGIT_Y)
         if live_validation:
@@ -3878,6 +3901,17 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
             live_gray, PART3_BLOCKS, PART3_SIGN_Y, PART3_COMMA_Y,
             PART3_DIGIT_START_Y, PART3_DIGIT_STEP_Y, BUBBLE_RADIUS, offsets["part3"], p3_limit,
             **({'local_symbols': True} if live_validation else {}))
+        if raw_live and not part3_grids_aligned(p3_det):
+            logger.info('Live raw grid fit incomplete; falling back to legacy preprocessing')
+            return process_sheet(
+                image_path, correct_answers=correct_answers, debug=debug,
+                pre_warped=pre_warped, provided_corners=provided_corners,
+                parts_config=parts_config, fast_mode=fast_mode,
+                live_bubble_mode=live_bubble_mode,
+                live_answer_key_resolver=live_answer_key_resolver,
+                live_validation=live_validation, fast_background_trial=fast_background_trial,
+                live_cpu_fast=False,
+            )
         print("[LIVE OMR] IDs/P2/P3 raw-paper evidence; "
               f"ID grids aligned={sbd_det['sbd_live']['aligned']}/{sbd_det['made_live']['aligned']}; "
               "no CNN/argmax rescue of empty cells")
@@ -3889,9 +3923,11 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     if debug:
         cv2.imwrite(f"{base}_calibration.jpg", draw_bubble_grid(warped, offsets=offsets))
         cv2.imwrite(f"{base}_gray.jpg", gray)
-        cv2.imwrite(f"{base}_thresh.jpg", thresh)
-        cv2.imwrite(f"{base}_cleaned.jpg", cleaned)
-        print(f"[DEBUG] Đã lưu: _calibration.jpg, _gray.jpg, _thresh.jpg, _cleaned.jpg")
+        if not raw_live:
+            cv2.imwrite(f"{base}_thresh.jpg", thresh)
+            cv2.imwrite(f"{base}_cleaned.jpg", cleaned)
+        print('[DEBUG] Đã lưu: _calibration.jpg, _gray.jpg' +
+              ('' if raw_live else ', _thresh.jpg, _cleaned.jpg'))
 
     # --- Global Quality Gate ---
     # Tính confidence cho Part 1 (số câu thực tế đã quét) — đủ data để đánh giá
@@ -3938,8 +3974,9 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     if debug and not pre_warped and method != _orig_method:
         cv2.imwrite(f"{base}_calibration.jpg", draw_bubble_grid(warped, offsets=offsets))
         cv2.imwrite(f"{base}_gray.jpg", gray)
-        cv2.imwrite(f"{base}_thresh.jpg", thresh)
-        cv2.imwrite(f"{base}_cleaned.jpg", cleaned)
+        if not raw_live:
+            cv2.imwrite(f"{base}_thresh.jpg", thresh)
+            cv2.imwrite(f"{base}_cleaned.jpg", cleaned)
         print(f"[DEBUG] Ghi lại debug images cho method: {method}")
 
     # --- In kết quả ---
@@ -4098,7 +4135,13 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
 
     # --- Lưu ảnh kết quả (warped) ---
     out_path = f"{base}_result.jpg"
-    cv2.imwrite(out_path, result_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    result_jpeg_quality = 95
+    if raw_live:
+        try:
+            result_jpeg_quality = max(80, min(95, int(os.environ.get('LIVE_RESULT_JPEG_QUALITY', '90'))))
+        except ValueError:
+            pass
+    cv2.imwrite(out_path, result_image, [cv2.IMWRITE_JPEG_QUALITY, result_jpeg_quality])
     print(f"\n[OK] Ảnh kết quả: {out_path}")
 
     # Tự động gửi ảnh kết quả vào tests/ketqua nếu có thư mục
@@ -4130,7 +4173,7 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
             # Overlay lên ảnh gốc
             overlay_image = cv2.addWeighted(image, 1, inv_mask, 0.8, 0)
             overlay_path = f"{base}_overlay.jpg"
-            cv2.imwrite(overlay_path, overlay_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            cv2.imwrite(overlay_path, overlay_image, [cv2.IMWRITE_JPEG_QUALITY, result_jpeg_quality])
             print(f"[OK] Ảnh overlay (inverse warp): {overlay_path}")
 
             # Gửi cả ảnh overlay vào tests/ketqua
@@ -4159,8 +4202,9 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
             cv2.imwrite(name_path, name_crop)
             print(f"[OK] Ảnh tên: {name_path}")
 
-    _load_bubble_cnn()
-    cnn_status = "ready" if _CNN_READY else f"error:{_CNN_ERROR}"
+    if not raw_live:
+        _load_bubble_cnn()
+    cnn_status = 'not_used_live' if raw_live else ("ready" if _CNN_READY else f"error:{_CNN_ERROR}")
 
     return {
         "sbd": sbd, "made": made,
