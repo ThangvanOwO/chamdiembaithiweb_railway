@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../services/ad_navigation_observer.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -11,6 +12,7 @@ import '../models/exam.dart';
 import '../models/grade_result.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../services/live_grading_service.dart';
 import '../services/coach_mark_service.dart';
 import '../services/tutorial_flow.dart';
 import '../services/training_uploader.dart';
@@ -33,6 +35,7 @@ class _ScanScreenState extends State<ScanScreen> {
   bool _grading = false;
   XFile? _scannedFile;
   Uint8List? _scannedBytes;
+  LiveCapture? _liveCapture;
   GradeResult? _lastResult;
 
   final _imagePicker = ImagePicker();
@@ -156,15 +159,19 @@ class _ScanScreenState extends State<ScanScreen> {
     if (!kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
          defaultTargetPlatform == TargetPlatform.iOS)) {
-      final bytes = await Navigator.push<Uint8List>(
+      final capture = await Navigator.push<LiveCapture>(
         context,
-        MaterialPageRoute(builder: (_) => AutoScanScreen()),
+        MaterialPageRoute(
+          settings: const RouteSettings(name: AdNavigationObserver.cameraRoute),
+          builder: (_) => const AutoScanScreen(allowSpeedTrial: true),
+        ),
       );
-      if (bytes != null && mounted) {
+      if (capture != null && mounted) {
         final ts = DateTime.now().millisecondsSinceEpoch;
         setState(() {
           _scannedFile = XFile('omr_$ts.jpg');
-          _scannedBytes = bytes;
+          _scannedBytes = capture.bytes;
+          _liveCapture = capture;
         });
         // Auto-start grading — user already confirmed in LiveCameraScreen
         _gradeImage();
@@ -190,9 +197,9 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _pickFromCamera() async {
     final XFile? photo = await _imagePicker.pickImage(
       source: ImageSource.camera,
-      maxWidth: 2400,
-      maxHeight: 3200,
-      imageQuality: 92,
+      // No maxWidth/maxHeight — let api_service handle compression
+      // Full-res is needed for accurate OMR bubble detection
+      imageQuality: 95,
     );
     if (photo != null && mounted) {
       await _setScannedFile(photo);
@@ -203,9 +210,8 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _pickFromGallery() async {
     final XFile? photo = await _imagePicker.pickImage(
       source: ImageSource.gallery,
-      maxWidth: 2400,
-      maxHeight: 3200,
-      imageQuality: 92,
+      // No maxWidth/maxHeight — let api_service handle compression
+      imageQuality: 95,
     );
     if (photo != null && mounted) {
       await _setScannedFile(photo);
@@ -223,7 +229,11 @@ class _ScanScreenState extends State<ScanScreen> {
 
     try {
       final api = ApiService(token: auth.token!);
-      final result = await api.gradeImage(
+      final live = _liveCapture;
+      final result = live != null && identical(live.bytes, _scannedBytes)
+          ? await gradeLiveCapture(token: auth.token!, capture: live,
+              examId: _selectedExam?.id, templateCode: _selectedExam?.templateCode)
+          : await api.gradeImage(
         imageBytes: _scannedBytes!,
         fileName: _scannedFile!.name,
         examId: _selectedExam?.id,
@@ -298,6 +308,7 @@ class _ScanScreenState extends State<ScanScreen> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
+                settings: const RouteSettings(name: AdNavigationObserver.batchScanRoute),
                 builder: (_) =>
                     BatchScanScreen(preselectedExam: _selectedExam),
               ),
@@ -369,7 +380,9 @@ class _ScanScreenState extends State<ScanScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2)))
             else
               DropdownButtonFormField<Exam>(
-                value: _selectedExam,
+                value: _selectedExam != null && _exams.contains(_selectedExam)
+                    ? _selectedExam
+                    : null,
                 decoration: const InputDecoration(
                   hintText: 'Chọn đề thi (không bắt buộc)',
                   contentPadding:

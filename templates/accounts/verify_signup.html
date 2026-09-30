@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>Xác minh đăng ký — GradeFlow</title>
+<style>body{font:16px system-ui;background:#f3f7f6;color:#173447;margin:0;padding:24px}main{max-width:440px;margin:10vh auto;background:white;padding:32px;border-radius:20px}input,button{box-sizing:border-box;width:100%;padding:12px;margin:12px 0;border:1px solid #b7c9c5;border-radius:8px}button{background:#0f766e;color:white;cursor:pointer}a{color:#0f766e}.error{color:#a32222}</style></head>
+<body><main><h1>Xác minh đăng ký</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if valid %}<p>Nhập lại mật khẩu anh/chị vừa chọn để hoàn tất đăng ký GradeFlow.</p>
+<form method="post">{% csrf_token %}<label for="password">Mật khẩu đã chọn</label>
+<input id="password" name="password" type="password" autocomplete="new-password" required maxlength="128">
+<button type="submit">Hoàn tất đăng ký</button></form>{% endif %}
+<a href="{% url 'accounts:login' %}">Về trang đăng nhập</a></main></body></html>

@@ -14,9 +14,10 @@ class ApiService {
 
   ApiService({required this.token});
 
-  /// Compress image for upload: resize to max 800px width, JPEG quality 75.
-  /// Reduces ~5MB → ~100-200KB → 10-30x faster upload.
-  static Uint8List _compressForUpload(Uint8List raw, {int maxWidth = 800, int quality = 75}) {
+  /// Compress image for upload: resize + JPEG encode.
+  /// Default: 2000px wide, q90 — balances quality vs upload speed.
+  /// For OMR grading, use maxWidth=2400, quality=92 to preserve bubble detail.
+  static Uint8List _compressForUpload(Uint8List raw, {int maxWidth = 2000, int quality = 90}) {
     try {
       final decoded = img.decodeImage(raw);
       if (decoded == null) return raw;
@@ -255,21 +256,27 @@ class ApiService {
   /// [fileName] — original filename for MIME type detection.
   /// [examId] — optional exam ID.
   /// [templateCode] — optional template code.
+  /// [corners] — optional 4 corner coordinates [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+  /// from live camera detection. Sent to server so it can warp directly without re-detecting.
   Future<GradeResult> gradeImage({
     required Uint8List imageBytes,
     String fileName = 'scan.jpg',
     int? examId,
     String? templateCode,
     bool save = true,
+    bool fast = true,
+    List<List<double>>? corners,
   }) async {
     final uri = Uri.parse('${ApiConfig.baseUrl}${ApiConfig.grade}');
     final request = http.MultipartRequest('POST', uri);
 
     request.headers['Authorization'] = 'Token $token';
 
-    // Compress image before upload: 800px width, JPEG q75
-    // ~5MB → ~100-200KB → 10-30x faster upload
-    final compressed = _compressForUpload(imageBytes);
+    // OMR grading: Bỏ qua nén lại nếu ảnh đã được tối ưu sẵn (< 800KB, vd từ Live Camera)
+    // Giúp loại bỏ hoàn toàn việc giải mã JPEG trên main thread gây lag UI (~800ms)
+    final Uint8List compressed = (imageBytes.lengthInBytes < 800 * 1024)
+        ? imageBytes
+        : _compressForUpload(imageBytes, maxWidth: 2000, quality: 85);
     request.files.add(http.MultipartFile.fromBytes(
       'image',
       compressed,
@@ -284,6 +291,12 @@ class ApiService {
       request.fields['template_code'] = templateCode;
     }
     request.fields['save'] = save ? 'true' : 'false';
+    request.fields['fast'] = fast ? '1' : '0';
+
+    // Send corner coordinates if available (from live camera detection)
+    if (corners != null && corners.length == 4) {
+      request.fields['corners'] = json.encode(corners);
+    }
 
     final streamedResponse = await request.send();
     final response = await http.Response.fromStream(streamedResponse);

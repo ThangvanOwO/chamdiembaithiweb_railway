@@ -1,9 +1,44 @@
-/// API configuration — change baseUrl to your server address.
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// API configuration — dynamic baseUrl for local LAN or production server.
 class ApiConfig {
-  // Development: use your local IP (not localhost) so the phone can reach it.
-  // Example: 'http://192.168.1.100:8000'
-  // Production (Render Singapore):
-  static const String baseUrl = 'https://gradefloww.duckdns.org';
+  static const String defaultBaseUrl = 'https://gradeflow.io.vn';
+  static String _customBaseUrl = '';
+
+  static String get baseUrl =>
+      _customBaseUrl.isNotEmpty ? _customBaseUrl : defaultBaseUrl;
+
+  static Future<void> loadCustomBaseUrl() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('custom_server_url');
+      if (saved != null && saved.trim().isNotEmpty) {
+        final trimmed = saved.trim();
+        if (trimmed.contains('192.168.1.5') || trimmed.contains('172.20.142.5')) {
+          await prefs.remove('custom_server_url');
+          _customBaseUrl = '';
+        } else {
+          _customBaseUrl = trimmed;
+        }
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> setCustomBaseUrl(String url) async {
+    var trimmed = url.trim();
+    if (trimmed.endsWith('/')) {
+      trimmed = trimmed.substring(0, trimmed.length - 1);
+    }
+    _customBaseUrl = trimmed;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (trimmed.isEmpty) {
+        await prefs.remove('custom_server_url');
+      } else {
+        await prefs.setString('custom_server_url', trimmed);
+      }
+    } catch (_) {}
+  }
 
   // API v1 prefix
   static const String apiPrefix = '/api/v1';

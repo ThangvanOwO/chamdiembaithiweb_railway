@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Tín dụng{% endblock %}
+{% block content %}
+<section class="card" style="padding:24px; margin-bottom:24px;">
+    <h1>Tín dụng GradeFlow</h1>
+    <p>Số dư khả dụng: <strong style="font-size:2rem;">{{ wallet.balance }}</strong> điểm</p>
+    <p>Mỗi ảnh quét thành công sử dụng 1 điểm. Ảnh xử lý lỗi được hoàn điểm. Mỗi tài khoản được tặng 100 điểm một lần.</p>
+    {% if not wallet.balance %}<p role="alert">Anh/chị đã hết tín dụng. Cần bổ sung điểm để tiếp tục quét.</p>{% endif %}
+    <div style="display:flex; gap:16px; flex-wrap:wrap; margin-top:20px;">
+        <div><button class="btn btn-secondary" disabled>Mua tín dụng — chưa mở</button><p>Gói tín dụng và thanh toán đang được chuẩn bị.</p></div>
+        <div><button class="btn btn-secondary" disabled>Xem quảng cáo nhận tín dụng — chưa mở</button><p>Quảng cáo có thưởng sẽ khả dụng sau khi hoàn tất tích hợp.</p></div>
+    </div>
+    <a href="{% url 'grading:upload' %}" class="btn btn-primary">Quay lại chấm bài</a>
+</section>
+<section class="card" style="padding:24px; overflow-x:auto;">
+    <h2>Lịch sử tín dụng</h2>
+    <p>50 giao dịch gần nhất. Điểm tạm giữ khi quét sẽ được hoàn lại cho những ảnh chưa chấm thành công.</p>
+    <table class="table" style="width:100%; text-align:left;">
+        <thead><tr><th>Thời gian</th><th>Nội dung</th><th>Thay đổi</th><th>Số dư</th></tr></thead>
+        <tbody>{% for entry in entries %}<tr><td>{{ entry.created_at|date:'d/m/Y H:i' }}</td><td>{{ entry.reason }}</td><td>{{ entry.amount|stringformat:'+d' }}</td><td>{{ entry.balance_after }}</td></tr>
+        {% empty %}<tr><td colspan="4">Chưa có giao dịch.</td></tr>{% endfor %}</tbody>
+    </table>
+</section>
+{% endblock %}

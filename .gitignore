@@ -91,7 +91,11 @@ gradeflow_app/android/app/google-services.json
 gradeflow_app/linux/
 gradeflow_app/macos/
 gradeflow_app/windows/
-gradeflow_app/test/
+gradeflow_app/test/*
+!gradeflow_app/test/live_marker_detector_test.dart
+!gradeflow_app/test/live_capture_test.dart
+!gradeflow_app/test/admob_test.dart
+!gradeflow_app/test/server_config_dialog_test.dart
 
 # Agent skills
 agent/
@@ -123,6 +127,12 @@ grading/engine/overlay_demo.py
 
 # Built APK files (large)
 *.apk
+*.aab
+
+# Android release signing secrets
+gradeflow_app/android/key.properties
+*.jks
+*.keystore
 
 # Debug/analysis artifacts
 build_log.txt

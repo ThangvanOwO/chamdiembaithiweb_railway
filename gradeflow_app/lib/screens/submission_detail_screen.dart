@@ -152,7 +152,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
         const SizedBox(height: 16),
 
         // Image (if available from media URL)
-        if (d['id'] != null) _buildImageCard(d['id']),
+        if ((d['image_url'] ?? '').toString().isNotEmpty) _buildImageCard(d['id']),
         const SizedBox(height: 16),
 
         // Part I
@@ -175,7 +175,7 @@ class _SubmissionDetailScreenState extends State<SubmissionDetailScreen> {
     // Try to load image from the submission's media URL
     final auth = context.read<AuthService>();
     final imageUrl =
-        '${ApiConfig.baseUrl}/media/submissions/$submissionId.jpg';
+        '${ApiConfig.baseUrl}${_data?['image_url'] ?? ''}';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),

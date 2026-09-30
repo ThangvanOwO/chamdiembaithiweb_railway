@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -6,8 +8,16 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+val gradeFlowApplicationId = "vn.io.gradeflow.app"
+
+val releaseKeyProperties = Properties()
+val releaseKeyPropertiesFile = rootProject.file("key.properties")
+if (releaseKeyPropertiesFile.exists()) {
+    releaseKeyPropertiesFile.inputStream().use { releaseKeyProperties.load(it) }
+}
+
 android {
-    namespace = "com.gradeflow.gradeflow_app"
+    namespace = gradeFlowApplicationId
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,8 +31,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.gradeflow.gradeflow_app"
+        applicationId = gradeFlowApplicationId
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24  // opencv_dart requires minSdk 24
@@ -31,20 +40,35 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (releaseKeyPropertiesFile.exists()) {
+                keyAlias = releaseKeyProperties.getProperty("keyAlias")
+                keyPassword = releaseKeyProperties.getProperty("keyPassword")
+                storeFile = file(releaseKeyProperties.getProperty("storeFile"))
+                storePassword = releaseKeyProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+}
+
+// A release must never silently fall back to the development/debug key.
+tasks.matching { it.name.startsWith("validateSigningRelease") }.configureEach {
+    doFirst {
+        check(releaseKeyPropertiesFile.exists()) {
+            "Release signing requires android/key.properties and the GradeFlow upload keystore."
         }
     }
 }
 
 dependencies {
-    // Import the Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:34.12.0"))
-
-    // Firebase Analytics
     implementation("com.google.firebase:firebase-analytics")
 }
 

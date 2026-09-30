@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/ad_banner.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -304,7 +305,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
 
         // ── Exam cards ──
         if (_exams.isEmpty) _buildEmpty(),
-        ..._exams.map((exam) => _buildExamCard(exam)),
+        if (_exams.length <= 3) const InlineAdBanner(),
+        for (var index = 0; index < _exams.length; index++) ...[
+          _buildExamCard(_exams[index]),
+          if (index == 2 && _exams.length > 3) const InlineAdBanner(),
+        ],
       ],
     );
   }

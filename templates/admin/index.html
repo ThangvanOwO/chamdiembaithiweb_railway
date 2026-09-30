@@ -1,0 +1,5 @@
+{% extends "admin/index.html" %}
+{% block content %}
+{% if user.is_superuser %}<div style="padding:24px;margin-bottom:24px;border-radius:16px;background:#123d46;color:white"><h2 style="color:white">GradeFlow · Trung tâm quản trị</h2><p>Theo dõi tài khoản, tín dụng và các dấu hiệu cần kiểm tra.</p><a href="{% url 'risk_dashboard' %}" style="display:inline-block;background:#d4faed;color:#123d46;padding:12px 20px;border-radius:8px;font-weight:bold">Mở bảng điều khiển →</a></div>{% endif %}
+{{ block.super }}
+{% endblock %}

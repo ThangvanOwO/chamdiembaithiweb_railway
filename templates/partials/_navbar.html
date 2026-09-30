@@ -14,9 +14,11 @@
                 <path d="M5 8.5V16a1 1 0 001 1h3v-4h2v4h3a1 1 0 001-1V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
         </a>
-        <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+        <a href="{% url 'website:home' %}" class="page-title workspace-label">Không gian giáo viên</a>
     </div>
     <div class="navbar-right">
+        <a href="{% url 'accounts:credits' %}" class="btn btn-secondary btn-sm">{{ user.credit_wallet.balance|default:0 }} điểm</a>
+        {% if user.is_staff %}<a href="{% url 'admin:index' %}" class="btn btn-secondary btn-sm">Quản trị</a>{% endif %}
         <!-- Dark Mode Toggle -->
         <button onclick="toggleTheme()" 
                 class="btn btn-icon btn-secondary btn-sm" 
@@ -40,7 +42,7 @@
         <div class="dropdown" x-data="{ open: false }">
             <button @click="open = !open" class="dropdown-trigger" aria-label="Menu tài khoản">
                 <div class="avatar avatar-sm">
-                    {{ user.first_name|default:user.email|truncatechars:1|upper }}
+                    {% include 'partials/_avatar.html' %}
                 </div>
             </button>
             <div class="dropdown-menu scale-in" x-show="open" @click.away="open = false" x-transition x-cloak>

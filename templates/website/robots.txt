@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://gradeflow.io.vn/sitemap.xml

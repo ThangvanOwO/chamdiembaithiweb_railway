@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
-import '../widgets/stat_card.dart';
+import '../widgets/academic_dashboard.dart';
+import '../widgets/academic_ui.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final ValueChanged<int>? onNavigate;
+  const DashboardScreen({super.key, this.onNavigate});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -40,7 +42,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final data = await api.getDashboard();
       if (mounted) setState(() => _data = data);
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) {
+        if (e.toString().contains('401')) {
+          auth.logout();
+          return;
+        }
+        setState(() => _error = e.toString());
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -51,13 +59,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final auth = context.watch<AuthService>();
 
     return Scaffold(
+      backgroundColor: AcademicStyle.paper,
       appBar: AppBar(
         title: Text('GradeFlow',
             style: GoogleFonts.manrope(fontWeight: FontWeight.w700)),
         actions: [
           IconButton(
+            tooltip: 'Làm mới tổng quan',
             icon: const Icon(LucideIcons.refreshCw, size: 20),
-            onPressed: _loadData,
+            onPressed: _loading ? null : _loadData,
           ),
         ],
       ),
@@ -85,7 +95,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text('Không thể kết nối server',
                 style: GoogleFonts.dmSans(fontSize: 16)),
             const SizedBox(height: 8),
-            Text(_error ?? '',
+            Text('Kiểm tra kết nối mạng rồi thử lại. Dữ liệu của bạn không bị thay đổi.',
                 style: GoogleFonts.dmSans(
                     fontSize: 13, color: GradeFlowTheme.onSurfaceVariant),
                 textAlign: TextAlign.center),
@@ -102,106 +112,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildContent(AuthService auth) {
-    final stats = _data?['stats'] ?? {};
-    final recentSubs = (_data?['recent_submissions'] as List?) ?? [];
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Welcome
-        Text(
-          'Xin chào, ${auth.userName}!',
-          style: GoogleFonts.manrope(
-            fontSize: 24,
-            fontWeight: FontWeight.w600,
-            color: GradeFlowTheme.onSurface,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Tổng quan hoạt động chấm điểm của bạn',
-          style: GoogleFonts.dmSans(
-            fontSize: 15,
-            color: GradeFlowTheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Stats Grid — 2x2
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 1.6,
-          children: [
-            StatCard(
-              icon: LucideIcons.fileText,
-              iconColor: GradeFlowTheme.primary,
-              iconBg: GradeFlowTheme.primaryFixed,
-              value: '${stats['total_exams'] ?? 0}',
-              label: 'Bài thi',
-            ),
-            StatCard(
-              icon: LucideIcons.checkCircle,
-              iconColor: GradeFlowTheme.success,
-              iconBg: GradeFlowTheme.successContainer,
-              value: '${stats['total_graded'] ?? 0}',
-              label: 'Bài đã chấm',
-            ),
-            StatCard(
-              icon: LucideIcons.trendingUp,
-              iconColor: GradeFlowTheme.tertiary,
-              iconBg: GradeFlowTheme.tertiaryContainer,
-              value: stats['avg_score'] != null
-                  ? '${stats['avg_score']}'
-                  : '—',
-              label: 'Điểm trung bình',
-            ),
-            StatCard(
-              icon: LucideIcons.barChart3,
-              iconColor: GradeFlowTheme.onSurfaceVariant,
-              iconBg: GradeFlowTheme.surfaceContainer,
-              value: stats['pass_rate'] != null
-                  ? '${stats['pass_rate']}%'
-                  : '—',
-              label: 'Tỉ lệ đạt',
-            ),
-          ],
-        ),
-        const SizedBox(height: 28),
-
-        // Recent Submissions
-        Text(
-          'Bài chấm gần đây',
-          style: GoogleFonts.manrope(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        if (recentSubs.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                children: [
-                  Icon(LucideIcons.inbox,
-                      size: 40, color: GradeFlowTheme.onSurfaceVariant),
-                  const SizedBox(height: 12),
-                  Text('Chưa có bài chấm nào',
-                      style: GoogleFonts.dmSans(
-                          fontSize: 14,
-                          color: GradeFlowTheme.onSurfaceVariant)),
-                ],
-              ),
-            ),
-          )
-        else
-          ...recentSubs.map((sub) => _SubmissionTile(data: sub)),
-      ],
+    final recent = (_data?['recent_submissions'] as List?) ?? [];
+    return AcademicDashboard(
+      name: auth.userName,
+      stats: Map<String, dynamic>.from(_data?['stats'] ?? {}),
+      onNavigate: widget.onNavigate,
+      recent: [for (final sub in recent) _SubmissionTile(data: sub)],
     );
   }
 }

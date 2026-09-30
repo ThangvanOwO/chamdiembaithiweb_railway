@@ -1,0 +1,1 @@
+{% if user.teacher_profile.avatar %}<img src="{{ user.teacher_profile.avatar.url }}" alt="Ảnh đại diện" class="avatar-image">{% else %}<span>{{ user.teacher_profile.initials|default:user.email|slice:':2'|upper }}</span>{% endif %}

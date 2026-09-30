@@ -1,7 +1,7 @@
 name: gradeflow_app
 description: GradeFlow — Chấm điểm trắc nghiệm tự động bằng camera
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2006
 
 environment:
   sdk: ^3.5.0
@@ -18,6 +18,9 @@ dependencies:
 
   # State management
   provider: ^6.1.2
+
+  # Android advertising
+  google_mobile_ads: ^9.1.0
 
   # Networking
   http: ^1.2.2

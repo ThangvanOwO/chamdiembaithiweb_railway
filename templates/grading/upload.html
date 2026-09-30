@@ -5,111 +5,10 @@
 
 {% block extra_css %}
 <style>
-    .camera-capture-zone {
-        margin-bottom: var(--space-3);
-        text-align: center;
-    }
-    .btn-camera {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 14px 28px;
-        background: var(--primary);
-        color: var(--on-primary);
-        border: none;
-        border-radius: var(--radius-lg);
-        font-size: 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        width: 100%;
-        justify-content: center;
-        transition: background 0.15s, transform 0.1s;
-    }
-    .btn-camera:active {
-        transform: scale(0.97);
-        background: var(--primary-dark, #1a6b4a);
-    }
-    .camera-hint {
-        margin-top: var(--space-2);
-        display: flex;
-        justify-content: center;
-    }
-
-    /* Camera Modal */
-    .camera-modal-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        background: rgba(0,0,0,0.7);
-        backdrop-filter: blur(4px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: var(--space-4);
-    }
-    .camera-modal {
-        background: var(--surface);
-        border-radius: var(--radius-xl);
-        max-width: 720px;
-        width: 100%;
-        box-shadow: 0 24px 48px rgba(0,0,0,0.3);
-        overflow: hidden;
-    }
-    .camera-modal__header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: var(--space-4) var(--space-5);
-        border-bottom: 1px solid var(--outline-variant);
-    }
-    .camera-modal__close {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: var(--on-surface-variant);
-        padding: 4px;
-        border-radius: var(--radius-md);
-        transition: background 0.15s;
-    }
-    .camera-modal__close:hover {
-        background: var(--surface-container-high);
-    }
-    .camera-modal__body {
-        padding: var(--space-4) var(--space-5);
-    }
-    .camera-viewfinder {
-        position: relative;
-        width: 100%;
-        aspect-ratio: 4/3;
-        background: #111;
-        border-radius: var(--radius-lg);
-        overflow: hidden;
-    }
-    .camera-viewfinder__guide {
-        position: absolute;
-        inset: 8%;
-        pointer-events: none;
-    }
-    .camera-guide-corner {
-        position: absolute;
-        width: 28px;
-        height: 28px;
-        border: 3px solid rgba(255,255,255,0.7);
-    }
-    .camera-guide-corner.tl { top:0; left:0; border-right:none; border-bottom:none; border-radius: 4px 0 0 0; }
-    .camera-guide-corner.tr { top:0; right:0; border-left:none; border-bottom:none; border-radius: 0 4px 0 0; }
-    .camera-guide-corner.bl { bottom:0; left:0; border-right:none; border-top:none; border-radius: 0 0 0 4px; }
-    .camera-guide-corner.br { bottom:0; right:0; border-left:none; border-top:none; border-radius: 0 0 4px 0; }
-    .camera-modal__footer {
-        padding: var(--space-4) var(--space-5);
-        border-top: 1px solid var(--outline-variant);
-        display: flex;
-        justify-content: center;
-    }
-    .btn-capture-shutter {
-        min-width: 140px;
-        font-size: 1.0625rem;
-        padding: 14px 32px;
+    #upload-dropzone:focus-visible,
+    .file-item-remove:focus-visible {
+        outline: 3px solid var(--primary);
+        outline-offset: 3px;
     }
 
     /* On mobile, make dropzone smaller */
@@ -283,7 +182,7 @@
                             <path d="M4 2h5l4 4v7a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                             <path d="M9 2v4h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
-                        Chấm với file Excel
+                        Nhập đáp án từ Excel
                     </a>
                     <button type="button" class="btn btn-tertiary tpl-modal__btn" @click="closePreview()">
                         <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -327,7 +226,7 @@
         </a>
     </div>
 
-    <form method="post" enctype="multipart/form-data" id="upload-form" x-data="uploadHandler()">
+    <form method="post" enctype="multipart/form-data" id="upload-form" data-scan-form x-data="uploadHandler()">
         {% csrf_token %}
         <input type="hidden" name="template_code" value="{{ selected_template }}">
         {% if selected_exam %}
@@ -338,109 +237,20 @@
         <div class="upload-grid">
             <!-- Left: Upload Zone -->
             <div>
-                <!-- Camera button -->
-                <div class="camera-capture-zone">
-                    <button type="button" class="btn btn-camera" @click="openCamera()">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                            <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/>
-                        </svg>
-                        <span>Chụp phiếu</span>
-                    </button>
-                    <div class="camera-hint">
-                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                            <input type="checkbox" x-model="continuousMode" style="accent-color: var(--primary);">
-                            <span class="body-sm">Chụp liên tục (mở lại camera sau mỗi lần chụp)</span>
-                        </label>
-                    </div>
-                    <!-- Hidden input for mobile native camera -->
-                    <input type="file" 
-                           x-ref="cameraInput" 
-                           @change="handleCameraCapture($event)"
-                           accept="image/*" 
-                           capture="environment"
-                           class="sr-only">
-                </div>
-
-                <!-- Camera Modal (WebRTC for desktop) -->
-                <div class="camera-modal-overlay" x-show="cameraOpen" x-cloak
-                     x-transition:enter="transition ease-out duration-200"
-                     x-transition:enter-start="opacity-0"
-                     x-transition:enter-end="opacity-100"
-                     x-transition:leave="transition ease-in duration-150"
-                     x-transition:leave-start="opacity-100"
-                     x-transition:leave-end="opacity-0"
-                     @keydown.escape.window="closeCamera()">
-                    <div class="camera-modal" @click.outside="closeCamera()">
-                        <div class="camera-modal__header">
-                            <h3 style="margin:0; font-weight:700; font-size:1rem;">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="vertical-align:-3px; margin-right:6px;">
-                                    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <circle cx="12" cy="13" r="4" stroke="currentColor" stroke-width="2"/>
-                                </svg>
-                                Chụp phiếu thi
-                            </h3>
-                            <button type="button" class="camera-modal__close" @click="closeCamera()">
-                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                                    <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <div class="camera-modal__body">
-                            <!-- Live video -->
-                            <div class="camera-viewfinder" x-show="!capturedImage">
-                                <video x-ref="cameraVideo" autoplay playsinline muted
-                                       style="width:100%; height:100%; object-fit:cover; border-radius:var(--radius-lg);"></video>
-                                <div class="camera-viewfinder__guide">
-                                    <div class="camera-guide-corner tl"></div>
-                                    <div class="camera-guide-corner tr"></div>
-                                    <div class="camera-guide-corner bl"></div>
-                                    <div class="camera-guide-corner br"></div>
-                                </div>
-                            </div>
-                            <!-- Captured preview -->
-                            <div class="camera-viewfinder" x-show="capturedImage" x-cloak>
-                                <img :src="capturedImage" style="width:100%; height:100%; object-fit:contain; border-radius:var(--radius-lg); background:#000;">
-                            </div>
-                            <canvas x-ref="cameraCanvas" style="display:none;"></canvas>
-                        </div>
-                        <div class="camera-modal__footer">
-                            <template x-if="!capturedImage">
-                                <div style="display:flex; gap:var(--space-3); width:100%; justify-content:center;">
-                                    <button type="button" class="btn btn-secondary" @click="closeCamera()">Hủy</button>
-                                    <button type="button" class="btn btn-camera btn-capture-shutter" @click="capturePhoto()">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-                                            <circle cx="12" cy="12" r="7" fill="currentColor"/>
-                                        </svg>
-                                        Chụp
-                                    </button>
-                                </div>
-                            </template>
-                            <template x-if="capturedImage">
-                                <div style="display:flex; gap:var(--space-3); width:100%; justify-content:center;">
-                                    <button type="button" class="btn btn-secondary" @click="retakePhoto()">
-                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                            <path d="M2 2v5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            <path d="M3 11a6 6 0 1 0 1.5-6.5L2 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        Chụp lại
-                                    </button>
-                                    <button type="button" class="btn btn-primary" @click="acceptPhoto()">
-                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                            <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        Dùng ảnh này
-                                    </button>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </div>
+                <p class="body-sm text-on-surface-var" style="margin-bottom: var(--space-3);">
+                    Tải ảnh bài làm có sẵn để chấm trên web. Để chụp và quét phiếu, dùng ứng dụng GradeFlow.
+                    <a href="{% url 'website:download' %}">Tải ứng dụng</a> ·
+                    <a href="{% url 'website:guide' %}">Hướng dẫn sử dụng</a>.
+                </p>
 
                 <!-- Dropzone -->
                 <div class="upload-zone" 
                      id="upload-dropzone"
+                     x-ref="dropzone"
+                     role="button" tabindex="0"
+                     aria-label="Chọn ảnh bài làm để chấm điểm"
+                     @keydown.enter.self.prevent="$refs.fileInput.click()"
+                     @keydown.space.self.prevent="$refs.fileInput.click()"
                      @dragover.prevent="isDragging = true"
                      @dragleave.prevent="isDragging = false"
                      @drop.prevent="handleDrop($event)"
@@ -464,6 +274,8 @@
                     <input type="file" 
                            x-ref="fileInput" 
                            @change="handleFileSelect($event)"
+                           @click.stop
+                           tabindex="-1" aria-hidden="true"
                            multiple 
                            accept="image/*" 
                            name="images"
@@ -486,7 +298,7 @@
                     </div>
 
                     <!-- File list -->
-                    <div class="file-list" x-show="files.length > 0" x-cloak>
+                    <div class="file-list" x-ref="fileList" x-show="files.length > 0" x-cloak>
                         <template x-for="(file, index) in files" :key="index">
                             <div class="file-item paper-slide" :style="'animation-delay:' + (index * 0.05) + 's'">
                                 <div class="file-item-icon">
@@ -499,7 +311,8 @@
                                     <div class="file-item-name" x-text="file.name"></div>
                                     <div class="file-item-size" x-text="formatSize(file.size)"></div>
                                 </div>
-                                <button type="button" class="file-item-remove" @click="removeFile(index)">
+                                <button type="button" class="file-item-remove" @click="removeFile(index)"
+                                        :aria-label="'Xóa ảnh ' + file.name">
                                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                                         <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                                     </svg>
@@ -573,85 +386,6 @@ function uploadHandler() {
         files: [],
         isDragging: false,
         isMobile: /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
-        continuousMode: false,
-        captureCount: 0,
-        cameraOpen: false,
-        cameraStream: null,
-        capturedImage: null,
-        capturedBlob: null,
-        
-        openCamera() {
-            // On mobile: use native camera input
-            if (this.isMobile) {
-                this.$refs.cameraInput.click();
-                return;
-            }
-            // On desktop: open WebRTC camera modal
-            this.cameraOpen = true;
-            this.capturedImage = null;
-            this.capturedBlob = null;
-            this.$nextTick(() => {
-                navigator.mediaDevices.getUserMedia({
-                    video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: 'environment' }
-                }).then(stream => {
-                    this.cameraStream = stream;
-                    if (this.$refs.cameraVideo) {
-                        this.$refs.cameraVideo.srcObject = stream;
-                    }
-                }).catch(err => {
-                    console.error('Camera error:', err);
-                    alert('Không thể truy cập camera. Hãy cấp quyền camera cho trình duyệt hoặc kiểm tra webcam.');
-                    this.closeCamera();
-                });
-            });
-        },
-
-        closeCamera() {
-            if (this.cameraStream) {
-                this.cameraStream.getTracks().forEach(t => t.stop());
-                this.cameraStream = null;
-            }
-            this.cameraOpen = false;
-            this.capturedImage = null;
-            this.capturedBlob = null;
-        },
-
-        capturePhoto() {
-            const video = this.$refs.cameraVideo;
-            const canvas = this.$refs.cameraCanvas;
-            if (!video || !canvas) return;
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0);
-            this.capturedImage = canvas.toDataURL('image/jpeg', 0.92);
-            canvas.toBlob(blob => { this.capturedBlob = blob; }, 'image/jpeg', 0.92);
-            // Pause video
-            if (this.cameraStream) {
-                this.cameraStream.getTracks().forEach(t => t.enabled = false);
-            }
-        },
-
-        retakePhoto() {
-            this.capturedImage = null;
-            this.capturedBlob = null;
-            if (this.cameraStream) {
-                this.cameraStream.getTracks().forEach(t => t.enabled = true);
-            }
-        },
-
-        acceptPhoto() {
-            if (!this.capturedBlob) return;
-            this.captureCount++;
-            const file = new File([this.capturedBlob], `phieu_${this.captureCount}.jpg`, { type: 'image/jpeg' });
-            this.addFiles([file]);
-            // Continuous mode: retake immediately
-            if (this.continuousMode) {
-                this.retakePhoto();
-            } else {
-                this.closeCamera();
-            }
-        },
 
         handleDrop(event) {
             this.isDragging = false;
@@ -664,21 +398,6 @@ function uploadHandler() {
             this.addFiles(selectedFiles);
         },
         
-        handleCameraCapture(event) {
-            const capturedFiles = [...event.target.files];
-            if (capturedFiles.length > 0) {
-                this.captureCount++;
-                const original = capturedFiles[0];
-                const ext = original.name.split('.').pop();
-                const renamed = new File([original], `phieu_${this.captureCount}.${ext}`, { type: original.type });
-                this.addFiles([renamed]);
-            }
-            event.target.value = '';
-            if (this.continuousMode && capturedFiles.length > 0) {
-                setTimeout(() => { this.$refs.cameraInput.click(); }, 300);
-            }
-        },
-        
         addFiles(newFiles) {
             this.files = [...this.files, ...newFiles];
             this.updateInput();
@@ -687,6 +406,11 @@ function uploadHandler() {
         removeFile(index) {
             this.files.splice(index, 1);
             this.updateInput();
+            this.$nextTick(() => {
+                const buttons = this.$refs.fileList.querySelectorAll('.file-item-remove');
+                const target = buttons[Math.min(index, buttons.length - 1)] || this.$refs.dropzone;
+                target.focus();
+            });
         },
         
         updateInput() {

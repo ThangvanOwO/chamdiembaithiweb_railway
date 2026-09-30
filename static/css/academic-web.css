@@ -1,0 +1,32 @@
+/* Presentation-only layer; no changes to recognition, forms or scoring. */
+.password-field{position:relative;width:100%;min-width:0}
+.password-field input{width:100%;padding-right:52px;box-sizing:border-box}
+.password-field .password-toggle{position:absolute;right:5px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:40px;height:40px;min-height:40px;padding:0;margin:0;border:0;border-radius:8px;background:transparent;color:var(--on-surface-variant);cursor:pointer;box-shadow:none}
+.password-toggle:hover{background:var(--surface-container-low);color:var(--primary)}
+.password-toggle:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.password-toggle svg{pointer-events:none}.password-eye-slash{display:none}.password-toggle[aria-pressed="true"] .password-eye-slash{display:block}
+.academic-auth .auth-card{max-width:440px;border:1px solid var(--outline-variant);box-shadow:0 16px 56px #17344708}
+.academic-auth .auth-logo{margin-bottom:26px}.academic-auth .auth-subtitle{margin-bottom:28px;line-height:1.6}
+.academic-auth .auth-form{gap:20px}
+.academic-auth .form-input{height:50px;border:1px solid var(--outline-variant);border-radius:10px;background:var(--surface-container-lowest);transition:border-color .15s,box-shadow .15s}
+.academic-auth .form-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 12%,transparent)}
+.auth-label-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.auth-label-row .form-label{margin:0}
+.auth-forgot{font-size:12px;font-weight:600;color:var(--primary);line-height:24px;text-decoration:none}.auth-forgot:hover{text-decoration:underline}
+.academic-auth .auth-social{background:transparent;border:1px solid var(--outline-variant);border-radius:10px;box-shadow:none}.academic-auth .auth-social:hover{background:var(--surface-container-low);border-color:var(--primary)}
+.academic-auth .auth-form>button[type="submit"]{border-radius:10px;min-height:48px}
+.academic-auth .auth-hero-title{color:#fff}.academic-auth .auth-hero-desc{color:#d2dfe7}
+@media(max-width:640px){.academic-auth .auth-left{padding:20px 16px}.academic-auth .auth-card{padding:28px 22px;border-radius:18px}.academic-auth .auth-title{font-size:26px}}
+.academic-back{display:inline-block;margin-bottom:28px;font-size:13px;color:var(--primary)}.academic-auth .auth-right{background:#173447}.academic-auth a:focus-visible{outline:3px solid #b98232;outline-offset:3px}
+html[data-theme="light"]{--surface:#f4f7f5;--surface-container-low:#edf3ee;--on-surface:#173447;--on-surface-variant:#50656f;--primary:#0f766e;--primary-fixed:#e1efe6}
+.app-body .sidebar{border-right:1px solid var(--outline-variant)}
+.app-body .main-content{min-width:0}.app-body .import-step{min-width:0}.app-body .import-step__text{min-width:0}.app-body .import-step__label,.app-body .import-step__desc{white-space:normal}
+.app-body .sidebar-header{height:80px}.app-body .nav-item{min-height:46px;margin-bottom:3px;border-radius:10px}.app-body .nav-item.active{box-shadow:inset 3px 0 var(--primary)}
+.app-body .top-navbar{border-bottom:1px solid var(--outline-variant);box-shadow:none}.workspace-label{font-size:14px;letter-spacing:.01em;color:var(--on-surface-variant)}
+.app-body .card,.app-body .stat-card{border:1px solid var(--outline-variant);box-shadow:0 3px 12px #17344704;border-radius:16px}.app-body .section-title{letter-spacing:-.035em}.app-body .btn{min-height:40px;border-radius:9px}.app-body .btn-icon{min-width:40px}.app-body a:focus-visible,.app-body button:focus-visible,.app-body [tabindex="0"]:focus-visible{outline:3px solid #b98232;outline-offset:3px}
+.web-skip-link{position:fixed;left:15px;top:-100px;background:var(--surface);padding:12px;z-index:99999}.web-skip-link:focus{top:12px}
+.guest-body .main-content{margin-left:0;width:100%}.academic-welcome{padding:28px 30px;background:var(--surface-container-low);border:1px solid var(--outline-variant);border-radius:18px;margin-bottom:22px}.academic-welcome h2{font-size:clamp(24px,2.5vw,34px);overflow-wrap:anywhere}.academic-eyebrow{font-size:10px;letter-spacing:1.6px;font-weight:700;color:var(--primary);margin-bottom:12px}.academic-welcome .body-lg{font-size:15px}
+.academic-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:28px}.academic-actions>a{display:flex;align-items:center;gap:12px;padding:20px;background:var(--surface-container-lowest);border:1px solid var(--outline-variant);border-radius:14px;transition:transform .18s,border-color .18s}.academic-actions>a:hover{border-color:var(--primary);transform:translateY(-2px)}.academic-actions>a>span:last-child{margin-left:auto;color:var(--primary)}.academic-action-number{border:1px solid var(--outline-variant);border-radius:10px;min-width:35px;height:38px;display:grid;place-items:center;color:var(--primary);font-size:12px}.academic-actions strong{display:block;font-size:14px}.academic-actions small{display:block;font-size:11px;color:var(--on-surface-variant);margin-top:3px}.academic-help-links{border-top:1px solid var(--outline-variant);padding-top:12px;margin-top:12px}.nav-item .nav-symbol{min-width:20px;font-size:19px;text-align:center;line-height:1}
+@media(max-width:1150px){.academic-actions{grid-template-columns:1fr}.academic-actions>a{padding:15px}.academic-actions strong{font-size:15px}.academic-actions small{font-size:12px}}
+@media(max-width:1024px){.app-body:not(.guest-body) .page-content{padding-top:76px}.app-body .import-step__line{width:24px;flex-shrink:0}.app-body .import-step__desc{display:none}.app-body .import-steps{padding:12px}.app-body .import-step{gap:8px;padding:8px}}
+@media(max-width:640px){.academic-welcome{padding:21px}.workspace-label{display:none}.academic-actions{gap:10px}.app-body .page-content{padding-inline:16px;padding-bottom:20px}.app-body .upload-grid{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto!important}*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.paper-slide-stagger>*{opacity:1!important;transform:none!important}.academic-actions>a:hover{transform:none}}

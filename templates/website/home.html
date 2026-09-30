@@ -1,0 +1,32 @@
+{% extends 'website/base.html' %}
+{% block content %}
+<section class="hero wrap">
+    <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot"></span> TỪ PHIẾU GIẤY ĐẾN KẾT QUẢ SỐ</p>
+        <h1>Gọn việc chấm bài.<br><em>Thêm giờ dạy hay.</em></h1>
+        <p class="lead">Một không gian rõ ràng cho công việc sau mỗi bài kiểm tra. Nhập đáp án, tải ảnh phiếu và theo dõi kết quả — theo cách phù hợp với thầy cô.</p>
+        <div class="actions"><a class="button" href="{% url 'grading:upload' %}">Chấm bài trên web <span aria-hidden="true">↗</span></a><a class="button secondary" href="{% url 'website:download' %}">Tải ứng dụng Android <span aria-hidden="true">↓</span></a></div>
+        <p class="hero-note">Web: ảnh & Excel <span aria-hidden="true">/</span> Live Camera: ứng dụng điện thoại</p>
+    </div>
+    <div class="workspace-illustration" role="img" aria-label="Minh họa quy trình: phiếu trả lời, đáp án và kết quả cần giáo viên kiểm tra. Không phải số liệu thực tế.">
+        <div class="illustration-top"><span class="mini-brand">G<span>F</span></span><span>GÓC LÀM VIỆC CỦA THẦY CÔ</span><span class="window-dots">•••</span></div>
+        <div class="illustration-heading"><div><small>BÀI KIỂM TRA</small><h2>Từ phiếu giấy,<br>mọi thứ ngăn nắp hơn.</h2></div><span class="notebook-tag">A / B / C / D</span></div>
+        <div class="sheet-stack"><div class="answer-sheet"><div class="sheet-marks"><b></b><b></b></div><h3>PHIẾU TRẢ LỜI</h3><p>Họ và tên <span>................................</span></p><div class="sheet-rule"></div><div class="bubble-row"><small>01</small><i></i><i class="filled"></i><i></i><i></i></div><div class="bubble-row"><small>02</small><i></i><i></i><i></i><i class="filled"></i></div><div class="bubble-row"><small>03</small><i class="filled"></i><i></i><i></i><i></i></div><div class="bubble-row"><small>04</small><i></i><i></i><i class="filled"></i><i></i></div><div class="sheet-marks bottom"><b></b><b></b></div></div><div class="review-card"><span class="review-icon">✓</span><small>LUÔN CÓ BƯỚC KIỂM TRA</small><strong>Thầy cô xác nhận.<br>Kết quả rõ ràng.</strong><div class="review-line"></div><span>Đáp án → Bài chấm → Lịch sử</span></div></div>
+        <div class="illustration-footer"><span class="status-dot"></span> Thiết kế cho công việc giảng dạy <span>Minh họa</span></div>
+    </div>
+</section>
+<div class="platform-strip"><div class="wrap"><span>CHỌN ĐÚNG CÔNG CỤ</span><p><strong>Trên máy tính</strong> · Nhập file, kiểm tra đáp án</p><p><strong>Trên điện thoại</strong> · Quét phiếu bằng Live Camera</p></div></div>
+<section class="wrap section" id="cach-su-dung">
+    <div class="section-heading"><div><p class="eyebrow">CÔNG VIỆC QUEN THUỘC, CÁCH LÀM GỌN HƠN</p><h2>Thầy cô muốn bắt đầu từ đâu?</h2></div><a class="text-link" href="{% url 'website:guide' %}">Xem hướng dẫn <span aria-hidden="true">↗</span></a></div>
+    <div class="feature-grid">
+        <article class="feature-card"><span class="tile-icon">01</span><span class="tag">EXCEL / ẢNH ĐÁP ÁN</span><h3>Chuẩn bị đề thi</h3><p>Nhập đáp án từ file .xlsx hoặc ảnh phiếu đã tô. Xem lại từng phần trước khi lưu đề.</p><a class="text-link" href="{% url 'grading:exam_import' %}">Tạo đề từ file <span aria-hidden="true">→</span></a></article>
+        <article class="feature-card"><span class="tile-icon blue">02</span><span class="tag">JPG / JPEG / PNG</span><h3>Chấm bài từ ảnh</h3><p>Chọn đề thi, tải ảnh phiếu bài làm lên và xem kết quả. Phù hợp khi thầy cô đã có ảnh sẵn.</p><a class="text-link" href="{% url 'grading:upload' %}">Tải ảnh bài làm <span aria-hidden="true">→</span></a></article>
+        <article class="feature-card"><span class="tile-icon amber">03</span><span class="tag">ỨNG DỤNG ANDROID</span><h3>Quét ngay trên điện thoại</h3><p>Dùng Live Camera trong ứng dụng GradeFlow. Không cần mở camera trên trình duyệt web.</p><a class="text-link" href="{% url 'website:download' %}">Tải APK & xem cách cài <span aria-hidden="true">→</span></a></article>
+    </div>
+</section>
+<section class="wrap workflow section">
+    <div><p class="eyebrow">MỘT QUY TRÌNH, BA BƯỚC</p><h2>Rõ từ đáp án.<br>Gọn đến kết quả.</h2><p>Giữ quyền kiểm soát trong tay giáo viên, từ chọn mẫu phiếu đến kiểm tra kết quả nhận diện.</p><a class="text-link" href="{% url 'dashboard:history' %}">Mở lịch sử chấm bài →</a></div>
+    <ol class="steps"><li><span>1</span><div><h3>Tạo đề & kiểm tra đáp án</h3><p>Chọn đúng mẫu phiếu, số câu và mã đề trước khi lưu.</p></div></li><li><span>2</span><div><h3>Tải ảnh hoặc mở ứng dụng</h3><p>Web nhận file ảnh. Live Camera nằm trong ứng dụng Android.</p></div></li><li><span>3</span><div><h3>Xem lại & quản lý kết quả</h3><p>Đối chiếu mã đề, số báo danh và các ô chưa rõ trước khi sử dụng điểm.</p></div></li></ol>
+</section>
+<section class="wrap bottom-cta"><div><p class="eyebrow">SẴN SÀNG CHO BÀI KIỂM TRA TIẾP THEO</p><h2>Bắt đầu với một phiếu mẫu.</h2><p>Thử một bài trước khi xử lý cả lớp.</p></div><a class="button light" href="{% url 'website:guide' %}">Hướng dẫn bắt đầu <span aria-hidden="true">→</span></a></section>
+{% endblock %}

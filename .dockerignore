@@ -20,6 +20,7 @@ venv
 env
 .venv
 .env
+.env.*
 
 # ── IDE / Editor ─────────────────────────────────────────────────────────────
 .vscode
@@ -46,6 +47,15 @@ db.sqlite3-journal
 # ── Media uploads (re-created at runtime) ────────────────────────────────────
 media/uploads
 media/results
+media
+staticfiles
+scratch
+artifacts
+releases
+duan_clone
+anh_san_pham
+.agents
+cloudflared.exe
 
 # ── Test images ──────────────────────────────────────────────────────────────
 anh

@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from .models import TeacherProfile
+from django.contrib.auth.password_validation import validate_password
 
 
 class LoginForm(forms.Form):
@@ -38,6 +39,7 @@ class RegisterForm(forms.Form):
     )
     email = forms.EmailField(
         label='Email',
+        max_length=150,
         widget=forms.EmailInput(attrs={
             'class': 'form-input',
             'placeholder': 'email@truonghoc.edu.vn',
@@ -47,6 +49,7 @@ class RegisterForm(forms.Form):
     password = forms.CharField(
         label='Mật khẩu',
         min_length=8,
+        max_length=128,
         widget=forms.PasswordInput(attrs={
             'class': 'form-input',
             'placeholder': '••••••••',
@@ -63,10 +66,12 @@ class RegisterForm(forms.Form):
     )
 
     def clean_email(self):
-        email = self.cleaned_data['email']
-        if User.objects.filter(email=email).exists():
-            raise forms.ValidationError('Email này đã được sử dụng.')
-        return email
+        return self.cleaned_data['email'].strip().lower()
+
+    def clean_password(self):
+        password = self.cleaned_data['password']
+        validate_password(password, User(email=self.cleaned_data.get('email', '')))
+        return password
 
     def clean(self):
         cleaned_data = super().clean()
@@ -98,8 +103,9 @@ class ProfileForm(forms.ModelForm):
 
     class Meta:
         model = TeacherProfile
-        fields = ['school', 'subject', 'phone']
+        fields = ['school', 'subject', 'phone', 'avatar']
         widgets = {
+            'avatar': forms.FileInput(attrs={'accept': 'image/jpeg,image/png,image/webp', 'class': 'avatar-file-input'}),
             'school': forms.TextInput(attrs={
                 'class': 'form-input',
                 'placeholder': 'Trường THPT ABC',
@@ -118,3 +124,28 @@ class ProfileForm(forms.ModelForm):
             'subject': 'Môn dạy',
             'phone': 'Số điện thoại',
         }
+
+    def clean_avatar(self):
+        avatar = self.cleaned_data.get('avatar')
+        if not avatar or not hasattr(avatar, 'content_type'):
+            return avatar
+        if avatar.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('Ảnh đại diện tối đa 5 MB.')
+        from PIL import Image, ImageOps
+        from django.core.files.base import ContentFile
+        from io import BytesIO
+        from uuid import uuid4
+        try:
+            avatar.seek(0)
+            with Image.open(avatar) as original:
+                if original.format not in ('JPEG', 'PNG', 'WEBP'):
+                    raise forms.ValidationError('Vui lòng chọn ảnh JPG, PNG hoặc WebP.')
+                if original.width * original.height > 20_000_000:
+                    raise forms.ValidationError('Ảnh quá lớn. Vui lòng chọn ảnh dưới 20 megapixel.')
+                normalized = ImageOps.exif_transpose(original).convert('RGB')
+                normalized = ImageOps.fit(normalized, (512, 512))
+                output = BytesIO()
+                normalized.save(output, format='JPEG', quality=88)
+        except (OSError, ValueError, Image.DecompressionBombError) as exc:
+            raise forms.ValidationError('Không thể đọc ảnh. Vui lòng chọn ảnh khác.') from exc
+        return ContentFile(output.getvalue(), name=f'{uuid4().hex}.jpg')

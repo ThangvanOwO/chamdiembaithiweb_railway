@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../services/ad_navigation_observer.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,7 @@ import '../models/exam.dart';
 import '../models/grade_result.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../services/live_grading_service.dart';
 import '../services/training_uploader.dart';
 import 'grade_result_screen.dart';
 import 'live_camera_screen.dart';
@@ -86,12 +88,16 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
       bool keepScanning = true;
       while (keepScanning && mounted) {
         // Open live camera for each paper
-        final bytes = await Navigator.push<Uint8List>(
+        final capture = await Navigator.push<LiveCapture>(
           context,
-          MaterialPageRoute(builder: (_) => AutoScanScreen()),
+          MaterialPageRoute(
+            settings: const RouteSettings(name: AdNavigationObserver.cameraRoute),
+            builder: (_) => AutoScanScreen(),
+          ),
         );
 
-        if (bytes == null || !mounted) break; // User cancelled
+        if (capture == null || !mounted) break; // User cancelled
+        final bytes = capture.bytes;
         scanned++;
 
         // Grade this scan
@@ -102,12 +108,10 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
         });
 
         final auth = context.read<AuthService>();
-        final api = ApiService(token: auth.token!);
-
         try {
-          final result = await api.gradeImage(
-            imageBytes: bytes,
-            fileName: fileName,
+          final result = await gradeLiveCapture(
+            token: auth.token!,
+            capture: capture,
             examId: _selectedExam?.id,
             templateCode: _selectedExam?.templateCode,
           );
@@ -297,7 +301,9 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
       );
     }
     return DropdownButtonFormField<Exam>(
-      value: _selectedExam,
+      value: _selectedExam != null && _exams.contains(_selectedExam)
+          ? _selectedExam
+          : null,
       decoration: InputDecoration(
         prefixIcon: const Icon(LucideIcons.fileText, size: 18),
         hintText: 'Chọn đề thi',

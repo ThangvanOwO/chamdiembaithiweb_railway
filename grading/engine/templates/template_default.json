@@ -64,42 +64,42 @@
         "blocks": [
             {
                 "start_x": 81,
-                "start_y": 1187,
+                "start_y": 1190,
                 "q": 1
             },
             {
                 "start_x": 228,
-                "start_y": 1187,
+                "start_y": 1190,
                 "q": 2
             },
             {
                 "start_x": 430,
-                "start_y": 1187,
+                "start_y": 1190,
                 "q": 3
             },
             {
                 "start_x": 577,
-                "start_y": 1187,
+                "start_y": 1190,
                 "q": 4
             },
             {
                 "start_x": 781,
-                "start_y": 1187,
+                "start_y": 1190,
                 "q": 5
             },
             {
                 "start_x": 927,
-                "start_y": 1187,
+                "start_y": 1190,
                 "q": 6
             },
             {
                 "start_x": 1130,
-                "start_y": 1187,
+                "start_y": 1190,
                 "q": 7
             },
             {
                 "start_x": 1276,
-                "start_y": 1187,
+                "start_y": 1190,
                 "q": 8
             }
         ]

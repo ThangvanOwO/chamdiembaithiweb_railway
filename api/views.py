@@ -36,6 +36,7 @@ from django.http import FileResponse
 from grading.models import Exam, ExamVariant, Submission, UserSettings, TrainingSample
 from grading.grader import grade_image, parse_answer_key, compute_weighted_score
 from grading.views import EXAM_TEMPLATES
+from accounts.scan_billing import bill_scans
 
 logger = logging.getLogger(__name__)
 
@@ -51,49 +52,28 @@ def register_api(request):
     POST /api/v1/auth/register/
     Body: {"email": "...", "password": "...", "first_name": "...", "last_name": "..."}
     """
-    from django.contrib.auth.models import User
-
-    email = request.data.get('email', '').strip()
-    password = request.data.get('password', '')
-    first_name = request.data.get('first_name', '').strip()
-    last_name = request.data.get('last_name', '').strip()
-
-    if not email or not password:
-        return Response(
-            {'error': 'Email và mật khẩu là bắt buộc'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    if len(password) < 6:
-        return Response(
-            {'error': 'Mật khẩu phải có ít nhất 6 ký tự'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    if User.objects.filter(email=email).exists():
-        return Response(
-            {'error': 'Email đã được sử dụng'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    user = User.objects.create_user(
-        username=email,
-        email=email,
-        password=password,
-        first_name=first_name,
-        last_name=last_name,
-    )
-    token, _ = Token.objects.get_or_create(user=user)
-
-    return Response({
-        'token': token.key,
-        'user': {
-            'id': user.id,
-            'email': user.email,
-            'full_name': user.get_full_name() or user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'is_admin': user.is_superuser,
-        }
-    }, status=status.HTTP_201_CREATED)
+    from accounts.forms import RegisterForm
+    from accounts.registration import start_signup
+    from django.core.exceptions import ValidationError
+    if not isinstance(request.data, dict):
+        return Response({'error': 'Dữ liệu đăng ký không hợp lệ.'}, status=400)
+    fields = ('email', 'password', 'first_name', 'last_name', 'turnstile_token')
+    if any(not isinstance(request.data.get(field, ''), str) for field in fields):
+        return Response({'error': 'Dữ liệu đăng ký không hợp lệ.'}, status=400)
+    form = RegisterForm({'email': request.data.get('email', ''),
+        'password': request.data.get('password', ''),
+        'password_confirm': request.data.get('password', ''),
+        'full_name': (' '.join([request.data.get('first_name', ''), request.data.get('last_name', '')])).strip() or 'Giáo viên'})
+    if not form.is_valid():
+        return Response({'error': ' '.join(str(error) for errors in form.errors.values() for error in errors)}, status=400)
+    data = dict(form.cleaned_data, first_name=request.data.get('first_name', '')[:150],
+                last_name=request.data.get('last_name', '')[:150])
+    try:
+        start_signup(request, data, request.data.get('turnstile_token', ''))
+    except ValidationError as exc:
+        return Response({'error': ' '.join(exc.messages)}, status=400)
+    return Response({'requires_email_verification': True,
+        'message': 'Nếu email có thể đăng ký, liên kết xác minh đã được gửi. Vui lòng kiểm tra hộp thư rồi đăng nhập.'}, status=202)
 
 
 @api_view(['POST'])
@@ -104,6 +84,8 @@ def login_api(request):
     Body: {"email": "...", "password": "..."}
     Returns: {"token": "...", "user": {...}}
     """
+    if not isinstance(request.data, dict) or any(not isinstance(request.data.get(key, ''), str) for key in ('email', 'password')):
+        return Response({'error': 'Dữ liệu đăng nhập không hợp lệ.'}, status=400)
     email = request.data.get('email', '').strip()
     password = request.data.get('password', '')
 
@@ -116,9 +98,9 @@ def login_api(request):
     # Django allauth uses email as username
     from django.contrib.auth.models import User
     try:
-        user_obj = User.objects.get(email=email)
+        user_obj = User.objects.get(email__iexact=email)
         username = user_obj.username
-    except User.DoesNotExist:
+    except (User.DoesNotExist, User.MultipleObjectsReturned):
         username = email
 
     user = authenticate(request, username=username, password=password)
@@ -129,6 +111,10 @@ def login_api(request):
         )
 
     token, _ = Token.objects.get_or_create(user=user)
+    from accounts.risk import current_request
+    risk_request = current_request.get()
+    if risk_request is not None:
+        risk_request.risk_users.add(user.pk)
 
     return Response({
         'token': token.key,
@@ -390,27 +376,8 @@ def parse_image_api(request):
         return Response({'error': f'Chỉ hỗ trợ ảnh: {", ".join(allowed_ext)}'}, status=400)
 
     try:
-        import tempfile as _tempfile
-        suffix = os.path.splitext(f.name)[1]
-        with _tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            for chunk in f.chunks():
-                tmp.write(chunk)
-            tmp_path = tmp.name
-
-        from grading.engine import hi as engine
-        result = engine.process_sheet(tmp_path, correct_answers=None, debug=False)
-
-        # Cleanup
-        base_tmp = os.path.splitext(tmp_path)[0]
-        for sfx in ['', '_result.jpg', '_overlay.jpg', '_name.jpg',
-                     '_calibration.jpg', '_gray.jpg', '_thresh.jpg',
-                     '_cleaned.jpg', '_detect.jpg']:
-            try:
-                p = tmp_path if sfx == '' else f"{base_tmp}{sfx}"
-                if os.path.exists(p):
-                    os.unlink(p)
-            except OSError:
-                pass
+        from .answer_image_import import parse_answer_image, capture_options
+        result = parse_answer_image(f, capture_options(request.data))
 
         if not result:
             return Response({'error': 'Không thể đọc phiếu. Hãy chụp rõ hơn.'}, status=400)
@@ -445,7 +412,7 @@ def parse_image_api(request):
             if a and str(a).strip():
                 p3[str(q)] = a
 
-        variant_code = made if made and '?' not in str(made) else '001'
+        variant_code = made if made and '?' not in str(made) else ''
 
         data = {
             'variants': [{
@@ -459,6 +426,9 @@ def parse_image_api(request):
             'totalQuestions': len(p1_ans) + len(p2_ans) + len(p3_ans),
             'variantCount': 1,
             'source': 'image',
+            'recognition_pipeline': 'exam_import_v2',
+            'detect_method': result.get('detect_method'),
+            'warnings': result.get('validation_warnings') or [],
         }
         return Response({'success': True, 'data': data})
 
@@ -473,6 +443,7 @@ def parse_image_api(request):
 
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
+@bill_scans()
 def grade_api(request):
     """
     POST /api/v1/grade/
@@ -494,6 +465,23 @@ def grade_api(request):
     exam_id = request.data.get('exam_id', '')
     template_code = request.data.get('template_code', '')
     save_to_db = request.data.get('save', 'true').lower() == 'true'
+    fast_param = request.data.get('fast', '0')
+    fast_mode = (str(fast_param).lower() in ['1', 'true', 'yes'])
+    # Explicit Live protocol opt-in; Upload also uses fast=1, so fast is NOT a source flag.
+    live_bubble_mode = request.data.get('capture_pipeline') == 'live_capture_v3'
+
+    # Parse corners from client (if live camera detected them)
+    provided_corners = None
+    corners_str = request.data.get('corners', '')
+    if corners_str:
+        try:
+            provided_corners = json.loads(corners_str)
+            if not isinstance(provided_corners, list) or len(provided_corners) != 4:
+                provided_corners = None
+            else:
+                logger.info(f"Using client-provided corners: {provided_corners}")
+        except (json.JSONDecodeError, ValueError):
+            provided_corners = None
 
     # Resolve exam
     selected_exam = None
@@ -536,7 +524,22 @@ def grade_api(request):
         elif exam_config_str:
             first_answer_key = exam_config_str
 
-        result = grade_image(tmp_path, first_answer_key, template_code)
+        # Per-request Live optimization. Upload keeps its existing invocation.
+        live_options = {}
+        key_selection = None
+        from django.conf import settings as latency_settings
+        if live_bubble_mode:
+            live_options['live_validation'] = True
+            if not selected_exam or not exam_variants:
+                return Response({'success': False,
+                    'error': 'Hãy chọn đề thi có mã đề và bảng đáp án đã khai báo trước khi quét.'})
+            from grading.live_latency import LiveAnswerKeySelection
+            key_selection = LiveAnswerKeySelection(first_answer_key,
+                [(v.variant_code, v.answer_key_str) for v in exam_variants], parse_answer_key,
+                strict=True, choose_early=getattr(latency_settings, 'LIVE_SINGLE_PASS_GRADING', False))
+            live_options['live_answer_key_resolver'] = key_selection.resolve
+        result = grade_image(tmp_path, first_answer_key, template_code, corners=provided_corners,
+                             fast_mode=fast_mode, live_bubble_mode=live_bubble_mode, **live_options)
 
         if not result or not result.get('success'):
             return Response({
@@ -548,19 +551,33 @@ def grade_api(request):
         # Match variant by detected mã đề
         matched_variant = None
         detected_ma_de = result.get('made', '')
+        if live_bubble_mode:
+            try:
+                key_selection.validate(detected_ma_de)
+            except ValueError as exc:
+                return Response({'success': False, 'error': str(exc)})
         if exam_variants and detected_ma_de:
             for v in exam_variants:
                 if v.variant_code == str(detected_ma_de):
                     matched_variant = v
                     break
         if not matched_variant and exam_variants:
+            if live_bubble_mode:
+                return Response({'success': False, 'error': 'Không tìm thấy mã đề khớp. Không chấm bài.'})
             matched_variant = exam_variants[0]
 
         # Re-grade with correct variant if different
         if matched_variant:
             answer_key_str = matched_variant.answer_key_str
-            if answer_key_str != first_answer_key:
-                result = grade_image(tmp_path, answer_key_str, template_code)
+            used_answer_key = key_selection.used_key if key_selection else first_answer_key
+            if answer_key_str != used_answer_key:
+                retry_options = {}
+                if live_bubble_mode:
+                    retry_options = {'live_validation': True, 'live_answer_key_resolver':
+                        LiveAnswerKeySelection(answer_key_str,
+                            [(matched_variant.variant_code, answer_key_str)], parse_answer_key, strict=True).resolve}
+                result = grade_image(tmp_path, answer_key_str, template_code, corners=provided_corners,
+                                     fast_mode=fast_mode, live_bubble_mode=live_bubble_mode, **retry_options)
                 if not result or not result.get('success'):
                     return Response({
                         'success': False,
@@ -621,6 +638,8 @@ def grade_api(request):
             )
             submission_id = sub.id
 
+        request.billable_scans = 1
+
         # Determine grade
         score_10 = round(final_score, 2) if final_score is not None else None
         if score_10 is not None:
@@ -655,6 +674,30 @@ def grade_api(request):
                     overlay_image_b64 = base64.b64encode(f.read()).decode('utf-8')
             except Exception:
                 pass
+
+        # Tự động lưu ảnh kết quả vào tests/ketqua khi app quét xong
+        try:
+            from django.conf import settings
+            from pathlib import Path
+            import shutil
+            ketqua_dir = Path(settings.BASE_DIR) / 'tests' / 'ketqua'
+            ketqua_dir.mkdir(parents=True, exist_ok=True)
+            ts = timezone.now().strftime("%Y%m%d_%H%M%S")
+            sbd_safe = str(result.get('sbd', '')).replace('?', '_') or 'nosbd'
+            md_safe = str(result.get('made', '')).replace('?', '_') or 'nomd'
+            orig_name = Path(image_file.name).stem if hasattr(image_file, 'name') and image_file.name else 'mobile_scan'
+
+            if result_img_path and os.path.exists(result_img_path):
+                dst_res = ketqua_dir / f"{ts}_{orig_name}_sbd_{sbd_safe}_md_{md_safe}_result.jpg"
+                shutil.copy2(result_img_path, dst_res)
+                logger.info(f"Saved result image to {dst_res}")
+
+            if overlay_path and os.path.exists(overlay_path):
+                dst_ov = ketqua_dir / f"{ts}_{orig_name}_sbd_{sbd_safe}_md_{md_safe}_overlay.jpg"
+                shutil.copy2(overlay_path, dst_ov)
+                logger.info(f"Saved overlay image to {dst_ov}")
+        except Exception as e_kq:
+            logger.warning(f"Could not copy to tests/ketqua: {e_kq}")
 
         # Encode name crop image
         name_image_b64 = ''
@@ -795,6 +838,7 @@ def submission_detail_api(request, submission_id):
 
     return Response({
         'id': sub.id,
+        'image_url': sub.image.url if sub.image else '',
         'student_id': sub.student_id,
         'student_name': sub.student_name,
         'exam_id': sub.exam_id,

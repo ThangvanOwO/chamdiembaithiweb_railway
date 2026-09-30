@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
-
 import '../config/api_config.dart';
-import '../config/theme.dart';
+import '../services/ad_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/ad_banner.dart';
+import '../widgets/credit_wallet_card.dart';
 import 'settings_screen.dart';
 import 'admin_test_screen.dart';
 import 'admin_training_screen.dart';
@@ -17,310 +17,129 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
-
     return Scaffold(
       appBar: AppBar(title: const Text('Tài khoản')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // User info card
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  // Avatar
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: GradeFlowTheme.primaryFixed,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Center(
-                      child: Text(
-                        auth.userInitial,
-                        style: GoogleFonts.manrope(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: GradeFlowTheme.primary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          auth.userName,
-                          style: GoogleFonts.dmSans(
-                              fontSize: 17, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          auth.userEmail,
-                          style: GoogleFonts.dmSans(
-                              fontSize: 13,
-                              color: GradeFlowTheme.onSurfaceVariant),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: GradeFlowTheme.primaryFixed,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'Giáo viên',
-                            style: GoogleFonts.dmSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: GradeFlowTheme.primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Server info
+              child: ListTile(
+            contentPadding: const EdgeInsets.all(16),
+            leading: CircleAvatar(child: Text(auth.userInitial)),
+            title: Text(auth.userName,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(auth.userEmail),
+          )),
+          const SizedBox(height: 12),
+          if (auth.token != null) CreditWalletCard(token: auth.token!),
+          const InlineAdBanner(),
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Cấu hình kết nối',
-                      style: GoogleFonts.dmSans(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  _infoRow(LucideIcons.server, 'Server', ApiConfig.baseUrl),
-                  const SizedBox(height: 6),
-                  _infoRow(LucideIcons.key, 'Token',
-                      '${auth.token?.substring(0, 8)}...'),
-                ],
-              ),
+              child: Column(children: [
+            ListTile(
+              leading: const Icon(LucideIcons.settings),
+              title: const Text('Cài đặt'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SettingsScreen())),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // App info
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Thông tin ứng dụng',
-                      style: GoogleFonts.dmSans(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  _infoRow(LucideIcons.smartphone, 'Ứng dụng', 'GradeFlow Mobile'),
-                  const SizedBox(height: 6),
-                  _infoRow(LucideIcons.tag, 'Phiên bản', '1.0.0'),
-                  const SizedBox(height: 6),
-                  _infoRow(LucideIcons.scan, 'Document Scanner',
-                      'Google ML Kit'),
-                ],
-              ),
+            AnimatedBuilder(
+              animation: AdService.instance,
+              builder: (context, _) => AdService.instance.privacyOptionsRequired
+                  ? ListTile(
+                      leading: const Icon(Icons.privacy_tip_outlined),
+                      title: const Text('Quyền riêng tư quảng cáo'),
+                      trailing: AdService.instance.privacyOptionsOpen
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.chevron_right),
+                      onTap: AdService.instance.privacyOptionsOpen
+                          ? null
+                          : () async {
+                              final error =
+                                  await AdService.instance.showPrivacyOptions();
+                              if (!context.mounted || error == null) return;
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(content: Text(error)));
+                            },
+                    )
+                  : const SizedBox.shrink(),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // Admin-only: Training data manager
+            ExpansionTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('Thông tin ứng dụng'),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              children: [
+                const ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('GradeFlow Mobile'),
+                    subtitle: Text('Chấm điểm trắc nghiệm')),
+                ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Máy chủ'),
+                    subtitle: Text(ApiConfig.baseUrl)),
+              ],
+            ),
+          ])),
           if (auth.isAdmin) ...[
-            Card(
-              color: GradeFlowTheme.primaryFixed,
-              child: ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: GradeFlowTheme.tertiary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(LucideIcons.flaskConical,
-                      color: Colors.white, size: 20),
-                ),
-                title: Text('Test cham diem',
-                    style: GoogleFonts.dmSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: GradeFlowTheme.primary)),
-                subtitle: Text('Chup/chon anh → cham nhanh khong luu',
-                    style: GoogleFonts.dmSans(
-                        fontSize: 12,
-                        color: GradeFlowTheme.primary.withOpacity(0.8))),
-                trailing: Icon(LucideIcons.chevronRight,
-                    size: 18, color: GradeFlowTheme.primary),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminTestScreen(),
-                  ),
-                ),
-              ),
-            ),
             const SizedBox(height: 12),
             Card(
-              color: GradeFlowTheme.primaryFixed,
-              child: ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: GradeFlowTheme.primary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(LucideIcons.shieldCheck,
-                      color: Colors.white, size: 20),
-                ),
-                title: Text('Quan tri training data',
-                    style: GoogleFonts.dmSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: GradeFlowTheme.primary)),
-                subtitle: Text('Xem thống kê và tải gói ảnh training (.zip)',
-                    style: GoogleFonts.dmSans(
-                        fontSize: 12,
-                        color: GradeFlowTheme.primary.withOpacity(0.8))),
-                trailing: Icon(LucideIcons.chevronRight,
-                    size: 18, color: GradeFlowTheme.primary),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminTrainingScreen(),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              color: GradeFlowTheme.primaryFixed,
-              child: ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: GradeFlowTheme.primary,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(LucideIcons.users,
-                      color: Colors.white, size: 20),
-                ),
-                title: Text('Quản lý người dùng',
-                    style: GoogleFonts.dmSans(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: GradeFlowTheme.primary)),
-                subtitle: Text('Xem danh sách tài khoản và số đề thi mỗi user',
-                    style: GoogleFonts.dmSans(
-                        fontSize: 12,
-                        color: GradeFlowTheme.primary.withOpacity(0.8))),
-                trailing: Icon(LucideIcons.chevronRight,
-                    size: 18, color: GradeFlowTheme.primary),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdminUsersScreen(),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
+                child: ExpansionTile(
+              leading: const Icon(LucideIcons.shieldCheck),
+              title: const Text('Quản trị'),
+              children: [
+                _adminEntry(context, LucideIcons.flaskConical,
+                    'Kiểm tra chấm điểm', const AdminTestScreen()),
+                _adminEntry(context, LucideIcons.database, 'Dữ liệu huấn luyện',
+                    const AdminTrainingScreen()),
+                _adminEntry(context, LucideIcons.users, 'Quản lý người dùng',
+                    const AdminUsersScreen()),
+              ],
+            )),
           ],
-
-          // Settings entry
-          Card(
-            child: ListTile(
-              leading: Icon(LucideIcons.settings,
-                  color: GradeFlowTheme.primary),
-              title: Text('Cài đặt',
-                  style: GoogleFonts.dmSans(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
-              subtitle: Text('Tự động xóa ảnh cũ, xem lại hướng dẫn',
-                  style: GoogleFonts.dmSans(
-                      fontSize: 12,
-                      color: GradeFlowTheme.onSurfaceVariant)),
-              trailing: const Icon(LucideIcons.chevronRight, size: 18),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const SettingsScreen()),
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Logout button
-          SizedBox(
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: () => _confirmLogout(context, auth),
-              icon: const Icon(LucideIcons.logOut, size: 18),
-              label: const Text('Đăng xuất'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: GradeFlowTheme.error,
-                side: const BorderSide(color: GradeFlowTheme.error),
-              ),
-            ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: () => _confirmLogout(context, auth),
+            icon: const Icon(LucideIcons.logOut, size: 18),
+            label: const Text('Đăng xuất'),
+            style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+                minimumSize: const Size.fromHeight(48)),
           ),
         ],
       ),
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: GradeFlowTheme.onSurfaceVariant),
-        const SizedBox(width: 8),
-        Text(
-          '$label: ',
-          style: GoogleFonts.dmSans(
-              fontSize: 13, color: GradeFlowTheme.onSurfaceVariant),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w500),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _adminEntry(
+          BuildContext context, IconData icon, String title, Widget screen) =>
+      ListTile(
+        leading: Icon(icon),
+        title: Text(title),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () =>
+            Navigator.push(context, MaterialPageRoute(builder: (_) => screen)),
+      );
 
   void _confirmLogout(BuildContext context, AuthService auth) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Đăng xuất?',
-            style: GoogleFonts.manrope(fontWeight: FontWeight.w600)),
-        content: Text('Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng.',
-            style: GoogleFonts.dmSans()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              auth.logout();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: GradeFlowTheme.error,
-            ),
-            child: const Text('Đăng xuất'),
-          ),
-        ],
-      ),
-    );
+    showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text('Đăng xuất?'),
+              content:
+                  const Text('Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Hủy')),
+                TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      auth.logout();
+                    },
+                    child: const Text('Đăng xuất')),
+              ],
+            ));
   }
 }

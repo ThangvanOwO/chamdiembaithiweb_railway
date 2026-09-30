@@ -7,6 +7,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../config/theme.dart';
 import '../models/grade_result.dart';
+import '../widgets/academic_ui.dart';
 
 class GradeResultScreen extends StatefulWidget {
   final GradeResult result;
@@ -37,6 +38,7 @@ class _GradeResultScreenState extends State<GradeResultScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AcademicStyle.paper,
       appBar: AppBar(
         title: const Text('Kết quả chấm'),
         leading: IconButton(
@@ -87,79 +89,22 @@ class _GradeResultScreenState extends State<GradeResultScreen> {
   }
 
   Widget _buildSuccess(BuildContext context) {
-    final gradeColor = GradeFlowTheme.gradeColor(result.gradeLabel);
-    final gradeBg = GradeFlowTheme.gradeBackground(result.gradeLabel);
-
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       children: [
-        // ── Score Hero Card ──
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Container(
-                  width: 110,
-                  height: 110,
-                  decoration: BoxDecoration(
-                    color: gradeBg,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                        color: gradeColor.withOpacity(0.3), width: 3),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          result.score != null
-                              ? result.score!.toStringAsFixed(2)
-                              : '—',
-                          style: GoogleFonts.manrope(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w800,
-                              color: gradeColor),
-                        ),
-                        Text(result.gradeText,
-                            style: GoogleFonts.dmSans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: gradeColor)),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (examTitle != null)
-                  Text(examTitle!,
-                      style: GoogleFonts.dmSans(
-                          fontSize: 15, fontWeight: FontWeight.w600),
-                      textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    if (result.sbd.isNotEmpty)
-                      _infoChip(LucideIcons.hash, 'SBD: ${result.sbd}'),
-                    if (result.made.isNotEmpty)
-                      _infoChip(
-                          LucideIcons.fileText, 'Mã đề: ${result.made}'),
-                    if (result.correctCount != null &&
-                        result.totalQuestions != null)
-                      _infoChip(LucideIcons.checkSquare,
-                          '${result.correctCount}/${result.totalQuestions} câu'),
-                    _infoChip(LucideIcons.timer,
-                        '${result.processingTime.toStringAsFixed(1)}s'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
+        AcademicScoreSummary(result: result, examTitle: examTitle),
         const SizedBox(height: 16),
+        if (result.qualityWarning.isNotEmpty || result.validationWarnings.isNotEmpty) ...[
+          AcademicNotice(title: 'Một số thông tin cần đối chiếu',
+            message: result.qualityWarning.isNotEmpty ? result.qualityWarning :
+              '${result.validationWarnings.length} cảnh báo nhận diện. Kiểm tra phiếu và các đáp án bên dưới.',
+            warning: true),
+          if (result.validationWarnings.isNotEmpty)
+            ExpansionTile(title: const Text('Xem cảnh báo'),
+              children: [Padding(padding: const EdgeInsets.all(16),
+                child: Text(result.validationWarnings.join('\n')))]),
+          const SizedBox(height: 16),
+        ],
 
         // ── Name crop image (cropped from scanned sheet) ──
         if (result.nameImageBase64.isNotEmpty)
@@ -970,23 +915,4 @@ class _GradeResultScreenState extends State<GradeResultScreen> {
     );
   }
 
-  Widget _infoChip(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: GradeFlowTheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: GradeFlowTheme.onSurfaceVariant),
-          const SizedBox(width: 5),
-          Text(text,
-              style: GoogleFonts.dmSans(
-                  fontSize: 12, color: GradeFlowTheme.onSurfaceVariant)),
-        ],
-      ),
-    );
-  }
 }

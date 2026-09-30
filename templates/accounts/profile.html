@@ -1,67 +1,41 @@
 {% extends "base.html" %}
-
 {% block title %}Hồ sơ{% endblock %}
-
 {% block content %}
 <div class="fade-in">
-    <div class="section-header">
-        <div>
-            <h2 class="section-title">Hồ sơ cá nhân</h2>
-            <p class="section-subtitle">Cập nhật thông tin giáo viên của bạn</p>
-        </div>
-    </div>
-
-    <div style="max-width: 640px;">
-        <div class="card card-elevated">
-            <!-- Avatar -->
-            <div style="display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-6);">
-                <div class="avatar avatar-lg">
-                    {{ user.first_name|default:user.email|truncatechars:1|upper }}
-                </div>
-                <div>
-                    <div class="title-lg">{{ user.get_full_name|default:user.email }}</div>
-                    <div class="body-sm text-on-surface-var">{{ user.email }}</div>
-                </div>
+    <div class="section-header"><div><h2 class="section-title">Hồ sơ cá nhân</h2><p class="section-subtitle">Một chút về bạn, để không gian làm việc mang dấu ấn riêng.</p></div></div>
+    <div class="profile-layout">
+        <aside class="card profile-summary">
+            <div class="profile-avatar" id="avatar-preview">{% include 'partials/_avatar.html' %}</div>
+            <h3>{{ user.get_full_name|default:user.email }}</h3>
+            <p class="profile-email">{{ user.email }}</p>
+            <span class="profile-badge">{% if user.is_staff %}Quản trị viên{% else %}Giáo viên{% endif %}</span>
+            <dl class="profile-details">
+                <div><dt>Trường</dt><dd>{{ profile.school|default:'Chưa cập nhật' }}</dd></div>
+                <div><dt>Môn dạy</dt><dd>{{ profile.subject|default:'Chưa cập nhật' }}</dd></div>
+                <div><dt>Tham gia</dt><dd>{{ user.date_joined|date:'m/Y' }}</dd></div>
+            </dl>
+            <a class="profile-credit-link" href="{% url 'accounts:credits' %}"><span>Tín dụng của bạn</span><strong>{{ user.credit_wallet.balance|default:0 }} điểm →</strong></a>
+        </aside>
+        <form method="post" enctype="multipart/form-data" class="card profile-form">
+            {% csrf_token %}
+            <h3>Thông tin cá nhân</h3><p class="profile-form-intro">Cập nhật ảnh đại diện và thông tin giảng dạy.</p>
+            {{ form.non_field_errors }}
+            <div class="profile-upload">
+                <label for="id_avatar">Ảnh đại diện</label>
+                {{ form.avatar }}
+                <small>JPG, PNG hoặc WebP · Tối đa 5 MB. Ảnh được căn giữa thành hình vuông.</small>
+                {{ form.avatar.errors }}
+                <p id="avatar-status" class="avatar-status" role="status" aria-live="polite"></p>
             </div>
-
-            <!-- Profile Form -->
-            <form method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                
-                <div class="profile-grid-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
-                    <div class="form-group">
-                        <label class="form-label">Họ</label>
-                        {{ form.first_name }}
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Tên</label>
-                        {{ form.last_name }}
-                    </div>
-                </div>
-
-                <div class="form-group" style="margin-bottom: var(--space-4);">
-                    <label class="form-label">Trường</label>
-                    {{ form.school }}
-                </div>
-
-                <div class="profile-grid-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-bottom: var(--space-4);">
-                    <div class="form-group">
-                        <label class="form-label">Môn dạy</label>
-                        {{ form.subject }}
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Số điện thoại</label>
-                        {{ form.phone }}
-                    </div>
-                </div>
-
-                <div class="card-footer" style="padding-top: var(--space-6); margin-top: var(--space-4);">
-                    <button type="submit" class="btn btn-primary">
-                        Lưu thay đổi
-                    </button>
-                </div>
-            </form>
-        </div>
+            <div class="profile-fields">
+                <div class="form-group"><label class="form-label" for="{{ form.first_name.id_for_label }}">Họ</label>{{ form.first_name }}{{ form.first_name.errors }}</div>
+                <div class="form-group"><label class="form-label" for="{{ form.last_name.id_for_label }}">Tên</label>{{ form.last_name }}{{ form.last_name.errors }}</div>
+                <div class="form-group profile-field-wide"><label class="form-label" for="{{ form.school.id_for_label }}">Trường</label>{{ form.school }}{{ form.school.errors }}</div>
+                <div class="form-group"><label class="form-label" for="{{ form.subject.id_for_label }}">Môn dạy</label>{{ form.subject }}{{ form.subject.errors }}</div>
+                <div class="form-group"><label class="form-label" for="{{ form.phone.id_for_label }}">Số điện thoại</label>{{ form.phone }}{{ form.phone.errors }}</div>
+            </div>
+            <div class="profile-save"><small>Thông tin chỉ thay đổi sau khi bạn lưu.</small><button type="submit" class="btn btn-primary">Lưu thay đổi</button></div>
+        </form>
     </div>
 </div>
 {% endblock %}

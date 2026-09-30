@@ -35,6 +35,8 @@ class AuthService extends ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_user', json.encode(_user));
         notifyListeners();
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        await logout();
       }
     } catch (_) {}
   }
@@ -85,7 +87,7 @@ class AuthService extends ChangeNotifier {
       } else {
         _isLoading = false;
         notifyListeners();
-        return data['error'] ?? 'Đăng ký thất bại';
+        return data['message'] ?? data['error'] ?? 'Đăng ký thất bại';
       }
     } catch (e) {
       _isLoading = false;
@@ -131,25 +133,37 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Logout.
+  /// End the local session without waiting for an unavailable server.
   Future<void> logout() async {
-    if (_token != null) {
-      try {
-        await http.post(
-          Uri.parse('${ApiConfig.baseUrl}${ApiConfig.logout}'),
-          headers: authHeaders,
-        );
-      } catch (_) {}
-    }
-
+    final token = _token;
+    final logoutUrl = '${ApiConfig.baseUrl}${ApiConfig.logout}';
     _token = null;
     _user = null;
+    _isLoading = false;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('auth_user');
 
     notifyListeners();
+
+    // Best effort: the UI and persisted session are already signed out.
+    // Use the captured token so a later login cannot change this request.
+    if (token == null) return;
+    final client = http.Client();
+    try {
+      await client.post(
+        Uri.parse(logoutUrl),
+        headers: {
+          'Authorization': 'Token $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // Offline logout still succeeds locally.
+    } finally {
+      client.close();
+    }
   }
 
   /// Auth headers for API calls.

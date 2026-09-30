@@ -7,6 +7,8 @@ from django.dispatch import receiver
 from allauth.account.signals import user_logged_in
 from .forms import LoginForm, RegisterForm, ProfileForm
 from .models import TeacherProfile
+from .credits import ensure_wallet
+from django.utils.http import url_has_allowed_host_and_scheme
 
 logger = logging.getLogger(__name__)
 
@@ -29,40 +31,17 @@ def login_view(request):
         if form.is_valid():
             email = form.cleaned_data['email']
             password = form.cleaned_data['password']
-            logger.warning(f'[LOGIN] Attempting login for email={email}')
-            
-            # Find user by email
             from django.contrib.auth.models import User
-            try:
-                user_obj = User.objects.get(email=email)
-                logger.warning(f'[LOGIN] Found user: {user_obj.username}, check_pw={user_obj.check_password(password)}')
-                
-                # Try authenticate with username
-                user = authenticate(request, username=user_obj.username, password=password)
-                logger.warning(f'[LOGIN] authenticate result: {user}')
-                
-                # Fallback: if authenticate fails but password is correct, login directly
-                if user is None and user_obj.check_password(password):
-                    logger.warning('[LOGIN] Fallback: direct login')
-                    from django.contrib.auth import login as auth_login
-                    auth_login(request, user_obj, backend='django.contrib.auth.backends.ModelBackend')
-                    messages.success(request, f'Chào mừng {user_obj.get_full_name() or user_obj.email}!')
-                    next_url = request.GET.get('next', '/dashboard/')
-                    return redirect(next_url)
-                
-            except User.DoesNotExist:
-                user = None
-                logger.warning(f'[LOGIN] No user with email={email}')
-            
+            user_obj = User.objects.filter(email__iexact=email).first()
+            user = authenticate(request, username=user_obj.username if user_obj else email, password=password)
+
             if user is not None:
                 login(request, user)
-                messages.success(request, f'Chào mừng {user.get_full_name() or user.email}!')
-                next_url = request.GET.get('next', '/dashboard/')
+                messages.success(request, 'Đăng nhập thành công.')
+                next_url = safe_next_url(request)
                 return redirect(next_url)
             else:
                 messages.error(request, 'Email hoặc mật khẩu không đúng.')
-        else:
-            logger.warning(f'[LOGIN] Form invalid: {form.errors}')
     
     return render(request, 'accounts/login.html', {'form': form})
 
@@ -81,39 +60,26 @@ def register_view(request):
             email = form.cleaned_data['email']
             password = form.cleaned_data['password']
 
-            # Split full_name into first/last
+            from .registration import start_signup
+            from django.core.exceptions import ValidationError
             parts = full_name.strip().split()
-            first_name = ' '.join(parts[:-1]) if len(parts) > 1 else parts[0]
-            last_name = parts[-1] if len(parts) > 1 else ''
-
-            from django.contrib.auth.models import User
-            user = User.objects.create_user(
-                username=email,
-                email=email,
-                password=password,
-                first_name=first_name,
-                last_name=last_name,
-            )
-
-            # Create TeacherProfile
-            TeacherProfile.objects.get_or_create(user=user)
-
-            # Create allauth EmailAddress
             try:
-                from allauth.account.models import EmailAddress
-                EmailAddress.objects.get_or_create(
-                    user=user, email=email,
-                    defaults={'verified': True, 'primary': True}
-                )
-            except Exception:
-                pass
+                start_signup(request, {'email': email, 'password': password,
+                    'first_name': ' '.join(parts[:-1]) if len(parts) > 1 else parts[0],
+                    'last_name': parts[-1] if len(parts) > 1 else ''},
+                    request.POST.get('cf-turnstile-response', ''))
+            except ValidationError as exc:
+                form.add_error(None, exc)
+            else:
+                messages.success(request, 'Nếu email có thể đăng ký, liên kết xác minh đã được gửi. Vui lòng kiểm tra hộp thư để hoàn tất đăng ký.')
+                return redirect('accounts:login')
 
-            # Auto-login
-            login(request, user, backend='django.contrib.auth.backends.ModelBackend')
-            messages.success(request, f'Chào mừng {user.get_full_name()}! Tài khoản đã được tạo.')
-            return redirect('dashboard:index')
+    from .registration import signup_ready
+    from django.conf import settings
+    return render(request, 'accounts/register.html', {
+        'form': form, 'signup_ready': signup_ready(), 'turnstile_site_key': settings.TURNSTILE_SITE_KEY,
+    })
 
-    return render(request, 'accounts/register.html', {'form': form})
 
 
 def logout_view(request):
@@ -155,4 +121,17 @@ def profile_view(request):
     return render(request, 'accounts/profile.html', {
         'form': form,
         'profile': profile,
+    })
+
+
+def safe_next_url(request):
+    target = request.GET.get('next', '/dashboard/')
+    return target if url_has_allowed_host_and_scheme(target, {request.get_host()}, require_https=request.is_secure()) else '/dashboard/'
+
+
+@login_required
+def credits_view(request):
+    wallet = ensure_wallet(request.user)
+    return render(request, 'accounts/credits.html', {
+        'wallet': wallet, 'entries': wallet.entries.select_related('actor')[:50],
     })

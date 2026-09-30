@@ -1,7 +1,6 @@
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../services/ad_navigation_observer.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +10,9 @@ import 'package:image_picker/image_picker.dart';
 import '../config/theme.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../services/exam_import_service.dart';
+import '../widgets/academic_ui.dart';
+import '../widgets/answer_key_review.dart';
 import '../services/coach_mark_service.dart';
 import '../services/tutorial_flow.dart';
 import 'live_camera_screen.dart';
@@ -115,17 +117,18 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
     if (!kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
          defaultTargetPlatform == TargetPlatform.iOS)) {
-      final bytes = await Navigator.push<Uint8List>(
+      final capture = await Navigator.push<LiveCapture>(
         context,
         MaterialPageRoute(
+          settings: const RouteSettings(name: AdNavigationObserver.cameraRoute),
           builder: (_) => AutoScanScreen(),
         ),
       );
-      if (bytes != null && mounted) {
+      if (capture != null && mounted) {
         final name = 'scan_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        _uploadFile(bytes, name, isImage: true);
-        return;
+        await _uploadFile(capture.bytes, name, isImage: true, capture: capture);
       }
+      return; // Canceling camera must not unexpectedly open the gallery.
     }
     // Fallback: use gallery picker for web/desktop
     _pickImageFallback();
@@ -141,7 +144,7 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
   }
 
   Future<void> _uploadFile(Uint8List bytes, String name,
-      {required bool isImage}) async {
+      {required bool isImage, LiveCapture? capture}) async {
     final auth = context.read<AuthService>();
     if (auth.token == null) return;
 
@@ -154,11 +157,14 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
     try {
       final api = ApiService(token: auth.token!);
       Map<String, dynamic> data;
-      if (isImage) {
+      if (capture != null) {
+        data = await importExamCapture(token: auth.token!, capture: capture);
+      } else if (isImage) {
         data = await api.parseImageFile(bytes, name);
       } else {
         data = await api.parseExcelFile(bytes, name);
       }
+      if (!mounted) return;
       setState(() {
         _parsedData = data;
         _uploading = false;
@@ -166,6 +172,7 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
         _activeVariantIdx = 0;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _uploading = false;
         _uploadError = e.toString().replaceFirst('Exception: ', '');
@@ -203,7 +210,7 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
               })
           .toList();
 
-      final result = await api.createExam(
+      await api.createExam(
         title: _titleCtrl.text.trim(),
         subject: _subjectCtrl.text.trim(),
         templateCode: _selectedTemplate ?? '',
@@ -473,9 +480,9 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
         _buildStepIndicator(),
         const SizedBox(height: 24),
 
-        Text('Xác nhận đáp án',
-            style: GoogleFonts.manrope(
-                fontSize: 20, fontWeight: FontWeight.w700)),
+        const AcademicReveal(child: AcademicHeading(eyebrow: 'Sổ đáp án · Bước 2',
+          title: 'Kiểm tra trước khi lưu',
+          subtitle: 'Một bộ đáp án chính xác cho cả lớp học.')),
         const SizedBox(height: 4),
         Text.rich(TextSpan(children: [
           const TextSpan(text: 'Kiểm tra lại đáp án từ file '),
@@ -515,16 +522,35 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
         const SizedBox(height: 16),
 
         // Summary stats
-        Row(
-          children: [
-            _summaryChip('${variants.length}', 'Mã đề'),
-            _summaryChip('$p1Count', 'TN (P1)'),
-            _summaryChip('$p2Count', 'Đ/S (P2)'),
-            _summaryChip('$p3Count', 'Số (P3)'),
-            _summaryChip('$totalQ', 'Tổng',
-                accent: true),
-          ],
-        ),
+        if (data['source'] == 'image' && variants.isNotEmpty) ...[
+          TextFormField(
+            initialValue: '${variants[0]['code'] ?? ''}',
+            decoration: const InputDecoration(
+              labelText: 'Mã đề (3 chữ số)',
+              helperText: 'Kiểm tra mã đề; nếu chưa đọc được, hãy nhập mã trên phiếu.',
+            ),
+            keyboardType: TextInputType.number,
+            onChanged: (value) => setState(() {
+              (_parsedData!['variants'] as List)[0]['code'] = value.trim();
+            }),
+          ),
+          const SizedBox(height: 12),
+          const AcademicNotice(title: 'Đọc rõ trạng thái đáp án',
+            message: 'Ô “—” chưa có đáp án xác nhận. Ô X hoặc ? cần kiểm tra lại trên phiếu.'),
+          if ((data['warnings'] as List? ?? []).isNotEmpty)
+            ExpansionTile(title: Text('${(data['warnings'] as List).length} cảnh báo cần đối chiếu'),
+              leading: const Icon(Icons.info_outline, color: AcademicStyle.amber),
+              children: [Padding(padding: const EdgeInsets.all(16),
+                child: Text((data['warnings'] as List).join('\n')))]),
+          const SizedBox(height: 16),
+        ],
+        AcademicCard(child: Wrap(spacing: 24, runSpacing: 16, children: [
+          AcademicMetric(value: '${variants.length}', label: 'Mã đề'),
+          AcademicMetric(value: '$p1Count', label: 'Trắc nghiệm'),
+          AcademicMetric(value: '$p2Count', label: 'Đúng / Sai'),
+          AcademicMetric(value: '$p3Count', label: 'Trả lời ngắn'),
+          AcademicMetric(value: '$totalQ', label: 'Tổng số câu'),
+        ])),
         const SizedBox(height: 16),
 
         // Variant tabs
@@ -563,9 +589,10 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
-          height: 48,
           child: ElevatedButton.icon(
-            onPressed: _titleCtrl.text.trim().isEmpty
+            onPressed: _titleCtrl.text.trim().isEmpty ||
+                    (data['source'] == 'image' &&
+                        (variants.isEmpty || !RegExp(r'^\d{3}$').hasMatch('${variants[0]['code']}')))
                 ? null
                 : () => setState(() => _step = 3),
             icon: const Icon(LucideIcons.arrowRight, size: 18),
@@ -574,207 +601,25 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
                     fontSize: 15, fontWeight: FontWeight.w600)),
           ),
         ),
+        if (_titleCtrl.text.trim().isEmpty)
+          const Padding(padding: EdgeInsets.only(top: 12),
+            child: Text('Nhập tên đề thi ở phía trên để tiếp tục.', textAlign: TextAlign.center,
+              style: TextStyle(color: AcademicStyle.muted, fontSize: 13)))
+        else if (data['source'] == 'image' &&
+            (variants.isEmpty || !RegExp(r'^\d{3}$').hasMatch('${variants[0]['code']}')))
+          const Padding(padding: EdgeInsets.only(top: 12),
+            child: Text('Kiểm tra mã đề: cần đủ 3 chữ số.', textAlign: TextAlign.center)),
       ],
     );
   }
 
-  Widget _summaryChip(String value, String label, {bool accent = false}) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: accent
-              ? GradeFlowTheme.primary.withOpacity(0.1)
-              : GradeFlowTheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          children: [
-            Text(value,
-                style: GoogleFonts.manrope(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: accent
-                        ? GradeFlowTheme.primary
-                        : GradeFlowTheme.onSurface)),
-            Text(label,
-                style: GoogleFonts.dmSans(
-                    fontSize: 10, color: GradeFlowTheme.onSurfaceVariant)),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildAnswerReview(
       Map<String, dynamic> variant, int p1Count, int p2Count, int p3Count) {
-    final p1 = Map<String, dynamic>.from(variant['p1'] ?? {});
-    final p2 = Map<String, dynamic>.from(variant['p2'] ?? {});
-    final p3 = Map<String, dynamic>.from(variant['p3'] ?? {});
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // P1
-        if (p1Count > 0) ...[
-          _sectionTitle('Phần I — Trắc nghiệm', '$p1Count câu'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 5,
-            runSpacing: 5,
-            children: List.generate(p1Count, (i) {
-              final q = '${i + 1}';
-              final ans = p1[q] ?? '—';
-              final empty = ans == '—';
-              return Container(
-                width: 44,
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: empty
-                      ? GradeFlowTheme.surfaceContainer
-                      : GradeFlowTheme.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                      color: empty
-                          ? GradeFlowTheme.outlineVariant
-                          : GradeFlowTheme.primary.withOpacity(0.3),
-                      width: 0.5),
-                ),
-                child: Column(
-                  children: [
-                    Text('C$q',
-                        style: GoogleFonts.dmSans(
-                            fontSize: 9,
-                            color: GradeFlowTheme.onSurfaceVariant)),
-                    Text('$ans',
-                        style: GoogleFonts.manrope(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: empty
-                                ? GradeFlowTheme.onSurfaceVariant
-                                : GradeFlowTheme.primary)),
-                  ],
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        // P2
-        if (p2Count > 0) ...[
-          _sectionTitle('Phần II — Đúng/Sai', '$p2Count câu'),
-          const SizedBox(height: 8),
-          ...List.generate(p2Count, (i) {
-            final q = '${i + 1}';
-            final opts =
-                p2[q] is Map ? Map<String, dynamic>.from(p2[q]) : null;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: GradeFlowTheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Text('Câu $q',
-                      style: GoogleFonts.dmSans(
-                          fontSize: 13, fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 12),
-                  ...['a', 'b', 'c', 'd'].map((k) {
-                    final val = opts?[k] ?? '—';
-                    final isDung = val == 'Đ';
-                    final isSai = val == 'S';
-                    return Container(
-                      margin: const EdgeInsets.only(right: 4),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: isDung
-                            ? const Color(0xFFE8F5E9)
-                            : isSai
-                                ? const Color(0xFFFFF3E0)
-                                : GradeFlowTheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text('${k}) $val',
-                          style: GoogleFonts.dmSans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isDung
-                                  ? const Color(0xFF2E7D32)
-                                  : isSai
-                                      ? const Color(0xFFE65100)
-                                      : GradeFlowTheme.onSurfaceVariant)),
-                    );
-                  }),
-                ],
-              ),
-            );
-          }),
-          const SizedBox(height: 16),
-        ],
-
-        // P3
-        if (p3Count > 0) ...[
-          _sectionTitle('Phần III — Điền số', '$p3Count câu'),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: List.generate(p3Count, (i) {
-              final q = '${i + 1}';
-              final ans = p3[q] ?? '—';
-              return Container(
-                width: 70,
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: GradeFlowTheme.surfaceContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    Text('C$q',
-                        style: GoogleFonts.dmSans(
-                            fontSize: 9,
-                            color: GradeFlowTheme.onSurfaceVariant)),
-                    Text('$ans',
-                        style: GoogleFonts.manrope(
-                            fontSize: 14, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-              );
-            }),
-          ),
-        ],
-      ],
-    );
+    return AnswerKeyReview(variant: variant, part1Count: p1Count,
+      part2Count: p2Count, part3Count: p3Count);
   }
 
-  Widget _sectionTitle(String title, String badge) {
-    return Row(
-      children: [
-        Text(title,
-            style: GoogleFonts.dmSans(
-                fontSize: 14, fontWeight: FontWeight.w600)),
-        const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: GradeFlowTheme.surfaceContainer,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(badge,
-              style: GoogleFonts.dmSans(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: GradeFlowTheme.onSurfaceVariant)),
-        ),
-      ],
-    );
-  }
 
   // ═══════════════════════════════════════════════════════════════════
   // STEP 3: Choose template & Save

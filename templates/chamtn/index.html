@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>ChamTN · Hệ thống chấm trắc nghiệm</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563eb'/%3E%3Cpath d='M16 34l10 10 22-24' stroke='white' stroke-width='7' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/chamtn/app.css">
+</head>
+<body>
+
+<!-- ============================ ĐĂNG NHẬP ============================ -->
+<div id="login" class="login-wrap hidden">
+  <div class="login-bg"></div>
+  <form class="login-card" id="login-form" autocomplete="on">
+    <div class="login-logo">
+      <svg viewBox="0 0 64 64" width="52" height="52"><rect width="64" height="64" rx="14" fill="currentColor"/><path d="M16 34l10 10 22-24" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <h1 id="login-title">ChamTN</h1>
+    <p class="muted" id="login-sub">Hệ thống chấm trắc nghiệm tự động</p>
+    <label class="field">
+      <span>Tên đăng nhập</span>
+      <input type="text" id="lg-user" name="username" autocomplete="username" required autofocus spellcheck="false">
+    </label>
+    <label class="field">
+      <span>Mật khẩu</span>
+      <div class="pw-wrap">
+        <input type="password" id="lg-pass" name="password" autocomplete="current-password" required>
+        <button type="button" class="pw-eye" id="lg-eye" title="Hiện/ẩn mật khẩu" aria-label="Hiện mật khẩu">👁</button>
+      </div>
+    </label>
+    <div class="login-err hidden" id="lg-err"></div>
+    <button class="btn btn-primary btn-lg btn-block" type="submit" id="lg-btn">Đăng nhập</button>
+    <p class="login-foot" id="login-copy"></p>
+  </form>
+</div>
+
+<!-- ============================ ỨNG DỤNG ============================ -->
+<div id="app" class="app hidden">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 64 64" width="30" height="30"><rect width="64" height="64" rx="14" fill="currentColor"/><path d="M16 34l10 10 22-24" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="brand-text" id="brand-name">ChamTN</span>
+      <button class="sb-close" id="sb-close" title="Đóng menu">✕</button>
+    </div>
+    <nav class="nav" id="nav">
+      <a href="#/dashboard"  data-nav="dashboard"><i>▦</i><span>Tổng quan</span></a>
+      <a href="#/exams"      data-nav="exams"><i>◈</i><span>Kỳ thi &amp; chấm bài</span></a>
+      <a href="#/students"   data-nav="students"><i>☰</i><span>Lớp &amp; học sinh</span></a>
+      <a href="#/try"        data-nav="try"><i>◎</i><span>Chấm thử</span></a>
+      <a href="#/templates"  data-nav="templates"><i>▤</i><span>Mẫu phiếu</span></a>
+      <a href="#/users"      data-nav="users" class="admin-only"><i>☺</i><span>Người dùng</span></a>
+      <a href="#/settings"   data-nav="settings" class="admin-only"><i>⚙</i><span>Cài đặt</span></a>
+      <a href="#/audit"      data-nav="audit" class="admin-only"><i>⏱</i><span>Nhật ký hệ thống</span></a>
+    </nav>
+    <div class="sb-foot">
+      <div class="sb-user" id="sb-user"></div>
+      <div class="sb-copy" id="sb-copy"></div>
+      <div class="sb-ver" id="sb-ver" title="Phiên bản"></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn" id="sb-open" title="Menu">☰</button>
+      <div class="crumb" id="crumb">Tổng quan</div>
+      <div class="grow"></div>
+      <div class="conn" id="conn" title="Kết nối máy chủ"><span class="dot"></span><span id="conn-txt">đang kết nối…</span></div>
+      <button class="icon-btn" id="btn-console" title="Bảng nhật ký trực tiếp (F2)">▤</button>
+      <button class="icon-btn" id="btn-theme" title="Sáng/tối">◐</button>
+      <div class="usermenu">
+        <button class="icon-btn user-btn" id="btn-user"><span id="user-ini">?</span></button>
+        <div class="dropdown hidden" id="user-drop">
+          <div class="dd-head"><b id="dd-name">—</b><small id="dd-role"></small></div>
+          <button data-act="passwd">Đổi mật khẩu</button>
+          <button data-act="logout">Đăng xuất</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="content" id="view"></main>
+  </div>
+
+  <!-- Bảng nhật ký trực tiếp -->
+  <section class="console hidden" id="console">
+    <div class="console-head">
+      <b>Nhật ký trực tiếp</b>
+      <span class="tag" id="con-count">0</span>
+      <div class="grow"></div>
+      <select id="con-level" class="mini">
+        <option value="TRACE">Tất cả</option>
+        <option value="DEBUG">Debug</option>
+        <option value="INFO" selected>Thông tin</option>
+        <option value="WARN">Cảnh báo</option>
+        <option value="ERROR">Lỗi</option>
+      </select>
+      <label class="mini-check"><input type="checkbox" id="con-auto" checked> tự cuộn</label>
+      <button class="btn btn-sm" id="con-clear">Xoá</button>
+      <button class="icon-btn" id="con-close">✕</button>
+    </div>
+    <div class="console-body" id="console-body"></div>
+  </section>
+
+  <!-- Thẻ tiến trình nổi -->
+  <div class="jobfloat hidden" id="jobfloat"></div>
+</div>
+
+<div class="modal-root hidden" id="modal-root">
+  <div class="modal-back" id="modal-back"></div>
+  <div class="modal" id="modal"></div>
+</div>
+<div class="toasts" id="toasts"></div>
+<div class="lightbox hidden" id="lightbox"><img id="lightbox-img" alt=""><button class="lb-close">✕</button></div>
+
+<script src="/static/chamtn/js/core.js"></script>
+<script src="/static/chamtn/js/dash.js"></script>
+<script src="/static/chamtn/js/exams.js"></script>
+<script src="/static/chamtn/js/grade.js"></script>
+<script src="/static/chamtn/js/review.js"></script>
+<script src="/static/chamtn/js/data.js"></script>
+<script src="/static/chamtn/js/admin.js"></script>
+<script src="/static/chamtn/js/boot.js"></script>
+</body>
+</html>

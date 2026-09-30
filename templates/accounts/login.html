@@ -5,8 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Đăng nhập hệ thống chấm điểm trắc nghiệm tự động GradeFlow">
-    <meta name="theme-color" content="#005BBF">
+    <meta name="theme-color" content="#173447">
     <title>Đăng nhập — GradeFlow</title>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6695808615282253"
+            crossorigin="anonymous"></script>
 
     <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'><rect width='28' height='28' rx='8' fill='%23005BBF'/><path d='M8 14.5L12 18.5L20 10.5' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/></svg>">
@@ -20,6 +22,7 @@
     <link rel="stylesheet" href="{% static 'css/layout.css' %}?v=3">
     <link rel="stylesheet" href="{% static 'css/animations.css' %}?v=2">
     <link rel="stylesheet" href="{% static 'css/polish.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'css/academic-web.css' %}?v=2">
 
     <script>
         (function(){
@@ -30,11 +33,12 @@
         })();
     </script>
 </head>
-<body>
+<body class="academic-auth">
     <div class="auth-layout">
         <!-- Left: Login Form -->
         <div class="auth-left">
             <div class="auth-card fade-in">
+                <a href="{% url 'website:home' %}" class="academic-back">← Trang chủ GradeFlow</a>
                 <!-- Logo -->
                 <div class="auth-logo">
                     <img src="{% static 'img/gradeflow_logo.png' %}" alt="GradeFlow Logo" width="36" height="36" style="border-radius: 8px;">
@@ -73,10 +77,14 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="login-password" class="form-label">Mật khẩu</label>
+                        <div class="auth-label-row">
+                            <label for="login-password" class="form-label">Mật khẩu</label>
+                            <a href="{% url 'accounts:password_reset' %}" class="auth-forgot">Quên mật khẩu?</a>
+                        </div>
                         <input type="password" name="password" id="login-password"
                                class="form-input"
                                placeholder="••••••••"
+                               autocomplete="current-password"
                                required>
                         {% if form.password.errors %}
                         <span class="form-error">{{ form.password.errors.0 }}</span>
@@ -105,7 +113,7 @@
 
                 <!-- Google Sign-In -->
                 <a href="/accounts/google/login/?process=login"
-                   class="btn btn-secondary btn-lg btn-block"
+                   class="btn btn-secondary btn-lg btn-block auth-social"
                    style="display: flex; align-items: center; justify-content: center; gap: var(--space-3); text-decoration: none;">
                     <svg width="20" height="20" viewBox="0 0 48 48">
                         <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -157,5 +165,6 @@
             </div>
         </div>
     </div>
+    <script src="{% static 'js/password-toggle.js' %}?v=2" defer></script>
 </body>
 </html>

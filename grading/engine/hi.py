@@ -93,16 +93,17 @@ P3_COMMA_SCORE_MIN = 0.10
 P3_COMMA_GAP_MIN = 0.05
 P3_DIGIT_SCORE_MIN = 0.28
 P3_DIGIT_GAP_MIN = 0.05
-P3_OCR_ENABLE = True
+P3_BLANK_COL_STD_MIN = 0.035
+P3_OCR_ENABLE = os.environ.get("P3_OCR_ENABLE", "0").strip().lower() in ("1", "true", "yes")
 P3_OCR_BOX_Y_OFFSET = -55  # relative to PART3_SIGN_Y
 P3_OCR_BOX_SIZE = 34
 P3_OCR_INK_MIN = 0.04
 P3_OCR_INK_MAX = 0.45
 
 # SBD/Mã đề thresholds (lighter pencil marks)
-SBD_MADE_TOP_MIN = 0.12
-SBD_MADE_GAP_MIN = 0.02
-SBD_MADE_FALLBACK_TOP_MIN = 0.10
+SBD_MADE_TOP_MIN = 0.18
+SBD_MADE_GAP_MIN = 0.06
+SBD_MADE_FALLBACK_TOP_MIN = 0.15
 SBD_MADE_FALLBACK_GAP_MIN = 0.08
 
 _CNN_MODEL = None
@@ -130,14 +131,14 @@ PART1_CHOICES = ["A", "B", "C", "D"]
 # ╚════════════════════════════════════════════════════════════════════════╝
 # Mỗi block: start_x = tâm cột Đúng, start_x + step = tâm cột Sai
 PART2_BLOCKS = [
-    {"start_x": 81,   "start_y": 1187, "q": 1},
-    {"start_x": 228,  "start_y": 1187, "q": 2},
-    {"start_x": 430,  "start_y": 1187, "q": 3},
-    {"start_x": 577,  "start_y": 1187, "q": 4},
-    {"start_x": 781,  "start_y": 1187, "q": 5},
-    {"start_x": 927,  "start_y": 1187, "q": 6},
-    {"start_x": 1130, "start_y": 1187, "q": 7},
-    {"start_x": 1276, "start_y": 1187, "q": 8},
+    {"start_x": 81,   "start_y": 1190, "q": 1},
+    {"start_x": 228,  "start_y": 1190, "q": 2},
+    {"start_x": 430,  "start_y": 1190, "q": 3},
+    {"start_x": 577,  "start_y": 1190, "q": 4},
+    {"start_x": 781,  "start_y": 1190, "q": 5},
+    {"start_x": 927,  "start_y": 1190, "q": 6},
+    {"start_x": 1130, "start_y": 1190, "q": 7},
+    {"start_x": 1276, "start_y": 1190, "q": 8},
 ]
 PART2_STEP_X = 73   # Khoảng cách Đúng → Sai
 PART2_STEP_Y = 33   # Khoảng cách a → b → c → d
@@ -153,7 +154,7 @@ PART3_BLOCKS = [
     {"sign_x": 547,  "cols_x": [557, 591, 624, 659],  "q": 3},
     {"sign_x": 780,  "cols_x": [790, 823, 858, 892],  "q": 4},
     {"sign_x": 1013, "cols_x": [1023, 1057, 1091, 1125], "q": 5},
-    {"sign_x": 1247, "cols_x": [1257, 1290, 1324, 1359], "q": 6},
+    {"sign_x": 1247, "cols_x": [1249, 1283, 1317, 1351], "q": 6},
 ]
 PART3_SIGN_Y = 1490         # Hàng dấu trừ (-)
 PART3_COMMA_Y = 1522        # Hàng dấu phẩy (.)
@@ -364,7 +365,10 @@ def load_template(json_path):
     ALL_BUBBLE_CENTERS = _collect_all_bubble_centers()
     ERASE_MASK         = _build_erase_mask()
 
-    print(f"[OK] Template: {t.get('name', json_path)}")
+    try:
+        print(f"[OK] Template: {t.get('name', json_path)}")
+    except Exception:
+        pass
     return t
 
 
@@ -692,8 +696,8 @@ def _score_warp_quality(warped, method_name, corners):
     thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 11, 2)
     noise_ratio = cv2.countNonZero(thresh) / total_px
-    # IMPROVEMENT 4: Tighten noise rejection — reject warps with edge density <0.02 or >0.15
-    if noise_ratio < 0.02 or noise_ratio > 0.15:
+    # IMPROVEMENT 4: Noise rejection — reject warps with edge density <0.01 or >0.25
+    if noise_ratio < 0.01 or noise_ratio > 0.25:
         clean = 0.0  # Too clean (no content) or too noisy
     else:
         clean = max(0.0, 100.0 - noise_ratio * 80.0)
@@ -741,7 +745,10 @@ def _score_warp_quality(warped, method_name, corners):
         else:
             detail['refine'] = 'none'
 
-    print(f"    score_detail: {detail} → {score:.1f}")
+    try:
+        print(f"    score_detail: {detail} -> {score:.1f}")
+    except Exception:
+        pass
     return score, sharp_score, refined
 
 
@@ -804,7 +811,10 @@ def auto_deskew_and_crop(image, debug=False):
             else:
                 bonus_note = f"no bonus, sym={sym_a:.3f} (suspicious)"
             candidates.append((score_a, sharp_a, warped_a, corners_a, method_a))
-            print(f"  [A] {method_a} → {score_a:.1f} ({bonus_note})")
+            try:
+                print(f"  [A] {method_a} -> {score_a:.1f} ({bonus_note})")
+            except Exception:
+                pass
 
     # ─── Method B: Paper contour ───
     paper = _find_paper_contour(image, debug_img)
@@ -830,7 +840,10 @@ def auto_deskew_and_crop(image, debug=False):
                     method_b = "paper+refine"
                     corners_b = refined_orig_b
         candidates.append((score_b, sharp_b, warped_b, corners_b, method_b))
-        print(f"  [B] {method_b} → {score_b:.1f}")
+        try:
+            print(f"  [B] {method_b} -> {score_b:.1f}")
+        except Exception:
+            pass
 
     # ─── Method C: HYBRID paper + corner markers (DIRECT) ───
     # Cách 1 (tối ưu): Dùng paper corners làm HOA TIÊU, tìm marker 
@@ -958,14 +971,23 @@ def auto_deskew_and_crop(image, debug=False):
                     bonus_c = f"no bonus, sym={sym_c:.3f} (suspicious)"
                 candidates.append((score_c, sharp_c, warped_c, markers_orig,
                                    "paper+markers"))
-                print(f"  [C] paper+markers → {score_c:.1f} ({bonus_c})")
+                try:
+                    print(f"  [C] paper+markers -> {score_c:.1f} ({bonus_c})")
+                except Exception:
+                    pass
             else:
-                print(f"  [C] paper+markers: quad invalid → skip")
+                try:
+                    print(f"  [C] paper+markers: quad invalid -> skip")
+                except Exception:
+                    pass
         else:
             corner_names = ["TL", "TR", "BR", "BL"]  # Top-Left, Top-Right, ...
             failed_corners = [corner_names[i] for found, i in marker_results if not found]
-            print(f"  [C] paper+markers: only {len(marker_centers)}/4 markers → skip"
-                  f" (failed: {','.join(failed_corners) if failed_corners else 'none'})")
+            try:
+                print(f"  [C] paper+markers: only {len(marker_centers)}/4 markers -> skip"
+                      f" (failed: {','.join(failed_corners) if failed_corners else 'none'})")
+            except Exception:
+                pass
 
     # ─── Chọn kết quả tốt nhất ───
     if not candidates:
@@ -1102,6 +1124,16 @@ def _find_corner_markers(image, debug_img=None,
     Thử adaptive → simple threshold.
     Trả về 4 điểm float32 hoặc None.
     """
+    # [CHAMTN TOURNAMENT] Ưu tiên thuật toán Directional Tournament từ ChamTN
+    # Triệt tiêu hoàn toàn nhiễu từ sàn gạch hoa văn, bàn gỗ phức tạp
+    try:
+        from chamtn_core import ChamTNEngine
+        chamtn_quad = ChamTNEngine.find_corner_markers(image)
+        if chamtn_quad is not None and len(chamtn_quad) == 4:
+            return chamtn_quad.astype(np.float32)
+    except Exception:
+        pass
+
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     h, w = image.shape[:2]
     min_a = (w * h) * min_ratio
@@ -1965,39 +1997,50 @@ def preprocess(warped, enhance_camera=None, mode="fast"):
         return gray, thresh, cleaned
 
     # ─── PHONE MODE: Enhanced pipeline cho ảnh phone camera ───
-    # [IMPROVE] Pipeline mạnh nhất cho ảnh chất lượng thấp
+    # [v2] Multi-scale illumination + pencil enhancement
     if mode == "phone":
         # Step 1: Non-local means denoising (mạnh hơn median/bilateral)
         gray_denoised = cv2.fastNlMeansDenoising(gray_raw, None, h=10,
                                                    templateWindowSize=7,
                                                    searchWindowSize=21)
         
-        # Step 2: Illumination flattening (background division)
-        bg_large = cv2.GaussianBlur(gray_denoised, (0, 0), sigmaX=60)
-        gray_norm = cv2.divide(gray_denoised, bg_large, scale=255)
+        # Step 2: MULTI-SCALE illumination flattening
+        # Pass 1: sigma=120 — loại gradient LỚN (bóng tay, đèn không đều)
+        bg_global = cv2.GaussianBlur(gray_denoised, (0, 0), sigmaX=120)
+        gray_flat = cv2.divide(gray_denoised, bg_global, scale=255)
+        # Pass 2: sigma=30 — loại gradient CỤC BỘ (bóng giấy, nếp nhăn)
+        bg_local = cv2.GaussianBlur(gray_flat, (0, 0), sigmaX=30)
+        gray_norm = cv2.divide(gray_flat, bg_local, scale=255)
         
-        # Step 3: CLAHE với clipLimit cao hơn
-        clahe = cv2.createCLAHE(clipLimit=3.5, tileGridSize=(8, 8))
+        # Step 3: Pencil mark enhancement — kéo giãn histogram
+        # Nếu ảnh low-contrast (bút chì nhạt), stretch tăng gap tô/rỗng
+        p2, p98 = np.percentile(gray_norm, (2, 98))
+        if p98 - p2 < 200:  # Contrast thấp → stretch
+            gray_norm = np.clip((gray_norm.astype(float) - p2) / max(1, p98 - p2) * 255,
+                                0, 255).astype(np.uint8)
+        
+        # Step 4: CLAHE — tăng contrast cục bộ (clipLimit vừa phải tránh noise)
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
         gray_enhanced = clahe.apply(gray_norm)
         
-        # Step 4: Bilateral filter (preserve bubble edges)
-        gray = cv2.bilateralFilter(gray_enhanced, 9, 75, 75)
+        # Step 5: Bilateral filter (preserve bubble edges, kill noise)
+        gray = cv2.bilateralFilter(gray_enhanced, 7, 60, 60)
         
-        # Step 5: Adaptive threshold với block size lớn hơn
+        # Step 6: Adaptive threshold — block size=45 (smaller = tighter local)
         thresh = cv2.adaptiveThreshold(
             gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY, 61, 12
+            cv2.THRESH_BINARY, 45, 10
         )
         
-        # Step 6: Morphological closing (lấp lỗ nhỏ trong bubble)
+        # Step 7: Morphological closing (lấp lỗ nhỏ trong bubble tô)
         close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, close_kernel, iterations=1)
         
-        # Step 7: Morphological opening (loại nét mảnh)
+        # Step 8: Morphological opening (loại nét mảnh text/noise)
         open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
         cleaned = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, open_kernel, iterations=1)
         
-        # Step 8: Remove small blobs (< 15 pixels)
+        # Step 9: Remove small blobs (< 15 pixels)
         contours, _ = cv2.findContours(cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for cnt in contours:
             if cv2.contourArea(cnt) < 15:
@@ -2247,8 +2290,8 @@ def is_bubble_filled(gray_img, cx, cy, radius=BUBBLE_RADIUS,
 
     rx, ry = int(cx - x1), int(cy - y1)
 
-    # Inner mask (shrink 2px to avoid edge noise)
-    inner_radius = max(3, radius - 2)
+    # Inner mask (shrink 3px to avoid edge circle border noise)
+    inner_radius = max(3, radius - 3)
     bubble_mask = np.zeros(roi.shape[:2], dtype=np.uint8)
     cv2.circle(bubble_mask, (rx, ry), inner_radius, 255, -1)
     bubble_pixels = roi[bubble_mask == 255]
@@ -2256,10 +2299,10 @@ def is_bubble_filled(gray_img, cx, cy, radius=BUBBLE_RADIUS,
         return False, 0.0
     bubble_mean = float(np.mean(bubble_pixels))
 
-    # Ring mask for local_white
+    # Ring mask for local_white (immediate vicinity, avoids outside table borders)
     ring_mask = np.zeros(roi.shape[:2], dtype=np.uint8)
-    cv2.circle(ring_mask, (rx, ry), radius + 10, 255, -1)
-    cv2.circle(ring_mask, (rx, ry), radius + 4, 0, -1)
+    cv2.circle(ring_mask, (rx, ry), radius + 6, 255, -1)
+    cv2.circle(ring_mask, (rx, ry), radius + 2, 0, -1)
     ring_pixels = roi[ring_mask == 255]
     local_white = float(np.mean(ring_pixels)) if ring_pixels.size > 10 else 255.0
     local_white = max(local_white, 50.0)
@@ -2437,6 +2480,10 @@ def _hybrid_score(gray_img, cx, cy, threshold=FILL_THRESHOLD, force_cnn=False):
     _, ratio = is_bubble_filled(gray_img, cx, cy, threshold=threshold)
     cnn_conf = None
 
+    # Nếu ô hoàn toàn rỗng (< 0.16) → không cho CNN ghi đè gây nhận diện ảo
+    if ratio < 0.16 and not force_cnn:
+        return ratio, ratio, None
+
     use_cnn = HYBRID_CNN_ENABLE and (
         HYBRID_ALWAYS_CNN or force_cnn or (HYBRID_RATIO_LOW <= ratio <= HYBRID_RATIO_HIGH)
     )
@@ -2553,7 +2600,7 @@ def _ocr_digit_from_box(gray_img, box):
 # ║      BƯỚC 5a: TRÍCH XUẤT ĐÁP ÁN PHẦN I (40 câu ABCD)             ║
 # ╚════════════════════════════════════════════════════════════════════════╝
 
-def _detect_filled_choices(ratios, global_threshold=None, local_threshold=None):
+def _detect_filled_choices(ratios, global_threshold=None, local_threshold=None, fast_mode=False):
     """
     Phát hiện bubble được tô — 4 phương pháp + cluster analysis.
 
@@ -2561,44 +2608,57 @@ def _detect_filled_choices(ratios, global_threshold=None, local_threshold=None):
       - 0 bubble → "" (bỏ trống)
       - 1 bubble → "A"/"B"/"C"/"D"
       - 2+ bubble → "X" (tô nhiều, câu hỏng)
-
-    Pipeline:
-    1) Cluster: Tìm "gap lớn nhất" trong dãy ratio → tách filled vs empty
-    2) TNMaker Relative: Xác nhận cluster bằng gap analysis
-    3) 2-Level Threshold: OMRChecker-inspired local+global (NEW)
-    4) Absolute: Fallback cho ảnh sạch
-    5) Adaptive: Trừ noise floor cho ảnh nhạt
+      - fast_mode=True: Giảm độ nhạy 20% (tăng ngưỡng 20%) cho Live Camera để tránh chấm nhầm
     """
     if not ratios:
         return []
 
     vals = list(ratios.values())
-    if max(vals) < 0.08:
+    # Giảm độ nhạy thêm 20% cho Live Camera (tổng giảm ~36% so với gốc): tăng ngưỡng tối thiểu từ 0.156 lên 0.187
+    min_cutoff = 0.187 if fast_mode else 0.13
+    if max(vals) < min_cutoff:
         return []
-
-    # Check if all ratios are close (likely all empty)
-    ratio_spread = max(vals) - min(vals)
-    if ratio_spread < 0.04 and max(vals) < 0.20:
-        return []  # All bubbles have similar low ratios → all empty
 
     # Sort by fill ratio descending
     paired = sorted(ratios.items(), key=lambda x: x[1], reverse=True)
     sorted_r = [p[1] for p in paired]
+    top_ch, top_v = paired[0]
+    second_v = paired[1][1] if len(paired) > 1 else 0
+    gap = top_v - second_v
+    mean_v = float(np.mean(vals))
+
+    # Nét chì nhạt hoặc ô nhiễu nét trên Live Camera:
+    # Bắt buộc phải có gap rõ rệt và vượt trội so với các ô còn lại trong câu
+    # Giảm độ nhạy thêm 20% khi fast_mode=True:
+    light_ceil = 0.36 if fast_mode else 0.25
+    req_gap = 0.094 if fast_mode else 0.065
+    req_ratio = 1.92 if fast_mode else 1.45
+    req_mean_diff = 0.072 if fast_mode else 0.05
+
+    if top_v < light_ceil:
+        if gap < req_gap or (second_v > 0 and top_v / second_v < req_ratio) or (top_v - mean_v < req_mean_diff):
+            return []  # Không đủ nổi bật → ô trống / viền in / nhiễu nét
+        return [top_ch]
+
+    # Check if all ratios are close (likely all empty)
+    spread_limit = 0.086 if fast_mode else 0.06
+    spread_max = 0.40 if fast_mode else 0.28
+    ratio_spread = max(vals) - min(vals)
+    if ratio_spread < spread_limit and max(vals) < spread_max:
+        return []  # All bubbles have similar low ratios → all empty
     n = len(sorted_r)
 
-    # IMPROVEMENT 8: Calculate adaptive thresholds based on noise floor
+    # Calculate adaptive thresholds based on noise floor
     noise_floor = float(np.std(sorted_r))
-    min_gap_threshold = max(0.05, 2.0 * noise_floor)  # Gap must be > 2σ above noise
-    min_separation = max(0.03, 1.5 * noise_floor)
+    scale_factor = 1.44 if fast_mode else 1.0
+    min_gap_threshold = max(0.05 * scale_factor, 2.0 * scale_factor * noise_floor)
+    min_separation = max(0.03 * scale_factor, 1.5 * scale_factor * noise_floor)
 
     # ── CLUSTER ANALYSIS: Tìm gap lớn nhất để tách filled/empty ──
-    # Ý tưởng: bubble tô có ratio CAO HƠN HẲN bubble rỗng
-    # Gap lớn nhất giữa 2 bubble liên tiếp → ranh giới filled/empty
     if n >= 2:
         gaps = [(i, sorted_r[i] - sorted_r[i + 1]) for i in range(n - 1)]
         best_gap_idx, best_gap = max(gaps, key=lambda x: x[1])
 
-        # IMPROVEMENT 8: Use adaptive gap threshold instead of fixed 0.08
         if best_gap > min_gap_threshold:
             filled_cluster = [paired[i][0] for i in range(best_gap_idx + 1)]
             filled_ratios = sorted_r[:best_gap_idx + 1]
@@ -2609,24 +2669,19 @@ def _detect_filled_choices(ratios, global_threshold=None, local_threshold=None):
             empty_max = max(empty_ratios) if empty_ratios else 0
             separation = filled_min - empty_max
 
-            # IMPROVEMENT 8: Use adaptive separation threshold
             if separation > min_separation:
-                # Cụm filled tách biệt rõ ràng khỏi cụm empty
                 if len(filled_cluster) == 1:
                     return filled_cluster
                 elif len(filled_cluster) >= 2:
-                    # Tô 2+ bubble → kiểm tra xem CÓ THẬT tô nhiều không
-                    # Nếu top HƠN HẲN second (1 tô đậm, 1 dính mực nhẹ) → chọn top
                     inner_gap = filled_ratios[0] - filled_ratios[1]
                     inner_ratio = filled_ratios[0] / filled_ratios[1] if filled_ratios[1] > 0 else float('inf')
-                    if inner_gap > 0.12 or inner_ratio > 1.5:
-                        return [paired[0][0]]  # 1 tô thật, còn lại dính mực
+                    if inner_gap > (0.17 if fast_mode else 0.12) or inner_ratio > (2.0 if fast_mode else 1.5):
+                        return [paired[0][0]]
                     logger.info(f"MULTI-BUBBLE: {filled_cluster} ratios={filled_ratios}")
-                    return filled_cluster  # Thật sự tô nhiều → X
+                    return filled_cluster
 
-    # ── METHOD 1: TNMaker Relative (a.java:840) ──
-    # IMPROVEMENT 8: Use adaptive gap threshold with higher minimum
-    tn_gap_threshold = max(0.08, 1.5 * noise_floor)
+    # ── METHOD 1: TNMaker Relative ──
+    tn_gap_threshold = max(0.08 * scale_factor, 1.5 * scale_factor * noise_floor)
     if n >= 3:
         gap_top = sorted_r[0] - sorted_r[1]
         gap_rest = sorted_r[1] - sorted_r[2]
@@ -2636,22 +2691,22 @@ def _detect_filled_choices(ratios, global_threshold=None, local_threshold=None):
         if sorted_r[0] - sorted_r[1] > tn_gap_threshold:
             return [paired[0][0]]
 
-    # ── METHOD 2: 2-Level Threshold (OMRChecker-inspired) ──
-    if local_threshold is not None:
-        filled_2level = [ch for ch, r in ratios.items() if r > local_threshold]
-        if filled_2level:
-            if len(filled_2level) == 1:
-                return filled_2level
-            # Nhiều bubble vượt local threshold → check dominance
-            filled_sorted = sorted([(ch, ratios[ch]) for ch in filled_2level],
-                                   key=lambda x: x[1], reverse=True)
-            top_r = filled_sorted[0][1]
-            second_r = filled_sorted[1][1]
-            if (top_r - second_r) > 0.05 or (second_r > 0 and top_r / second_r > 1.3):
-                return [filled_sorted[0][0]]
-            return filled_2level  # Thật sự tô nhiều → X
+    # ── METHOD 2: 2-Level Threshold ──
+    base_eff = max(local_threshold if local_threshold is not None else (global_threshold or 0.16), 0.16)
+    eff_threshold = base_eff * scale_factor
+    filled_2level = [ch for ch, r in ratios.items() if r > eff_threshold]
+    if filled_2level:
+        if len(filled_2level) == 1:
+            return filled_2level
+        filled_sorted = sorted([(ch, ratios[ch]) for ch in filled_2level],
+                               key=lambda x: x[1], reverse=True)
+        top_r = filled_sorted[0][1]
+        second_r = filled_sorted[1][1]
+        if (top_r - second_r) > (0.072 if fast_mode else 0.05) or (second_r > 0 and top_r / second_r > (1.8 if fast_mode else 1.3)):
+            return [filled_sorted[0][0]]
+        return filled_2level
     elif global_threshold is not None:
-        filled_global = [ch for ch, r in ratios.items() if r > global_threshold]
+        filled_global = [ch for ch, r in ratios.items() if r > (global_threshold * scale_factor)]
         if filled_global:
             if len(filled_global) == 1:
                 return filled_global
@@ -2659,35 +2714,33 @@ def _detect_filled_choices(ratios, global_threshold=None, local_threshold=None):
                                    key=lambda x: x[1], reverse=True)
             top_r = filled_sorted[0][1]
             second_r = filled_sorted[1][1]
-            if (top_r - second_r) > 0.08 or (second_r > 0 and top_r / second_r > 1.5):
+            if (top_r - second_r) > (0.115 if fast_mode else 0.08) or (second_r > 0 and top_r / second_r > (2.0 if fast_mode else 1.5)):
                 return [filled_sorted[0][0]]
             return filled_global
 
     # ── METHOD 3: Absolute threshold ──
-    # Use FILL_THRESHOLD directly
-    abs_threshold = FILL_THRESHOLD
+    abs_threshold = FILL_THRESHOLD * scale_factor
     filled = [ch for ch, r in ratios.items() if r > abs_threshold]
     if filled:
         if len(filled) == 1:
             return filled
-        # Nhiều vượt threshold → check dominance
         filled_sorted = sorted([(ch, ratios[ch]) for ch in filled],
                                key=lambda x: x[1], reverse=True)
         top_r = filled_sorted[0][1]
         second_r = filled_sorted[1][1]
         gap = top_r - second_r
-        if gap > 0.1 or (second_r > 0 and top_r / second_r > 1.5):
+        if gap > (0.144 if fast_mode else 0.1) or (second_r > 0 and top_r / second_r > (2.0 if fast_mode else 1.5)):
             return [filled_sorted[0][0]]
-        return filled  # Thật sự tô nhiều → X
+        return filled
 
-    # ── METHOD 3: Adaptive noise floor ──
-    # [IMPROVE] Tăng ngưỡng significant để giảm false positive
+    # ── METHOD 4: Adaptive noise floor ──
     sorted_vals = sorted(vals)
     noise_floor = sorted_vals[1] if len(sorted_vals) >= 3 else sorted_vals[0]
     adjusted = [(ch, max(0.0, r - noise_floor)) for ch, r in ratios.items()]
     adjusted.sort(key=lambda x: x[1], reverse=True)
 
-    significant = [(ch, adj) for ch, adj in adjusted if adj > 0.04]
+    sig_thr = 0.058 if fast_mode else 0.04
+    significant = [(ch, adj) for ch, adj in adjusted if adj > sig_thr]
     if not significant:
         return []
 
@@ -2814,10 +2867,10 @@ def _compute_local_threshold(strip_ratios, global_thr, no_outliers):
     # Nếu gap không đủ lớn → dùng global threshold
     if max1 < confident_jump:
         if no_outliers:
-            return global_thr
-        return np.mean(q_vals)
+            return max(global_thr, 0.18)
+        return max(float(np.mean(q_vals)), 0.18)
 
-    return thr1
+    return max(thr1, 0.18)
 
 
 def _count_detected(answers_dict):
@@ -2904,11 +2957,12 @@ def _auto_align_field_blocks(gray, max_shift=8, stride=1):
     return shifts
 
 
-def extract_part1(cleaned_img, y_offset=0, num_questions=None):
+def extract_part1(cleaned_img, y_offset=0, num_questions=None, fast_mode=False):
     """
     Đọc câu trắc nghiệm ABCD.
     y_offset: bù lệch y do ảnh phồng (từ detect_section_offsets).
     num_questions: giới hạn số câu quét (None = quét hết theo template).
+    fast_mode: True → giảm độ nhạy 20% cho Live Camera.
     2-pass approach:
       Pass 1: Thu thập TẤT CẢ ratios
       Pass 2: Tính global/local thresholds → detect answers
@@ -2963,7 +3017,7 @@ def extract_part1(cleaned_img, y_offset=0, num_questions=None):
         all_q_std_vals.append(np.std(vals))
     global_std_thresh = np.median(all_q_std_vals) if all_q_std_vals else 0.1
 
-    # ── PASS 3: Detect answers với 2-level thresholds ──
+    # ── PASS 3: Detect answers với 2-level thresholds (kèm fast_mode -20% nhạy) ──
     for q, ratios in details.items():
         strip_std = np.std(list(ratios.values()))
         no_outliers = strip_std < global_std_thresh
@@ -2971,7 +3025,7 @@ def extract_part1(cleaned_img, y_offset=0, num_questions=None):
             list(ratios.values()), global_thr, no_outliers)
 
         filled_choices = _detect_filled_choices(
-            ratios, global_threshold=global_thr, local_threshold=local_thr)
+            ratios, global_threshold=global_thr, local_threshold=local_thr, fast_mode=fast_mode)
         ans = _pick_answer(filled_choices)
         conf = _confidence_score(ratios)
         answers[q] = ans
@@ -2998,11 +3052,12 @@ def extract_part1(cleaned_img, y_offset=0, num_questions=None):
 # ║   BƯỚC 5b: TRÍCH XUẤT ĐÁP ÁN PHẦN II (8 câu x a/b/c/d x Đ/S)    ║
 # ╚════════════════════════════════════════════════════════════════════════╝
 
-def extract_part2(cleaned_img, y_offset=0, num_questions=None):
+def extract_part2(cleaned_img, y_offset=0, num_questions=None, fast_mode=False):
     """
     Đọc câu Đúng/Sai cho mỗi ý a, b, c, d.
     y_offset: bù lệch y do ảnh phồng (từ detect_section_offsets).
     num_questions: giới hạn số câu quét (None = quét hết theo template).
+    fast_mode: True → giảm độ nhạy 20% cho Live Camera.
     Hybrid 1-pass: max(OpenCV, CNN) cho mỗi bubble.
     Trả về:
       answers: {1: {'a': 'Dung', 'b': 'Sai', ...}, ...}
@@ -3010,6 +3065,10 @@ def extract_part2(cleaned_img, y_offset=0, num_questions=None):
     """
     answers = {}
     details = {}
+
+    # Giảm độ nhạy thêm 20% cho Live Camera: tăng ngưỡng tối thiểu và khoảng cách gap (tổng x1.44)
+    min_score = (0.22 * 1.44) if fast_mode else 0.22  # 0.317 vs 0.22
+    min_gap = (0.14 * 1.44) if fast_mode else 0.14    # 0.20 vs 0.14
 
     for blk in PART2_BLOCKS:
         q = blk["q"]
@@ -3020,15 +3079,18 @@ def extract_part2(cleaned_img, y_offset=0, num_questions=None):
 
         for ri, label in enumerate(PART2_ROWS):
             cy = sy + ri * PART2_STEP_Y + y_offset
-            # Cột Đúng
-            score_dung, r_dung, _ = _hybrid_score(cleaned_img, sx, cy)
-            # Cột Sai
-            score_sai, r_sai, _ = _hybrid_score(cleaned_img, sx + PART2_STEP_X, cy)
+            # Cột Đúng / Sai: Dùng OpenCV fill ratio chuẩn
+            _, score_dung = is_bubble_filled(cleaned_img, sx, cy)
+            _, score_sai = is_bubble_filled(cleaned_img, sx + PART2_STEP_X, cy)
 
             q_det[label] = {"Dung": round(score_dung, 3), "Sai": round(score_sai, 3)}
 
-            filled = _detect_filled_choices({"Dung": score_dung, "Sai": score_sai})
-            q_ans[label] = _pick_answer(filled)
+            # Đúng / Sai: Phải có ít nhất 1 ô đạt ngưỡng tối thiểu VÀ có gap phân biệt
+            if max(score_dung, score_sai) < min_score or abs(score_dung - score_sai) < min_gap:
+                q_ans[label] = ""
+            else:
+                filled = _detect_filled_choices({"Dung": score_dung, "Sai": score_sai}, fast_mode=fast_mode)
+                q_ans[label] = _pick_answer(filled)
 
         answers[q] = q_ans
         details[q] = q_det
@@ -3040,11 +3102,12 @@ def extract_part2(cleaned_img, y_offset=0, num_questions=None):
 # ║       BƯỚC 5c: TRÍCH XUẤT ĐÁP ÁN PHẦN III (6 câu điền số)        ║
 # ╚════════════════════════════════════════════════════════════════════════╝
 
-def extract_part3(cleaned_img, y_offset=0, num_questions=None):
+def extract_part3(cleaned_img, y_offset=0, num_questions=None, fast_mode=False):
     """
     Đọc câu điền số: dấu trừ (-), dấu phẩy (.), 4 cột số 0-9.
     y_offset: bù lệch y do ảnh phồng (từ detect_section_offsets).
     num_questions: giới hạn số câu quét (None = quét hết theo template).
+    fast_mode: True → giảm độ nhạy 20% cho Live Camera.
     Mỗi cột chọn digit có fill_ratio cao nhất (nếu > threshold).
     Trả về:
       answers: {1: '1234', 2: '-5.67', ...}
@@ -3052,6 +3115,10 @@ def extract_part3(cleaned_img, y_offset=0, num_questions=None):
     """
     answers = {}
     details = {}
+
+    p3_score_min = (P3_DIGIT_SCORE_MIN * 1.44) if fast_mode else P3_DIGIT_SCORE_MIN
+    p3_gap_min = (P3_DIGIT_GAP_MIN * 1.44) if fast_mode else P3_DIGIT_GAP_MIN
+    blank_cv_thr = 0.14 if fast_mode else 0.10
 
     for blk in PART3_BLOCKS:
         q = blk["q"]
@@ -3064,12 +3131,11 @@ def extract_part3(cleaned_img, y_offset=0, num_questions=None):
         sign_score, r_neg, _ = _hybrid_score(
             cleaned_img, blk["sign_x"], PART3_SIGN_Y + y_offset, force_cnn=True
         )
-        is_neg = bool(sign_score >= P3_SIGN_SCORE_MIN)
+        is_neg = bool(sign_score >= (P3_SIGN_SCORE_MIN * (1.20 if fast_mode else 1.0)))
         q_det["sign"] = round(r_neg, 3)
 
         # 2) Kiểm tra dấu phẩy (.) - cột nào được tô
-        #    Comma dùng threshold riêng (0.35) vì dot nhỏ, dễ false positive
-        COMMA_THRESHOLD = 0.22
+        COMMA_THRESHOLD = 0.264 if fast_mode else 0.22
         comma_col = -1
         comma_scores = []
         comma_ratios = []
@@ -3086,12 +3152,12 @@ def extract_part3(cleaned_img, y_offset=0, num_questions=None):
             top_i = order[0]
             top_s = comma_scores[top_i]
             second_s = comma_scores[order[1]] if len(order) > 1 else 0.0
-            if top_s >= P3_COMMA_SCORE_MIN and (top_s - second_s) >= P3_COMMA_GAP_MIN:
+            req_comma_score = (P3_COMMA_SCORE_MIN * 1.20) if fast_mode else P3_COMMA_SCORE_MIN
+            req_comma_gap = (P3_COMMA_GAP_MIN * 1.20) if fast_mode else P3_COMMA_GAP_MIN
+            if top_s >= req_comma_score and (top_s - second_s) >= req_comma_gap:
                 comma_col = top_i
 
         # 3) Đọc 4 cột số (mỗi cột: chọn digit 0-9 có ratio cao nhất)
-        #    Dùng logic MAX dominant (giống SBD/MĐ) thay vì _detect_filled_choices
-        #    vì 10 bubble/cột khiến adaptive phase quá nhạy → false positive
         digits = []
         digit_det = []
         digit_scores = []
@@ -3105,11 +3171,17 @@ def extract_part3(cleaned_img, y_offset=0, num_questions=None):
                 col_ratios[str(d)] = round(ratio, 3)
             digit_det.append({int(k): v for k, v in col_ratios.items()})
             digit_scores.append({int(k): v for k, v in col_scores.items()})
-            # Pick MAX ratio nếu nổi bật (gap > 0.05 so với 2nd)
+            # Lọc cột rỗng bằng CV ratio và độ lệch chuẩn
+            max_cv = max(col_ratios.values()) if col_ratios else 0
+            scores_list = list(col_scores.values())
+            col_std = float(np.std(scores_list))
+            is_blank_col = (max_cv < blank_cv_thr) or ((col_std < P3_BLANK_COL_STD_MIN) if P3_BLANK_COL_STD_MIN > 0 else False)
+
+            # Pick MAX ratio nếu nổi bật và không phải cột rỗng
             sorted_items = sorted(col_scores.items(), key=lambda x: x[1], reverse=True)
             top_d, top_s = sorted_items[0]
             second_s = sorted_items[1][1] if len(sorted_items) > 1 else 0
-            if top_s >= P3_DIGIT_SCORE_MIN and (top_s - second_s) >= P3_DIGIT_GAP_MIN:
+            if not is_blank_col and top_s >= p3_score_min and (top_s - second_s) >= p3_gap_min:
                 digits.append(int(top_d))
             else:
                 digits.append(-1)  # Không tô hoặc không rõ
@@ -3121,7 +3193,7 @@ def extract_part3(cleaned_img, y_offset=0, num_questions=None):
         ocr_boxes = []
         ocr_ink = []
         digit_count = sum(1 for d in digits if d >= 0)
-        allow_ocr = P3_OCR_ENABLE and comma_col >= 0 and digit_count <= 1
+        allow_ocr = P3_OCR_ENABLE and digit_count == 0
         if allow_ocr:
             ocr_digits = [-1] * len(cols_x)
             box_y = PART3_SIGN_Y + y_offset + P3_OCR_BOX_Y_OFFSET
@@ -3289,16 +3361,13 @@ def draw_results_part1(image, results, y_offset=0):
 
         for ci, choice in enumerate(PART1_CHOICES):
             cx = int(cfg["start_x"] + ci * cfg["step_x"])
-            # Đánh dấu đáp án học sinh
-            if choice == student_ans:
+            # Đánh dấu đáp án học sinh (chỉ khi HS CÓ KHOANH)
+            if not is_blank and choice == student_ans:
                 color = COLOR_CORRECT if res["is_correct"] else COLOR_WRONG
                 cv2.circle(image, (cx, cy), BUBBLE_RADIUS + 3, color, THICKNESS_MARK)
             # Đánh dấu đáp án đúng nếu HS sai
-            if choice == res["correct"] and not res["is_correct"]:
+            if not is_blank and choice == res["correct"] and not res["is_correct"]:
                 cv2.circle(image, (cx, cy), BUBBLE_RADIUS + 5, COLOR_RIGHT_ANS, THICKNESS_MARK)
-            # Vàng: chưa khoanh → highlight đáp án đúng bằng màu vàng
-            if is_blank and choice == res["correct"]:
-                cv2.circle(image, (cx, cy), BUBBLE_RADIUS + 5, COLOR_UNANSWERED, THICKNESS_MARK)
     return image
 
 
@@ -3314,14 +3383,11 @@ def draw_results_part2(image, results, y_offset=0):
             cy = int(sy + ri * PART2_STEP_Y + y_offset)
             for ci, col_name in enumerate(["Dung", "Sai"]):
                 cx = int(sx + ci * PART2_STEP_X)
-                if col_name == student_ans:
+                if not is_blank and col_name == student_ans:
                     color = COLOR_CORRECT if res["is_correct"] else COLOR_WRONG
                     cv2.circle(image, (cx, cy), BUBBLE_RADIUS + 3, color, THICKNESS_MARK)
-                if col_name == res["correct"] and not res["is_correct"]:
+                if not is_blank and col_name == res["correct"] and not res["is_correct"]:
                     cv2.circle(image, (cx, cy), BUBBLE_RADIUS + 5, COLOR_RIGHT_ANS, THICKNESS_MARK)
-                # Vàng: chưa khoanh → highlight đáp án đúng
-                if is_blank and col_name == res["correct"]:
-                    cv2.circle(image, (cx, cy), BUBBLE_RADIUS + 5, COLOR_UNANSWERED, THICKNESS_MARK)
     return image
 
 
@@ -3348,6 +3414,10 @@ def draw_results_part3(image, results, student_details, y_offset=0):
     """Vẽ kết quả Part III: khoanh đỏ bubble sai, xanh bubble đúng."""
     for q, res in results.items():
         blk = PART3_BLOCKS[q - 1]
+        student_ans = res.get("student", "")
+        if not student_ans or student_ans in ("-", "X"):
+            continue  # Bỏ trống → KHÔNG vẽ gì lên bài thi
+
         q_det = student_details.get(q, {})
         is_correct = res["is_correct"]
         mark_color = COLOR_CORRECT if is_correct else COLOR_WRONG
@@ -3520,21 +3590,19 @@ def draw_bubble_grid(warped_image, offsets=None):
 # ║                     PIPELINE CHÍNH (Main)                            ║
 # ╚════════════════════════════════════════════════════════════════════════╝
 
-def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=False, provided_corners=None, parts_config=None):
+def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=False, provided_corners=None, parts_config=None, fast_mode=False,
+                  live_bubble_mode=False, live_answer_key_resolver=None, live_validation=False):
     """
     Pipeline đầy đủ: phát hiện góc → warp → tiền xử lý → đọc đáp án → chấm điểm.
 
     Tham số:
       image_path      : đường dẫn ảnh phiếu
       correct_answers : dict với keys 'part1', 'part2', 'part3'
-        part1: {1: 'A', 2: 'B', ...}
-        part2: {1: {'a': 'Dung', 'b': 'Sai', ...}, ...}
-        part3: {1: '1234', 2: '-5.67', ...}
       debug           : True → lưu ảnh calibration + threshold
       pre_warped      : True → bỏ qua detect corner (ảnh đã thẳng)
       provided_corners: Tọa độ 4 góc được truyền từ frontend (nếu có)
       parts_config    : [p1_count, p2_count, p3_count] — giới hạn số câu quét mỗi phần.
-                         None = quét hết theo template (40, 8, 6).
+      fast_mode       : True → Chạy 1 pass siêu nhanh cho live camera stream (<0.4s).
     """
     # --- Parse parts_config → giới hạn số câu quét mỗi phần ---
     p1_limit = None
@@ -3545,11 +3613,14 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
         p2_limit = parts_config[1] if len(parts_config) > 1 and parts_config[1] is not None else None
         p3_limit = parts_config[2] if len(parts_config) > 2 and parts_config[2] is not None else None
 
-    print(f"\n{'='*60}")
-    print(f"  Xử lý: {os.path.basename(image_path)}")
-    if p1_limit is not None or p2_limit is not None or p3_limit is not None:
-        print(f"  Giới hạn: P1={p1_limit if p1_limit is not None else 'all'} P2={p2_limit if p2_limit is not None else 'all'} P3={p3_limit if p3_limit is not None else 'all'}")
-    print(f"{'='*60}")
+    try:
+        print(f"\n{'='*60}")
+        print(f"  Xu ly: {os.path.basename(image_path)}")
+        if p1_limit is not None or p2_limit is not None or p3_limit is not None:
+            print(f"  Gioi han: P1={p1_limit if p1_limit is not None else 'all'} P2={p2_limit if p2_limit is not None else 'all'} P3={p3_limit if p3_limit is not None else 'all'}")
+        print(f"{'='*60}")
+    except Exception:
+        pass
 
     # --- Load ảnh ---
     base = os.path.splitext(image_path)[0]
@@ -3621,54 +3692,53 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
             print(f"[LỖI] {e}")
             return None
 
-    # --- Bước 2b: Post-warp validation — kiểm tra bubble grid alignment ---
-    # [IMPROVE] Nếu warp sai → bubble grid lệch → detect sai
-    # Kiểm tra: có bao nhiêu bubble center có circle gần đó?
-    gray_check = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY) if len(warped.shape) == 3 else warped.copy()
-    blurred_check = cv2.GaussianBlur(gray_check, (5, 5), 0)
-    circles = cv2.HoughCircles(blurred_check, cv2.HOUGH_GRADIENT, dp=1.2,
-                                minDist=15, param1=50, param2=15,
-                                minRadius=8, maxRadius=18)
-    if circles is not None:
-        circles = np.round(circles[0, :]).astype(int)
-        # Đếm bubble centers có circle gần (< 15px)
-        matched = 0
-        total_bubbles = len(ALL_BUBBLE_CENTERS)
-        for bx, by in ALL_BUBBLE_CENTERS:
-            for cx_c, cy_c, _ in circles:
-                if abs(bx - cx_c) < 15 and abs(by - cy_c) < 15:
-                    matched += 1
-                    break
-        match_ratio = matched / max(1, total_bubbles)
-        print(f"[OK] Grid alignment: {matched}/{total_bubbles} bubbles matched ({match_ratio:.0%})")
-        
-        # [IMPROVE] Nếu match ratio thấp → warp sai → thử method khác
-        if match_ratio < 0.3 and method != "paper+markers":
-            print(f"[WARN] Grid alignment poor ({match_ratio:.0%}) → trying other methods...")
-            for cand_score, cand_sharp, cand_warped, cand_corners, cand_method in all_candidates:
-                if cand_method == method:
-                    continue
-                cand_gray = cv2.cvtColor(cand_warped, cv2.COLOR_BGR2GRAY) if len(cand_warped.shape) == 3 else cand_warped.copy()
-                cand_blur = cv2.GaussianBlur(cand_gray, (5, 5), 0)
-                cand_circles = cv2.HoughCircles(cand_blur, cv2.HOUGH_GRADIENT, dp=1.2,
-                                                  minDist=15, param1=50, param2=15,
-                                                  minRadius=8, maxRadius=18)
-                if cand_circles is not None:
-                    cand_circles = np.round(cand_circles[0, :]).astype(int)
-                    cand_matched = 0
-                    for bx, by in ALL_BUBBLE_CENTERS:
-                        for cx_c, cy_c, _ in cand_circles:
-                            if abs(bx - cx_c) < 15 and abs(by - cy_c) < 15:
-                                cand_matched += 1
-                                break
-                    cand_ratio = cand_matched / max(1, total_bubbles)
-                    if cand_ratio > match_ratio:
-                        print(f"[RETRY] {cand_method}: {cand_matched}/{total_bubbles} ({cand_ratio:.0%}) > {match_ratio:.0%} → switching")
-                        warped = cand_warped
-                        method = cand_method
-                        corners = cand_corners
-                        match_ratio = cand_ratio
+    # --- Bước 2b: Post-warp validation — kiểm tra bubble grid alignment (skip in fast_mode) ---
+    if not fast_mode:
+        gray_check = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY) if len(warped.shape) == 3 else warped.copy()
+        blurred_check = cv2.GaussianBlur(gray_check, (5, 5), 0)
+        circles = cv2.HoughCircles(blurred_check, cv2.HOUGH_GRADIENT, dp=1.2,
+                                    minDist=15, param1=50, param2=15,
+                                    minRadius=8, maxRadius=18)
+        if circles is not None:
+            circles = np.round(circles[0, :]).astype(int)
+            # Đếm bubble centers có circle gần (< 15px)
+            matched = 0
+            total_bubbles = len(ALL_BUBBLE_CENTERS)
+            for bx, by in ALL_BUBBLE_CENTERS:
+                for cx_c, cy_c, _ in circles:
+                    if abs(bx - cx_c) < 15 and abs(by - cy_c) < 15:
+                        matched += 1
                         break
+            match_ratio = matched / max(1, total_bubbles)
+            print(f"[OK] Grid alignment: {matched}/{total_bubbles} bubbles matched ({match_ratio:.0%})")
+            
+            # [IMPROVE] Nếu match ratio thấp → warp sai → thử method khác
+            if match_ratio < 0.3 and method != "paper+markers":
+                print(f"[WARN] Grid alignment poor ({match_ratio:.0%}) → trying other methods...")
+                for cand_score, cand_sharp, cand_warped, cand_corners, cand_method in all_candidates:
+                    if cand_method == method:
+                        continue
+                    cand_gray = cv2.cvtColor(cand_warped, cv2.COLOR_BGR2GRAY) if len(cand_warped.shape) == 3 else cand_warped.copy()
+                    cand_blur = cv2.GaussianBlur(cand_gray, (5, 5), 0)
+                    cand_circles = cv2.HoughCircles(cand_blur, cv2.HOUGH_GRADIENT, dp=1.2,
+                                                      minDist=15, param1=50, param2=15,
+                                                      minRadius=8, maxRadius=18)
+                    if cand_circles is not None:
+                        cand_circles = np.round(cand_circles[0, :]).astype(int)
+                        cand_matched = 0
+                        for bx, by in ALL_BUBBLE_CENTERS:
+                            for cx_c, cy_c, _ in cand_circles:
+                                if abs(bx - cx_c) < 15 and abs(by - cy_c) < 15:
+                                    cand_matched += 1
+                                    break
+                        cand_ratio = cand_matched / max(1, total_bubbles)
+                        if cand_ratio > match_ratio:
+                            print(f"[RETRY] {cand_method}: {cand_matched}/{total_bubbles} ({cand_ratio:.0%}) > {match_ratio:.0%} → switching")
+                            warped = cand_warped
+                            method = cand_method
+                            corners = cand_corners
+                            match_ratio = cand_ratio
+                            break
 
     # --- Bước 3: Tiền xử lý (FAST → check → ROBUST → PHONE nếu cần) ---
     import time as _time
@@ -3692,7 +3762,7 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
 
     # --- Bước 4-5: Đọc đáp án (FAST pass) ---
     sbd, made, sbd_det = extract_sbd_made(gray)
-    p1_ans, p1_det = extract_part1(gray, y_offset=offsets["part1"], num_questions=p1_limit)
+    p1_ans, p1_det = extract_part1(gray, y_offset=offsets["part1"], num_questions=p1_limit, fast_mode=fast_mode)
 
     # --- Hybrid Decision: try multiple preprocessing, KEEP THE BEST ---
     fast_confs = [_confidence_score(ratios) for ratios in p1_det.values()]
@@ -3708,8 +3778,8 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     best_p1_ans, best_p1_det = p1_ans, p1_det
     best_preprocess_mode = preprocess_mode
 
-    need_robust = (fast_low / max(1, len(fast_confs)) > 0.25 or
-                   fast_blank / max(1, len(fast_confs)) > 0.3)
+    need_robust = (not fast_mode) and (fast_low / max(1, len(fast_confs)) > 0.25 or
+                                      fast_blank / max(1, len(fast_confs)) > 0.3)
 
     if need_robust:
         for retry_mode, retry_label, retry_kwargs in [
@@ -3724,7 +3794,7 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
             if r_p3_offset is not None:
                 r_offsets["part3"] = r_p3_offset
             r_sbd, r_made, r_sbd_det = extract_sbd_made(r_gray)
-            r_p1_ans, r_p1_det = extract_part1(r_gray, y_offset=r_offsets["part1"], num_questions=p1_limit)
+            r_p1_ans, r_p1_det = extract_part1(r_gray, y_offset=r_offsets["part1"], num_questions=p1_limit, fast_mode=fast_mode)
 
             r_confs = [_confidence_score(ratios) for ratios in r_p1_det.values()]
             r_avg_conf = sum(r_confs) / max(1, len(r_confs))
@@ -3762,9 +3832,33 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     sbd, made, sbd_det = best_sbd, best_made, best_sbd_det
     p1_ans, p1_det = best_p1_ans, best_p1_det
     preprocess_mode = best_preprocess_mode
+    p1_live_details = {}
+    live_validation = live_bubble_mode and live_validation
 
-    p2_ans, p2_det = extract_part2(gray, y_offset=offsets["part2"], num_questions=p2_limit)
-    p3_ans, p3_det = extract_part3(gray, y_offset=offsets["part3"], num_questions=p3_limit)
+    if live_bubble_mode:
+        from grading.engine import live_bubble_reader as live_reader
+        # Evidence must precede text whitening and contrast enhancement.
+        # Upload/import defaults remain unchanged; the grading API explicitly
+        # opts into the additional raw Part I validation below.
+        live_gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY) if warped.ndim == 3 else warped.copy()
+        sbd, made, sbd_det = live_reader.read_identifiers(
+            live_gray, SBD_COLS_X, MADE_COLS_X, SBD_MADE_DIGIT_Y)
+        if live_validation:
+            p1_ans, p1_det, p1_live_details = live_reader.read_part1(
+                live_gray, PART1_COLS, PART1_CHOICES, BUBBLE_RADIUS, offsets['part1'], p1_limit)
+        p2_ans, p2_det = live_reader.read_part2(
+            live_gray, PART2_BLOCKS, PART2_STEP_X, PART2_STEP_Y, PART2_ROWS,
+            BUBBLE_RADIUS, offsets["part2"], p2_limit, **({'align': True} if live_validation else {}))
+        p3_ans, p3_det = live_reader.read_part3(
+            live_gray, PART3_BLOCKS, PART3_SIGN_Y, PART3_COMMA_Y,
+            PART3_DIGIT_START_Y, PART3_DIGIT_STEP_Y, BUBBLE_RADIUS, offsets["part3"], p3_limit,
+            **({'local_symbols': True} if live_validation else {}))
+        print("[LIVE OMR] IDs/P2/P3 raw-paper evidence; "
+              f"ID grids aligned={sbd_det['sbd_live']['aligned']}/{sbd_det['made_live']['aligned']}; "
+              "no CNN/argmax rescue of empty cells")
+    else:
+        p2_ans, p2_det = extract_part2(gray, y_offset=offsets["part2"], num_questions=p2_limit, fast_mode=fast_mode)
+        p3_ans, p3_det = extract_part3(gray, y_offset=offsets["part3"], num_questions=p3_limit, fast_mode=fast_mode)
 
     # --- Debug output ---
     if debug:
@@ -3830,6 +3924,23 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
 
     # --- IMPROVEMENT 9: Post-processing validation ---
     validation_warnings = []
+    for q, detail in p1_live_details.items():
+        if detail['needs_review']:
+            reason = 'tô nhiều đáp án; không tính điểm câu này' if p1_ans[q] == 'X' else 'ô chưa rõ; không tự chọn đáp án'
+            validation_warnings.append(f'Live P1 {q}: {reason}')
+    if live_bubble_mode:
+        for q, rows in p2_det.items():
+            for label, detail in rows.items():
+                if live_validation and p2_ans[q][label] == 'X':
+                    validation_warnings.append(f'Live P2 {q}{label}: tô cả Đúng và Sai; không tính điểm ý này')
+                elif any(e["state"] in ("uncertain", "invalid") for e in detail["live_evidence"]):
+                    validation_warnings.append(f"Live P2 {q}{label}: ô mờ/không rõ, cần kiểm tra lại")
+        for q, detail in p3_det.items():
+            if detail["live_evidence"]["needs_review"]:
+                if live_validation:
+                    validation_warnings.append(f'Live P3 {q}: ô chưa rõ, tô nhiều ô hoặc số chưa hoàn chỉnh; không tự đoán đáp án')
+                else:
+                    validation_warnings.append(f"Live P3 {q}: số mờ hoặc tô nhiều ô; không tự đoán đáp án")
 
     # Check 1: >80% same answer in Part I (possible systematic bias)
     if p1_ans:
@@ -3886,6 +3997,11 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     else:
         print(f"\n  ✓ Validation: OK")
 
+    # Select only the answer key AFTER recognition and BEFORE all scoring and
+    # overlays. Caller must retain the first key if recognition limits differ.
+    if live_bubble_mode and live_answer_key_resolver is not None:
+        correct_answers = live_answer_key_resolver(made)
+
     # --- Bước 6: Chấm điểm (nếu có đáp án đúng) ---
     # Vẽ lên mask trống → blend vào warped (addWeighted overlay)
     result_mask = np.zeros_like(warped)   # mask trống để vẽ kết quả
@@ -3901,19 +4017,40 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
         if "part1" in correct_answers:
             s, r = grade_part1(p1_ans, correct_answers["part1"], num_questions=p1_limit)
             scores["part1"] = s
-            draw_results_part1(result_mask, r, y_offset=offsets["part1"])
+            if live_validation:
+                for q, result in r.items():
+                    detail = p1_live_details.get(q)
+                    if detail:
+                        live_reader.draw_choice_result(result_mask, result, detail['evidence'],
+                            detail['points'], PART1_CHOICES, BUBBLE_RADIUS, THICKNESS_MARK)
+            else:
+                draw_results_part1(result_mask, r, y_offset=offsets["part1"])
             print(f"\n  Phần I  : {s}/{_p1_max}")
 
         if "part2" in correct_answers:
             s, r = grade_part2(p2_ans, correct_answers["part2"], num_questions=p2_limit)
             scores["part2"] = s
-            draw_results_part2(result_mask, r, y_offset=offsets["part2"])
+            if live_validation:
+                for q, rows in r.items():
+                    for label, result in rows.items():
+                        detail = p2_det.get(q, {}).get(label)
+                        if detail:
+                            live_reader.draw_choice_result(result_mask, result, detail['live_evidence'],
+                                detail['points'], ('Dung', 'Sai'), BUBBLE_RADIUS, THICKNESS_MARK)
+            else:
+                draw_results_part2(result_mask, r, y_offset=offsets["part2"])
             print(f"  Phần II : {s}/{_p2_max}")
 
         if "part3" in correct_answers:
             s, r = grade_part3(p3_ans, correct_answers["part3"], num_questions=p3_limit)
             scores["part3"] = s
-            draw_results_part3(result_mask, r, p3_det, y_offset=offsets["part3"])
+            if live_bubble_mode:
+                live_reader.draw_part3(result_mask, r, p3_det, PART3_BLOCKS,
+                    PART3_SIGN_Y, PART3_COMMA_Y, PART3_DIGIT_START_Y, PART3_DIGIT_STEP_Y,
+                    BUBBLE_RADIUS, THICKNESS_MARK, COLOR_CORRECT, COLOR_WRONG, offsets["part3"],
+                    **({'warn_ambiguous': True} if live_validation else {}))
+            else:
+                draw_results_part3(result_mask, r, p3_det, y_offset=offsets["part3"])
             print(f"  Phần III: {s}/{_p3_max}")
 
         total_score = sum(scores.values())
@@ -3939,6 +4076,21 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     cv2.imwrite(out_path, result_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
     print(f"\n[OK] Ảnh kết quả: {out_path}")
 
+    # Tự động gửi ảnh kết quả vào tests/ketqua nếu có thư mục
+    try:
+        _kq_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tests", "ketqua")
+        if os.path.exists(_kq_dir):
+            import shutil
+            _ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            _stem = os.path.splitext(os.path.basename(image_path))[0]
+            _sbd_str = str(sbd).replace('?', '_') if sbd else "nosbd"
+            _md_str = str(made).replace('?', '_') if made else "nomd"
+            _kq_dst = os.path.join(_kq_dir, f"{_ts}_{_stem}_sbd_{_sbd_str}_md_{_md_str}_result.jpg")
+            shutil.copy2(out_path, _kq_dst)
+            print(f"[OK] Đã gửi ảnh kết quả vào tests/ketqua: {_kq_dst}")
+    except Exception as _e_kq:
+        print(f"[WARN] Không thể lưu vào tests/ketqua: {_e_kq}")
+
     # --- Inverse Warp: nắn kết quả ngược về ảnh gốc ---
     if not pre_warped and corners is not None:
         try:
@@ -3955,6 +4107,15 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
             overlay_path = f"{base}_overlay.jpg"
             cv2.imwrite(overlay_path, overlay_image, [cv2.IMWRITE_JPEG_QUALITY, 95])
             print(f"[OK] Ảnh overlay (inverse warp): {overlay_path}")
+
+            # Gửi cả ảnh overlay vào tests/ketqua
+            try:
+                if os.path.exists(_kq_dir):
+                    import shutil
+                    _kq_ov_dst = os.path.join(_kq_dir, f"{_ts}_{_stem}_sbd_{_sbd_str}_md_{_md_str}_overlay.jpg")
+                    shutil.copy2(overlay_path, _kq_ov_dst)
+            except Exception:
+                pass
         except Exception as e:
             print(f"[WARN] Inverse warp failed: {e}")
 
@@ -3982,7 +4143,8 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
         "score": total_score,
         "max_score": max_score if correct_answers else None,
         "scores": scores if correct_answers else {},
-        "details": {"sbd": sbd_det, "part1": p1_det, "part2": p2_det, "part3": p3_det},
+        "details": {"sbd": sbd_det, "part1": p1_det, "part2": p2_det, "part3": p3_det,
+                    **({'part1_live': p1_live_details} if live_validation else {})},
         "name_image_path": name_path,
         "detect_method": method if not pre_warped else "pre_warped",
         "offsets": offsets,

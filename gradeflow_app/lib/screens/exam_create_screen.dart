@@ -32,9 +32,10 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
   int _p3Count = 0;
 
   // Variants: list of {code, p1, p2, p3}
-  List<_VariantData> _variants = [_VariantData()];
+  final List<_VariantData> _variants = [_VariantData()];
   bool _saving = false;
   int _currentStep = 0;
+  int _activeVariantIndex = 0;
 
   @override
   void initState() {
@@ -46,6 +47,9 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
   void dispose() {
     _titleCtrl.dispose();
     _subjectCtrl.dispose();
+    for (final variant in _variants) {
+      variant.dispose();
+    }
     super.dispose();
   }
 
@@ -117,7 +121,7 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tạo đề thi'),
+        toolbarHeight: 80,
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () {
@@ -128,77 +132,234 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
             }
           },
         ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Tạo đề thi'),
+            Text(
+              'Bước ${_currentStep + 1}/3 · ${_stepLabels[_currentStep]}',
+              style: GoogleFonts.dmSans(
+                fontSize: 12,
+                color: GradeFlowTheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
         actions: [
           if (_currentStep == 2)
-            TextButton.icon(
+            IconButton(
+              tooltip: 'Lưu đề thi',
               onPressed: _saving ? null : _saveExam,
               icon: _saving
                   ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child:
-                          CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(LucideIcons.save, size: 18),
-              label: Text(_saving ? 'Đang lưu...' : 'Lưu',
-                  style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(LucideIcons.save, size: 20),
             ),
         ],
       ),
       body: Form(
         key: _formKey,
-        child: Stepper(
-          currentStep: _currentStep,
-          onStepContinue: () {
-            if (_currentStep < 2) {
-              setState(() => _currentStep++);
-            } else {
-              _saveExam();
-            }
-          },
-          onStepCancel: () {
-            if (_currentStep > 0) setState(() => _currentStep--);
-          },
-          controlsBuilder: (context, details) {
-            return Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: details.onStepContinue,
-                    child: Text(_currentStep == 2 ? 'Lưu đề thi' : 'Tiếp tục'),
-                  ),
-                  if (_currentStep > 0) ...[
-                    const SizedBox(width: 8),
-                    OutlinedButton(
-                      onPressed: details.onStepCancel,
-                      child: const Text('Quay lại'),
-                    ),
-                  ],
-                ],
+        child: Column(
+          children: [
+            _buildProgress(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
+                child: _buildCurrentStep(),
               ),
-            );
-          },
-          steps: [
-            Step(
-              title: const Text('Thông tin đề thi'),
-              isActive: _currentStep >= 0,
-              state: _currentStep > 0
-                  ? StepState.complete
-                  : StepState.indexed,
-              content: _buildStep1(),
             ),
-            Step(
-              title: const Text('Chọn mẫu giấy thi'),
-              isActive: _currentStep >= 1,
-              state: _currentStep > 1
-                  ? StepState.complete
-                  : StepState.indexed,
-              content: _buildStep2(),
+          ],
+        ),
+      ),
+      bottomNavigationBar: _buildBottomAction(),
+    );
+  }
+
+  static const _stepLabels = ['Thông tin', 'Mẫu giấy thi', 'Đáp án'];
+
+  Widget _buildProgress() {
+    return Container(
+      color: GradeFlowTheme.surfaceContainerLowest,
+      padding: const EdgeInsets.fromLTRB(28, 15, 28, 18),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 42,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(
+                  left: 23,
+                  right: 23,
+                  top: 20,
+                  child: Row(
+                    children: List.generate(
+                      2,
+                      (index) => Expanded(
+                        child: Container(
+                          height: 3,
+                          margin: const EdgeInsets.symmetric(horizontal: 12),
+                          color: index < _currentStep
+                              ? GradeFlowTheme.primary
+                              : GradeFlowTheme.surfaceContainerHigh,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: List.generate(3, _buildProgressCircle),
+                ),
+              ],
             ),
-            Step(
-              title: const Text('Mã đề và đáp án'),
-              isActive: _currentStep >= 2,
-              content: _buildStep3(),
+          ),
+          const SizedBox(height: 7),
+          Row(
+            children: List.generate(
+              3,
+              (index) => Expanded(
+                child: Text(
+                  _stepLabels[index],
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    fontWeight: index == _currentStep
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                    color: index == _currentStep
+                        ? GradeFlowTheme.primary
+                        : GradeFlowTheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressCircle(int index) {
+    final completed = index < _currentStep;
+    final active = index == _currentStep;
+    final filled = completed || active;
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: filled ? GradeFlowTheme.primary : GradeFlowTheme.surfaceContainer,
+        shape: BoxShape.circle,
+        boxShadow: active
+            ? [
+                BoxShadow(
+                  color: GradeFlowTheme.primary.withValues(alpha: 0.20),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
+      ),
+      child: Center(
+        child: completed
+            ? const Icon(LucideIcons.check, size: 19, color: Colors.white)
+            : Text(
+                '${index + 1}',
+                style: GoogleFonts.manrope(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: filled ? Colors.white : GradeFlowTheme.onSurfaceVariant,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentStep() {
+    final titles = [
+      'Thông tin đề thi',
+      'Chọn mẫu giấy thi',
+      'Mã đề và đáp án',
+    ];
+    final subtitles = [
+      'Đặt tên để bạn dễ tìm và quản lý bài thi.',
+      'Mẫu quyết định số câu và cấu trúc phiếu chấm.',
+      'Chọn đáp án chạm một lần cho từng mã đề.',
+    ];
+    final content = switch (_currentStep) {
+      0 => _buildStep1(),
+      1 => _buildStep2(),
+      _ => _buildStep3(),
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(titles[_currentStep],
+            style:
+                GoogleFonts.manrope(fontSize: 29, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 7),
+        Text(subtitles[_currentStep],
+            style: GoogleFonts.dmSans(
+                fontSize: 16,
+                height: 1.4,
+                color: GradeFlowTheme.onSurfaceVariant)),
+        const SizedBox(height: 24),
+        content,
+      ],
+    );
+  }
+
+  Widget _buildBottomAction() {
+    final onLastStep = _currentStep == 2;
+    return SafeArea(
+      top: false,
+      child: Container(
+        color: GradeFlowTheme.surfaceContainerLowest,
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+        child: Row(
+          children: [
+            if (_currentStep > 0) ...[
+              SizedBox(
+                height: 56,
+                child: OutlinedButton(
+                  onPressed: () => setState(() => _currentStep--),
+                  child: const Text('Quay lại'),
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
+            Expanded(
+              child: SizedBox(
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed:
+                      _saving ? null : (onLastStep ? _saveExam : _nextStep),
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : Icon(
+                          onLastStep ? LucideIcons.save : LucideIcons.arrowRight,
+                          size: 21),
+                  label: Text(
+                    _saving
+                        ? 'Đang lưu...'
+                        : onLastStep
+                            ? 'Lưu đề thi'
+                            : _currentStep == 0
+                                ? 'Tiếp tục'
+                                : 'Tiếp tục: nhập đáp án',
+                    style: GoogleFonts.manrope(
+                        fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -206,31 +367,92 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
     );
   }
 
+  void _nextStep() {
+    if (_currentStep == 0 && !(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    if (_currentStep == 1 && _selectedTemplate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hãy chọn một mẫu giấy thi trước.')),
+      );
+      return;
+    }
+    setState(() => _currentStep++);
+  }
+
   // ── Step 1: Basic info ──
   Widget _buildStep1() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          controller: _titleCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Tên đề thi *',
-            hintText: 'VD: Kiểm tra giữa kỳ Toán 12',
-            prefixIcon: Icon(LucideIcons.fileText, size: 18),
-          ),
-          validator: (v) =>
-              (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tên đề thi' : null,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: GradeFlowTheme.primaryFixed,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(LucideIcons.filePlus2,
+                      color: GradeFlowTheme.primary, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text('Bắt đầu với thông tin cơ bản',
+                      style: GoogleFonts.dmSans(
+                          fontSize: 18, fontWeight: FontWeight.w800)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 22),
+            TextFormField(
+              controller: _titleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tên đề thi *',
+                hintText: 'VD: Kiểm tra giữa kỳ Toán 12',
+                prefixIcon: Icon(LucideIcons.fileText, size: 18),
+              ),
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? 'Vui lòng nhập tên đề thi'
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _subjectCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Môn học',
+                hintText: 'VD: Toán',
+                prefixIcon: Icon(LucideIcons.bookOpen, size: 18),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: GradeFlowTheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  const Icon(LucideIcons.info,
+                      size: 16, color: GradeFlowTheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Bạn có thể thêm nhiều mã đề ở bước cuối.',
+                      style: GoogleFonts.dmSans(
+                          fontSize: 13, color: GradeFlowTheme.onSurfaceVariant),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _subjectCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Môn học',
-            hintText: 'VD: Toán',
-            prefixIcon: Icon(LucideIcons.bookOpen, size: 18),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -263,10 +485,8 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
             style: GoogleFonts.dmSans(
                 fontSize: 13, color: GradeFlowTheme.onSurfaceVariant)),
         const SizedBox(height: 12),
-
         ..._templates.map((t) {
           final code = t['code'] as String;
-          final label = t['label'] as String? ?? code;
           final parts = List<int>.from(t['parts'] ?? [0, 0, 0]);
           final desc = t['desc'] as String? ?? '';
           final total = t['total'] ?? 0;
@@ -289,7 +509,7 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 color: selected
-                    ? GradeFlowTheme.primary.withOpacity(0.06)
+                    ? GradeFlowTheme.primary.withValues(alpha: 0.06)
                     : GradeFlowTheme.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
@@ -316,7 +536,8 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
                             children: [
                               Text(code,
                                   style: GoogleFonts.manrope(
-                                      fontSize: 14, fontWeight: FontWeight.w700)),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700)),
                               const SizedBox(height: 2),
                               Text(desc,
                                   style: GoogleFonts.dmSans(
@@ -329,7 +550,8 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: GradeFlowTheme.primary.withOpacity(0.1),
+                            color:
+                                GradeFlowTheme.primary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text('$total câu',
@@ -349,11 +571,13 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
                         _partBadge('P1: ${parts[0]}', GradeFlowTheme.primary),
                         const SizedBox(width: 4),
                         if (parts.length > 1 && parts[1] > 0) ...[
-                          _partBadge('P2: ${parts[1]}', const Color(0xFFE65100)),
+                          _partBadge(
+                              'P2: ${parts[1]}', const Color(0xFFE65100)),
                           const SizedBox(width: 4),
                         ],
                         if (parts.length > 2 && parts[2] > 0)
-                          _partBadge('P3: ${parts[2]}', const Color(0xFF6A1B9A)),
+                          _partBadge(
+                              'P3: ${parts[2]}', const Color(0xFF6A1B9A)),
                         const Spacer(),
                         Text('$pages trang',
                             style: GoogleFonts.dmSans(
@@ -387,7 +611,8 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
                                     'Trang ${_previewPageIdx + 1}/${images.length}',
                                     style: GoogleFonts.dmSans(
                                         fontSize: 11,
-                                        color: GradeFlowTheme.onSurfaceVariant)),
+                                        color:
+                                            GradeFlowTheme.onSurfaceVariant)),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -440,8 +665,8 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
                                     width: 60,
                                     margin: const EdgeInsets.symmetric(
                                         horizontal: 4),
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 6),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 6),
                                     decoration: BoxDecoration(
                                       color: _previewPageIdx == i
                                           ? GradeFlowTheme.primary
@@ -474,7 +699,6 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
             ),
           );
         }),
-
         if (_selectedTemplate != null)
           Container(
             padding: const EdgeInsets.all(12),
@@ -487,7 +711,8 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
               children: [
                 Icon(LucideIcons.info, size: 16, color: GradeFlowTheme.primary),
                 const SizedBox(width: 8),
-                Text('Cấu trúc: P1=$_p1Count · P2=$_p2Count · P3=$_p3Count · Tổng=$_totalQuestions câu',
+                Text(
+                    'Cấu trúc: P1=$_p1Count · P2=$_p2Count · P3=$_p3Count · Tổng=$_totalQuestions câu',
                     style: GoogleFonts.dmSans(
                         fontSize: 12, fontWeight: FontWeight.w600)),
               ],
@@ -508,7 +733,7 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(text,
@@ -519,190 +744,449 @@ class _ExamCreateScreenState extends State<ExamCreateScreen> {
 
   // ── Step 3: Mã đề & Đáp án ──
   Widget _buildStep3() {
+    final variant = _variants[_activeVariantIndex];
+    _ensureAnswerSlots(variant);
+    final answered = _answeredCount(variant);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Thêm mã đề và nhập đáp án',
-            style: GoogleFonts.dmSans(
-                fontSize: 13, color: GradeFlowTheme.onSurfaceVariant)),
-        const SizedBox(height: 12),
-        ..._variants.asMap().entries.map((entry) {
-          final idx = entry.key;
-          final v = entry.value;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: v.codeCtrl,
-                          decoration: InputDecoration(
-                            labelText: 'Mã đề ${idx + 1}',
-                            hintText: 'VD: 101',
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      if (_variants.length > 1)
-                        IconButton(
-                          icon: const Icon(LucideIcons.trash2,
-                              size: 18, color: Colors.red),
-                          onPressed: () =>
-                              setState(() => _variants.removeAt(idx)),
-                        ),
-                    ],
+        _buildTemplateSummary(),
+        const SizedBox(height: 16),
+        Text('Danh sách mã đề',
+            style:
+                GoogleFonts.dmSans(fontSize: 13, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              ...List.generate(_variants.length, (index) {
+                final item = _variants[index];
+                final active = index == _activeVariantIndex;
+                final label = item.codeCtrl.text.trim().isEmpty
+                    ? 'Mã ${index + 1}'
+                    : 'Mã ${item.codeCtrl.text.trim()}';
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(label),
+                    selected: active,
+                    avatar: active
+                        ? const Icon(LucideIcons.pencil, size: 13)
+                        : null,
+                    onSelected: (_) =>
+                        setState(() => _activeVariantIndex = index),
                   ),
-                  const SizedBox(height: 8),
-                  if (_p1Count > 0) ...[
-                    Text('Phần I — Đáp án ABCD (${_p1Count} câu)',
-                        style: GoogleFonts.dmSans(
-                            fontSize: 12, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    _buildP1AnswerInputs(v),
-                  ],
-                  if (_p2Count > 0) ...[
-                    const SizedBox(height: 8),
-                    Text('Phần II — Đúng/Sai (${_p2Count} câu x 4 ý)',
-                        style: GoogleFonts.dmSans(
-                            fontSize: 12, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    _buildP2AnswerInputs(v),
-                  ],
-                  if (_p3Count > 0) ...[
-                    const SizedBox(height: 8),
-                    Text('Phần III — Trả lời ngắn (${_p3Count} câu)',
-                        style: GoogleFonts.dmSans(
-                            fontSize: 12, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 4),
-                    _buildP3AnswerInputs(v),
-                  ],
-                ],
+                );
+              }),
+              ActionChip(
+                avatar: const Icon(LucideIcons.plus, size: 16),
+                label: const Text('Thêm mã'),
+                onPressed: () => setState(() {
+                  _variants.add(_VariantData());
+                  _activeVariantIndex = _variants.length - 1;
+                }),
               ),
-            ),
-          );
-        }),
-        Center(
-          child: OutlinedButton.icon(
-            onPressed: () => setState(() => _variants.add(_VariantData())),
-            icon: const Icon(LucideIcons.plus, size: 16),
-            label: const Text('Thêm mã đề'),
+            ],
           ),
         ),
+        const SizedBox(height: 14),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: variant.codeCtrl,
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          labelText: 'Mã đề ${_activeVariantIndex + 1}',
+                          hintText: 'VD: 101',
+                          prefixIcon: const Icon(LucideIcons.hash, size: 18),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    if (_variants.length > 1) ...[
+                      const SizedBox(width: 4),
+                      IconButton(
+                        tooltip: 'Xóa mã đề',
+                        icon: const Icon(LucideIcons.trash2,
+                            size: 19, color: GradeFlowTheme.error),
+                        onPressed: () => setState(() {
+                          final removed =
+                              _variants.removeAt(_activeVariantIndex);
+                          removed.dispose();
+                          _activeVariantIndex = _activeVariantIndex.clamp(
+                              0, _variants.length - 1);
+                        }),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _completionRow(answered),
+              ],
+            ),
+          ),
+        ),
+        if (_p1Count > 0) ...[
+          const SizedBox(height: 20),
+          _sectionHeader(
+              'Phần I: Trắc nghiệm ABCD', '$_p1Count câu · Chạm để chọn'),
+          const SizedBox(height: 8),
+          _buildP1AnswerEditor(variant),
+        ],
+        if (_p2Count > 0) ...[
+          const SizedBox(height: 22),
+          _sectionHeader('Phần II: Đúng / Sai', '$_p2Count câu · 4 ý mỗi câu'),
+          const SizedBox(height: 8),
+          _buildP2AnswerEditor(variant),
+        ],
+        if (_p3Count > 0) ...[
+          const SizedBox(height: 22),
+          _sectionHeader('Phần III: Trả lời ngắn', '$_p3Count câu'),
+          const SizedBox(height: 8),
+          _buildP3AnswerEditor(variant),
+        ],
       ],
     );
   }
 
-  Widget _buildP1AnswerInputs(_VariantData v) {
-    while (v.p1Answers.length < _p1Count) {
-      v.p1Answers.add('');
-    }
-    return Wrap(
-      spacing: 4,
-      runSpacing: 4,
-      children: List.generate(_p1Count, (i) {
-        final qNum = i + 1;
-        return SizedBox(
-          width: 55,
-          child: DropdownButtonFormField<String>(
-            value: v.p1Answers[i].isNotEmpty ? v.p1Answers[i] : null,
-            decoration: InputDecoration(
-              labelText: '$qNum',
-              isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+  Widget _buildTemplateSummary() {
+    final label = _selectedTemplate?['label'] as String? ??
+        _selectedTemplate?['code'] as String? ??
+        'Mẫu giấy thi';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: GradeFlowTheme.primaryFixed,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: const BoxDecoration(
+              color: GradeFlowTheme.primary,
+              shape: BoxShape.circle,
             ),
-            items: ['A', 'B', 'C', 'D']
-                .map((c) =>
-                    DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13))))
-                .toList(),
-            onChanged: (val) {
-              v.p1Answers[i] = val ?? '';
-            },
-            style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black),
+            child: const Icon(LucideIcons.clipboardCheck,
+                size: 18, color: Colors.white),
           ),
-        );
-      }),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: GoogleFonts.dmSans(
+                        fontSize: 14, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(
+                    '$_totalQuestions câu · P1 $_p1Count · P2 $_p2Count · P3 $_p3Count',
+                    style: GoogleFonts.dmSans(
+                        fontSize: 11, color: GradeFlowTheme.onSurfaceVariant)),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text('Sẵn sàng',
+                style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: GradeFlowTheme.primary)),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildP2AnswerInputs(_VariantData v) {
-    while (v.p2Answers.length < _p2Count) {
-      v.p2Answers.add({'a': '', 'b': '', 'c': '', 'd': ''});
-    }
-    return Column(
-      children: List.generate(_p2Count, (i) {
-        final qNum = _p1Count + i + 1;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Row(
+  Widget _completionRow(int answered) {
+    final total = _totalQuestions + (_p2Count * 3);
+    final complete = total == 0 ? 0 : (answered / total * 100).round();
+    return Row(
+      children: [
+        Icon(
+            answered == total
+                ? LucideIcons.checkCircle2
+                : LucideIcons.circleDot,
+            size: 16,
+            color: answered == total
+                ? GradeFlowTheme.success
+                : GradeFlowTheme.primary),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text('$answered/$total lựa chọn đã nhập',
+              style: GoogleFonts.dmSans(
+                  fontSize: 12, fontWeight: FontWeight.w700)),
+        ),
+        Text('$complete%',
+            style: GoogleFonts.manrope(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: GradeFlowTheme.primary)),
+      ],
+    );
+  }
+
+  Widget _sectionHeader(String title, String subtitle) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 32,
-                child: Text('$qNum',
-                    style: GoogleFonts.dmSans(
-                        fontSize: 12, fontWeight: FontWeight.w600)),
-              ),
-              ...['a', 'b', 'c', 'd'].map((sub) => Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: DropdownButtonFormField<String>(
-                        value: v.p2Answers[i][sub]!.isNotEmpty
-                            ? v.p2Answers[i][sub]
-                            : null,
-                        decoration: InputDecoration(
-                          labelText: sub.toUpperCase(),
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 4),
-                        ),
-                        items: ['Đ', 'S']
-                            .map((c) => DropdownMenuItem(
-                                value: c,
-                                child: Text(c,
-                                    style: const TextStyle(fontSize: 11))))
-                            .toList(),
-                        onChanged: (val) {
-                          v.p2Answers[i][sub] = val ?? '';
-                        },
-                        style: GoogleFonts.dmSans(fontSize: 11, color: Colors.black),
-                      ),
-                    ),
-                  )),
+              Text(title,
+                  style: GoogleFonts.manrope(
+                      fontSize: 16, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 2),
+              Text(subtitle,
+                  style: GoogleFonts.dmSans(
+                      fontSize: 12, color: GradeFlowTheme.onSurfaceVariant)),
             ],
           ),
+        ),
+        const Icon(LucideIcons.mousePointerClick,
+            size: 17, color: GradeFlowTheme.primary),
+      ],
+    );
+  }
+
+  void _ensureAnswerSlots(_VariantData variant) {
+    while (variant.p1Answers.length < _p1Count) {
+      variant.p1Answers.add('');
+    }
+    while (variant.p2Answers.length < _p2Count) {
+      variant.p2Answers.add({'a': '', 'b': '', 'c': '', 'd': ''});
+    }
+    while (variant.p3Ctrls.length < _p3Count) {
+      variant.p3Ctrls.add(TextEditingController());
+    }
+  }
+
+  int _answeredCount(_VariantData variant) {
+    final p1 = variant.p1Answers.where((answer) => answer.isNotEmpty).length;
+    final p2 = variant.p2Answers.fold<int>(
+        0,
+        (sum, answer) =>
+            sum + answer.values.where((value) => value.isNotEmpty).length);
+    final p3 =
+        variant.p3Ctrls.where((ctrl) => ctrl.text.trim().isNotEmpty).length;
+    return p1 + p2 + p3;
+  }
+
+  Widget _buildP1AnswerEditor(_VariantData variant) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          children: List.generate(_p1Count, (index) {
+            final answer = variant.p1Answers[index];
+            return Container(
+              margin: EdgeInsets.only(bottom: index == _p1Count - 1 ? 0 : 7),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: answer.isEmpty
+                    ? GradeFlowTheme.surfaceContainerLow
+                    : GradeFlowTheme.primaryFixed.withValues(alpha: 0.52),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: answer.isEmpty
+                          ? GradeFlowTheme.surfaceContainerHigh
+                          : GradeFlowTheme.primary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('${index + 1}'.padLeft(2, '0'),
+                        style: GoogleFonts.manrope(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: answer.isEmpty
+                                ? GradeFlowTheme.onSurfaceVariant
+                                : Colors.white)),
+                  ),
+                  const SizedBox(width: 10),
+                  ...['A', 'B', 'C', 'D'].map(
+                    (letter) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: _answerButton(
+                          label: letter,
+                          selected: answer == letter,
+                          onTap: () =>
+                              setState(() => variant.p1Answers[index] = letter),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _answerButton({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected ? GradeFlowTheme.primary : Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            border: selected
+                ? null
+                : Border.all(color: GradeFlowTheme.outlineVariant),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Text(label,
+              style: GoogleFonts.manrope(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: selected
+                      ? Colors.white
+                      : GradeFlowTheme.onSurfaceVariant)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildP2AnswerEditor(_VariantData variant) {
+    return Column(
+      children: List.generate(_p2Count, (index) {
+        final answer = variant.p2Answers[index];
+        final question = _p1Count + index + 1;
+        final done = answer.values.where((value) => value.isNotEmpty).length;
+        return Card(
+          margin: EdgeInsets.only(bottom: index == _p2Count - 1 ? 0 : 10),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: GradeFlowTheme.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('Câu $question',
+                          style: GoogleFonts.dmSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white)),
+                    ),
+                    const Spacer(),
+                    Text('$done/4 ý đã chọn',
+                        style: GoogleFonts.dmSans(
+                            fontSize: 11,
+                            color: done == 4
+                                ? GradeFlowTheme.success
+                                : GradeFlowTheme.onSurfaceVariant)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: ['a', 'b', 'c', 'd'].map((part) {
+                    final selected = answer[part] ?? '';
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        child: Column(
+                          children: [
+                            Text('Ý ${part.toUpperCase()}',
+                                style: GoogleFonts.dmSans(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: GradeFlowTheme.onSurfaceVariant)),
+                            const SizedBox(height: 5),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _answerButton(
+                                    label: 'Đ',
+                                    selected: selected == 'Đ',
+                                    onTap: () =>
+                                        setState(() => answer[part] = 'Đ'),
+                                  ),
+                                ),
+                                const SizedBox(width: 3),
+                                Expanded(
+                                  child: _answerButton(
+                                    label: 'S',
+                                    selected: selected == 'S',
+                                    onTap: () =>
+                                        setState(() => answer[part] = 'S'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
         );
       }),
     );
   }
 
-  Widget _buildP3AnswerInputs(_VariantData v) {
-    while (v.p3Ctrls.length < _p3Count) {
-      v.p3Ctrls.add(TextEditingController());
-    }
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: List.generate(_p3Count, (i) {
-        final qNum = _p1Count + _p2Count + i + 1;
-        return SizedBox(
-          width: 80,
-          child: TextFormField(
-            controller: v.p3Ctrls[i],
-            decoration: InputDecoration(
-              labelText: 'C$qNum',
-              isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            ),
-            style: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-        );
-      }),
+  Widget _buildP3AnswerEditor(_VariantData variant) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: List.generate(_p3Count, (index) {
+            final question = _p1Count + _p2Count + index + 1;
+            return SizedBox(
+              width: 100,
+              child: TextFormField(
+                controller: variant.p3Ctrls[index],
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: 'Câu $question',
+                  hintText: 'Đáp án',
+                  isDense: true,
+                ),
+                style: GoogleFonts.manrope(
+                    fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            );
+          }),
+        ),
+      ),
     );
   }
 }
@@ -712,6 +1196,13 @@ class _VariantData {
   List<String> p1Answers = [];
   List<Map<String, String>> p2Answers = [];
   List<TextEditingController> p3Ctrls = [];
+
+  void dispose() {
+    codeCtrl.dispose();
+    for (final controller in p3Ctrls) {
+      controller.dispose();
+    }
+  }
 
   Map<String, dynamic> buildP1Answers(int count) {
     final map = <String, dynamic>{};

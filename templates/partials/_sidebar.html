@@ -1,4 +1,4 @@
-+{% load static %}
+{% load static %}
 <!-- Sidebar Navigation -->
 <aside class="sidebar" :class="{ 'collapsed': !sidebarOpen, 'mobile-open': mobileMenuOpen }" x-cloak>
     <!-- Logo -->
@@ -7,9 +7,9 @@
             <div class="logo-icon">
                 <img src="{% static 'img/gradeflow_logo.png' %}" alt="GradeFlow" width="28" height="28" style="border-radius: 6px;">
             </div>
-            <span class="logo-text" x-show="sidebarOpen" x-transition>GradeFlow</span>
+            <span class="logo-text" x-show="sidebarOpen || mobileMenuOpen">GradeFlow</span>
         </div>
-        <button class="sidebar-toggle" @click="sidebarOpen = !sidebarOpen" aria-label="Toggle sidebar">
+        <button class="sidebar-toggle" @click="sidebarOpen = !sidebarOpen" aria-label="Thu gọn hoặc mở rộng menu" :aria-expanded="sidebarOpen">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M4 6h12M4 10h12M4 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
@@ -17,9 +17,9 @@
     </div>
 
     <!-- Navigation Links -->
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav" aria-label="Không gian giáo viên">
         <div class="nav-section">
-            <span class="nav-section-label" x-show="sidebarOpen" x-transition>Tổng quan</span>
+            <span class="nav-section-label" x-show="sidebarOpen || mobileMenuOpen">Tổng quan</span>
             <a href="{% url 'dashboard:index' %}" class="nav-item {% if request.resolver_match.url_name == 'index' and request.resolver_match.app_name == 'dashboard' %}active{% endif %}">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                     <rect x="2" y="2" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/>
@@ -27,45 +27,44 @@
                     <rect x="2" y="11" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/>
                     <rect x="11" y="11" width="7" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/>
                 </svg>
-                <span x-show="sidebarOpen" x-transition>Dashboard</span>
+                <span x-show="sidebarOpen || mobileMenuOpen">Tổng quan</span>
             </a>
         </div>
 
         <div class="nav-section">
-            <span class="nav-section-label" x-show="sidebarOpen" x-transition>Chấm điểm</span>
+            <span class="nav-section-label" x-show="sidebarOpen || mobileMenuOpen">Chấm điểm</span>
             <a href="{% url 'grading:upload' %}" class="nav-item {% if request.resolver_match.url_name == 'upload' %}active{% endif %}">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                     <path d="M3 5h8M3 10h8M3 15h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                     <path d="M14 6l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                     <path d="M14 16l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
-                <span x-show="sidebarOpen" x-transition>Upload & Chấm</span>
-            </a>
-            <a href="{% url 'grading:live_camera' %}" class="nav-item {% if request.resolver_match.url_name == 'live_camera' %}active{% endif %}">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <rect x="3" y="5" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.5"></rect>
-                    <circle cx="10" cy="10" r="2.5" stroke="currentColor" stroke-width="1.5"></circle>
-                </svg>
-                <span x-show="sidebarOpen" x-transition>Chấm Camera Live</span>
+                <span x-show="sidebarOpen || mobileMenuOpen">Chấm từ ảnh</span>
             </a>
             <a href="{% url 'grading:exams' %}" class="nav-item {% if request.resolver_match.url_name == 'exams' %}active{% endif %}">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                     <path d="M4 3h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/>
                     <path d="M7 7h6M7 10h6M7 13h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 </svg>
-                <span x-show="sidebarOpen" x-transition>Quản lý bài thi</span>
+                <span x-show="sidebarOpen || mobileMenuOpen">Bài thi & đáp án</span>
             </a>
         </div>
 
         <div class="nav-section">
-            <span class="nav-section-label" x-show="sidebarOpen" x-transition>Dữ liệu</span>
+            <span class="nav-section-label" x-show="sidebarOpen || mobileMenuOpen">Dữ liệu</span>
             <a href="{% url 'dashboard:history' %}" class="nav-item {% if request.resolver_match.url_name == 'history' %}active{% endif %}">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                     <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.5"/>
                     <path d="M10 6v4l2.5 2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                 </svg>
-                <span x-show="sidebarOpen" x-transition>Lịch sử</span>
+                <span x-show="sidebarOpen || mobileMenuOpen">Lịch sử chấm bài</span>
             </a>
+        </div>
+        <div class="nav-section academic-help-links">
+            <span class="nav-section-label" x-show="sidebarOpen || mobileMenuOpen">Tài nguyên</span>
+            <a href="{% url 'website:guide' %}" class="nav-item" aria-label="Hướng dẫn sử dụng"><span class="nav-symbol" aria-hidden="true">?</span><span x-show="sidebarOpen || mobileMenuOpen">Hướng dẫn sử dụng</span></a>
+            <a href="{% url 'website:download' %}" class="nav-item" aria-label="Tải ứng dụng Android"><span class="nav-symbol" aria-hidden="true">↓</span><span x-show="sidebarOpen || mobileMenuOpen">Tải ứng dụng Android</span></a>
+            <a href="{% url 'website:home' %}" class="nav-item" aria-label="Trang chủ GradeFlow"><span class="nav-symbol" aria-hidden="true">↗</span><span x-show="sidebarOpen || mobileMenuOpen">Trang chủ GradeFlow</span></a>
         </div>
     </nav>
 
@@ -73,9 +72,9 @@
     <div class="sidebar-footer">
         <a href="{% url 'accounts:profile' %}" class="user-card">
             <div class="user-avatar">
-                {{ user.first_name|default:user.email|truncatechars:1|upper }}
+                {% include 'partials/_avatar.html' %}
             </div>
-            <div class="user-info" x-show="sidebarOpen" x-transition>
+            <div class="user-info" x-show="sidebarOpen || mobileMenuOpen">
                 <span class="user-name">{{ user.get_full_name|default:user.email }}</span>
                 <span class="user-role">Giáo viên</span>
             </div>

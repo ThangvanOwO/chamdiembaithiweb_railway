@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../services/ad_navigation_observer.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -13,6 +14,7 @@ import '../config/theme.dart';
 import '../models/grade_result.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../services/live_grading_service.dart';
 import 'live_camera_screen.dart';
 
 /// Admin-only: Test grading screen.
@@ -28,6 +30,7 @@ class AdminTestScreen extends StatefulWidget {
 class _AdminTestScreenState extends State<AdminTestScreen> {
   bool _grading = false;
   Uint8List? _imageBytes;
+  LiveCapture? _liveCapture;
   String _fileName = 'test.jpg';
   GradeResult? _result;
   final _imagePicker = ImagePicker();
@@ -38,14 +41,18 @@ class _AdminTestScreenState extends State<AdminTestScreen> {
     if (!kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.android ||
             defaultTargetPlatform == TargetPlatform.iOS)) {
-      final bytes = await Navigator.push<Uint8List>(
+      final capture = await Navigator.push<LiveCapture>(
         context,
-        MaterialPageRoute(builder: (_) => AutoScanScreen()),
+        MaterialPageRoute(
+          settings: const RouteSettings(name: AdNavigationObserver.cameraRoute),
+          builder: (_) => AutoScanScreen(),
+        ),
       );
-      if (bytes != null && mounted) {
+      if (capture != null && mounted) {
         final ts = DateTime.now().millisecondsSinceEpoch;
         setState(() {
-          _imageBytes = bytes;
+          _imageBytes = capture.bytes;
+          _liveCapture = capture;
           _fileName = 'omr_$ts.jpg';
           _result = null;
         });
@@ -99,7 +106,10 @@ class _AdminTestScreenState extends State<AdminTestScreen> {
     setState(() => _grading = true);
     try {
       final api = ApiService(token: auth.token!);
-      final result = await api.gradeImage(
+      final live = _liveCapture;
+      final result = live != null && identical(live.bytes, _imageBytes)
+          ? await gradeLiveCapture(token: auth.token!, capture: live, save: false)
+          : await api.gradeImage(
         imageBytes: _imageBytes!,
         fileName: _fileName,
         save: false, // Don't create submission — test only
@@ -186,11 +196,7 @@ class _AdminTestScreenState extends State<AdminTestScreen> {
           if (_imageBytes == null && _result == null) ...[            SizedBox(
               height: 56,
               child: ElevatedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => AutoScanScreen()),
-                ),
+                onPressed: _scanDocument,
                 icon: const Icon(LucideIcons.video, size: 22),
                 label: Text('Live Camera (TNMaker)',
                     style: GoogleFonts.dmSans(

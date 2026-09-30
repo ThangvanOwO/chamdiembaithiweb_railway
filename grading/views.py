@@ -8,6 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Exam, ExamVariant, Submission
 from .forms import ExamForm, UploadForm
 from .grader import grade_image, parse_answer_key, compute_weighted_score
+from accounts.scan_billing import bill_scans
 import json
 import logging
 import os
@@ -228,6 +229,7 @@ def find_best_template(parts):
 # =============================================================================
 
 @login_required
+@bill_scans(mode='upload', web=True)
 def upload_view(request):
     """Upload & grade page — main feature."""
     exams = Exam.objects.filter(teacher=request.user)
@@ -395,6 +397,7 @@ def upload_view(request):
                         sub.processing_time = result.get('processing_time', 0)
                         sub.save()
                         graded_count += 1
+                        request.billable_scans += 1
                         logger.info(f"Graded: SBD={sub.student_id}, score={sub.score}/{sub.total_questions}")
                     else:
                         sub.status = 'error'
@@ -1233,6 +1236,7 @@ def submission_detail_view(request, submission_id):
 
 
 @login_required
+@bill_scans(mode='regrade', web=True)
 def submission_regrade_view(request, submission_id):
     """Chấm lại 1 bài nộp từ ảnh gốc với scoring config hiện tại."""
     sub = get_object_or_404(Submission, id=submission_id, teacher=request.user)
@@ -1331,6 +1335,7 @@ def submission_regrade_view(request, submission_id):
         sub.error_message = ''
         sub.save()
         messages.success(request, f'Đã chấm lại! Điểm: {sub.score}')
+        request.billable_scans = 1
     else:
         sub.status = 'error'
         sub.error_message = result.get('error', 'Unknown error')
@@ -1341,14 +1346,7 @@ def submission_regrade_view(request, submission_id):
 
 
 @login_required
-def live_camera_view(request):
-    """Live camera grading page."""
-    exams = Exam.objects.filter(teacher=request.user)
-    return render(request, 'grading/live_camera.html', {'exams': exams})
-
-
-@login_required
-@csrf_exempt
+@bill_scans()
 def grade_frame_api(request):
     """
     API nhận 1 frame ảnh (base64 hoặc file), chấm nhanh, trả JSON.
@@ -1400,10 +1398,17 @@ def grade_frame_api(request):
             except Exception:
                 pass
 
-        # Chấm — rotate-retry: thử 0°, 90°, 180°, 270° nếu detect fail
-        # Giải quyết camera landscape / sai hướng mà không cần DL
-        rotations = [None, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]
-        rotation_names = ['0°', '90°', '180°', '270°']
+        # Fast mode parameter for live camera (default True to avoid 11s multi-rotation retries)
+        fast_param = request.POST.get('fast', '1')
+        fast_mode = (fast_param.lower() in ['1', 'true', 'yes'])
+
+        # Chấm — rotate-retry: thử 0° trước, chỉ thử 90°, 180°, 270° nếu không dùng fast_mode
+        if fast_mode:
+            rotations = [None]
+            rotation_names = ['0°']
+        else:
+            rotations = [None, cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_180, cv2.ROTATE_90_COUNTERCLOCKWISE]
+            rotation_names = ['0°', '90°', '180°', '270°']
         best_result = None
 
         for rot, rot_name in zip(rotations, rotation_names):
@@ -1423,7 +1428,8 @@ def grade_frame_api(request):
             try:
                 result = grade_image(grade_path, answer_key_str=answer_key_str,
                                      template_code=template_code,
-                                     corners=corners_list if rot is None else None)
+                                     corners=corners_list if rot is None else None,
+                                     fast_mode=fast_mode)
             except Exception:
                 result = {'success': False}
             finally:
@@ -1441,6 +1447,7 @@ def grade_frame_api(request):
                 break  # Thành công → dùng ngay
 
         if best_result and best_result.get('success'):
+            request.billable_scans = 1
             return JsonResponse({
                 'success': True,
                 'sbd': best_result.get('sbd', ''),

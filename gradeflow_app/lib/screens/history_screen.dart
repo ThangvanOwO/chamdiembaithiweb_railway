@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/ad_banner.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -88,9 +89,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget _buildList() {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: _submissions.length,
+      itemCount: _submissions.length + (_submissions.length > 3 ? 1 : 0),
       itemBuilder: (context, index) {
-        final sub = _submissions[index];
+        if (_submissions.length > 3 && index == 3) return const InlineAdBanner();
+        final sub = _submissions[index > 3 ? index - 1 : index];
         final gradeColor = GradeFlowTheme.gradeColor(sub.gradeLabel);
         final gradeBg = GradeFlowTheme.gradeBackground(sub.gradeLabel);
 

@@ -5,6 +5,7 @@
 
 (function () {
     'use strict';
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     /* =========================================================================
        1. INK RIPPLE — on all .btn elements
@@ -12,7 +13,7 @@
 
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.btn');
-        if (!btn) return;
+        if (!btn || reducedMotion.matches) return;
 
         const rect = btn.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -38,6 +39,7 @@
        ========================================================================= */
 
     function animateCountUp(el) {
+        if (reducedMotion.matches) return;
         const text = el.textContent.trim();
         // Only animate numeric values
         const match = text.match(/^([\d.]+)(%?)$/);

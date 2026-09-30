@@ -4,6 +4,8 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
+import '../services/ad_service.dart';
+import '../widgets/ad_banner.dart';
 import '../services/coach_mark_service.dart';
 import '../services/tutorial_flow.dart';
 import 'dashboard_screen.dart';
@@ -25,8 +27,17 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
+    _screens = [
+      DashboardScreen(onNavigate: _onTabTap),
+      const ExamsScreen(),
+      const ScanScreen(),
+      const HistoryScreen(),
+      const ProfileScreen()
+    ];
     TutorialFlow.instance.activeTabIndex.value = _currentIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      AdService.instance.startSession();
       context.read<AuthService>().refreshMe();
       await TutorialFlow.instance.load();
       _maybeShowStep1();
@@ -98,15 +109,18 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _onTabTap(int index) {
+    if (index == _currentIndex) return;
     final flow = TutorialFlow.instance;
     // Advance flow steps based on tab taps
     if (index == 1 && flow.step.value == TutorialFlow.stepClickBaiThi) {
       flow.setStep(TutorialFlow.stepClickImport);
-    } else if (index == 2 && flow.step.value == TutorialFlow.stepClickChamDiem) {
+    } else if (index == 2 &&
+        flow.step.value == TutorialFlow.stepClickChamDiem) {
       flow.setStep(TutorialFlow.stepScanScreen);
     }
     setState(() => _currentIndex = index);
     flow.activeTabIndex.value = index;
+    AdService.instance.navigationObserver.didChangeTab();
 
     // When user returns to Exams tab after visiting Import screen
     if (index == 1 && flow.step.value == TutorialFlow.stepClickChamDiem) {
@@ -114,13 +128,13 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    ExamsScreen(),
-    ScanScreen(),
-    HistoryScreen(),
-    ProfileScreen(),
-  ];
+  late final List<Widget> _screens;
+
+  @override
+  void dispose() {
+    AdService.instance.endSession();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,59 +149,71 @@ class _MainShellState extends State<MainShell> {
         return Scaffold(
           body: IndexedStack(
             index: _currentIndex,
-            children: _screens,
+            children: [
+              for (var index = 0; index < _screens.length; index++)
+                AdBannerScope(
+                  isActive: index == _currentIndex,
+                  keyboardVisible: MediaQuery.viewInsetsOf(context).bottom > 0,
+                  child: _screens[index],
+                ),
+            ],
           ),
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .outlineVariant
-                      .withOpacity(0.5),
-                  width: 1,
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outlineVariant
+                          .withOpacity(0.5),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: BottomNavigationBar(
+                  currentIndex: _currentIndex,
+                  onTap: _onTabTap,
+                  items: [
+                    const BottomNavigationBarItem(
+                      icon: Icon(LucideIcons.layoutDashboard),
+                      activeIcon: Icon(LucideIcons.layoutDashboard),
+                      label: 'Tổng quan',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Container(
+                        key: TutorialKeys.baiThiTabKey,
+                        padding: const EdgeInsets.all(2),
+                        child: const Icon(LucideIcons.fileText),
+                      ),
+                      activeIcon: const Icon(LucideIcons.fileText),
+                      label: 'Bài thi',
+                    ),
+                    BottomNavigationBarItem(
+                      icon: Container(
+                        key: TutorialKeys.chamDiemTabKey,
+                        padding: const EdgeInsets.all(2),
+                        child: const Icon(LucideIcons.scan),
+                      ),
+                      activeIcon: const Icon(LucideIcons.scan),
+                      label: 'Chấm điểm',
+                    ),
+                    const BottomNavigationBarItem(
+                      icon: Icon(LucideIcons.clock),
+                      activeIcon: Icon(LucideIcons.clock),
+                      label: 'Lịch sử',
+                    ),
+                    const BottomNavigationBarItem(
+                      icon: Icon(LucideIcons.user),
+                      activeIcon: Icon(LucideIcons.user),
+                      label: 'Tài khoản',
+                    ),
+                  ],
                 ),
               ),
-            ),
-            child: BottomNavigationBar(
-              currentIndex: _currentIndex,
-              onTap: _onTabTap,
-              items: [
-                const BottomNavigationBarItem(
-                  icon: Icon(LucideIcons.layoutDashboard),
-                  activeIcon: Icon(LucideIcons.layoutDashboard),
-                  label: 'Dashboard',
-                ),
-                BottomNavigationBarItem(
-                  icon: Container(
-                    key: TutorialKeys.baiThiTabKey,
-                    padding: const EdgeInsets.all(2),
-                    child: const Icon(LucideIcons.fileText),
-                  ),
-                  activeIcon: const Icon(LucideIcons.fileText),
-                  label: 'Bài thi',
-                ),
-                BottomNavigationBarItem(
-                  icon: Container(
-                    key: TutorialKeys.chamDiemTabKey,
-                    padding: const EdgeInsets.all(2),
-                    child: const Icon(LucideIcons.scan),
-                  ),
-                  activeIcon: const Icon(LucideIcons.scan),
-                  label: 'Chấm điểm',
-                ),
-                const BottomNavigationBarItem(
-                  icon: Icon(LucideIcons.clock),
-                  activeIcon: Icon(LucideIcons.clock),
-                  label: 'Lịch sử',
-                ),
-                const BottomNavigationBarItem(
-                  icon: Icon(LucideIcons.user),
-                  activeIcon: Icon(LucideIcons.user),
-                  label: 'Tài khoản',
-                ),
-              ],
-            ),
+            ],
           ),
         );
       },

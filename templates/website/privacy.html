@@ -1,0 +1,89 @@
+{% extends 'website/base.html' %}
+{% block title %}Chính sách bảo mật{% endblock %}
+{% block content %}
+<div class="wrap">
+  <header class="page-intro">
+    <p class="eyebrow">QUYỀN RIÊNG TƯ CỦA BẠN</p>
+    <h1>Chính sách bảo mật GradeFlow</h1>
+    <p class="lead">Cách GradeFlow xử lý thông tin khi bạn quản lý đề thi, quét phiếu và xem kết quả chấm bài trên website hoặc ứng dụng Android.</p>
+    <p>Cập nhật và có hiệu lực: <time datetime="2026-09-29">29/09/2026</time></p>
+  </header>
+  <div class="guide-layout">
+    <nav class="guide-nav" aria-label="Mục lục chính sách bảo mật">
+      <strong>NỘI DUNG CHÍNH</strong>
+      <a href="#pham-vi">01 · Phạm vi và liên hệ</a>
+      <a href="#du-lieu">02 · Dữ liệu xử lý</a>
+      <a href="#muc-dich">03 · Mục đích sử dụng</a>
+      <a href="#quang-cao">04 · Quảng cáo và consent</a>
+      <a href="#chia-se">05 · Bên cung cấp dịch vụ</a>
+      <a href="#luu-tru">06 · Lưu trữ và bảo vệ</a>
+      <a href="#quyen">07 · Quyền và xóa dữ liệu</a>
+      <a href="#hoc-sinh">08 · Dữ liệu học sinh</a>
+      <a href="#cap-nhat">09 · Thay đổi chính sách</a>
+    </nav>
+    <div>
+      <section class="guide-section" id="pham-vi">
+        <h2>01 / Phạm vi và liên hệ</h2>
+        <p>Chính sách này áp dụng cho dịch vụ GradeFlow tại <strong>gradeflow.io.vn</strong> và ứng dụng GradeFlow Android do bên vận hành GradeFlow cung cấp. Bạn có thể gửi câu hỏi về quyền riêng tư, yêu cầu truy cập, chỉnh sửa hoặc xóa dữ liệu tới <a href="mailto:zephuyaa@gmail.com">zephuyaa@gmail.com</a>.</p>
+        <p>Nếu ứng dụng được kết nối tới máy chủ riêng do nhà trường hoặc một quản trị viên khác vận hành, dữ liệu chấm bài được gửi tới máy chủ đã chọn. Hãy kiểm tra địa chỉ máy chủ và chính sách của đơn vị đó trước khi tải dữ liệu lên.</p>
+      </section>
+      <section class="guide-section" id="du-lieu">
+        <h2>02 / Những dữ liệu được xử lý</h2>
+        <ul>
+          <li><strong>Tài khoản và hồ sơ:</strong> email, tên đăng nhập, họ tên, thông tin trường/môn giảng dạy và ảnh đại diện nếu bạn cung cấp. Mật khẩu được lưu dưới dạng băm; phiên đăng nhập và token được dùng để xác thực truy cập.</li>
+          <li><strong>Dữ liệu chấm bài:</strong> tên đề thi, mã đề, đáp án, file Excel, ảnh đáp án hoặc phiếu bài làm do bạn tải lên; tên, mã học sinh/số báo danh nếu có; đáp án nhận diện, điểm số, trạng thái xử lý và thời gian chấm.</li>
+          <li><strong>Dữ liệu vận hành:</strong> địa chỉ IP, thời gian yêu cầu, thông tin trình duyệt/ứng dụng, nhật ký lỗi và dữ liệu chống lạm dụng. Nếu bạn dùng điểm tín dụng, hệ thống lưu số dư, lượt quét và lịch sử thay đổi điểm để đối soát.</li>
+          <li><strong>Dữ liệu trên thiết bị:</strong> địa chỉ máy chủ, thông tin đăng nhập được lưu, cài đặt ứng dụng và lựa chọn quyền riêng tư. Website dùng cookie và bộ nhớ trình duyệt để duy trì phiên, bảo vệ thao tác và hỗ trợ giao diện.</li>
+          <li><strong>Dữ liệu quảng cáo:</strong> SDK quảng cáo của Google có thể xử lý địa chỉ IP, mã nhận dạng quảng cáo, thông tin thiết bị/ứng dụng, lượt hiển thị và tương tác quảng cáo, cùng tín hiệu consent theo chính sách của Google.</li>
+        </ul>
+        <h3>Camera và ảnh trên Android</h3>
+        <p>Ứng dụng xin quyền camera khi bạn dùng tính năng quét phiếu và truy cập ảnh/tệp bạn chọn để nhập dữ liệu. Camera phục vụ thao tác quét do bạn chủ động thực hiện. Khi bạn gửi ảnh để chấm hoặc lưu bài, ảnh và dữ liệu liên quan được truyền tới máy chủ cấu hình trong ứng dụng. Bạn có thể quản lý quyền trong phần Cài đặt của Android.</p>
+      </section>
+      <section class="guide-section" id="muc-dich">
+        <h2>03 / Mục đích sử dụng thông tin</h2>
+        <p>GradeFlow xử lý thông tin để tạo và xác thực tài khoản, quản lý đề thi, nhận diện phiếu, tính và lưu kết quả, xuất dữ liệu, hỗ trợ người dùng, duy trì hệ thống, đối soát điểm tín dụng và phát hiện truy cập hoặc hoạt động lạm dụng.</p>
+        <h3>Đóng góp ảnh để cải thiện nhận diện</h3>
+        <p>Tùy chọn đóng góp ảnh huấn luyện mặc định tắt. Khi bạn chủ động bật tính năng này trong Cài đặt, ứng dụng có thể gửi thêm ảnh phiếu, mã đề, số báo danh, dữ liệu đáp án và độ tin cậy nhận diện để cải thiện mô hình. Ảnh phiếu có thể chứa thông tin học sinh; đây không phải cam kết ảnh đã được ẩn danh.</p>
+        <p>Bạn có thể tắt đóng góp để ngừng gửi mẫu mới. Tắt tính năng không tự xóa các mẫu đã gửi; hãy liên hệ nếu muốn yêu cầu xử lý các mẫu cũ.</p>
+      </section>
+      <section class="guide-section" id="quang-cao">
+        <h2>04 / Quảng cáo Google và lựa chọn quyền riêng tư</h2>
+        <p>Ứng dụng Android tích hợp Google AdMob để hiển thị quảng cáo banner và quảng cáo toàn màn hình. Một số trang website có tích hợp dịch vụ quảng cáo Google. Các dịch vụ này có thể sử dụng cookie hoặc mã nhận dạng thiết bị để phân phối, đo lường quảng cáo và phòng chống gian lận. Việc cá nhân hóa phụ thuộc vào lựa chọn của bạn, khu vực và các quy định áp dụng.</p>
+        <p>Ứng dụng dùng <strong>Google User Messaging Platform (UMP)</strong> để cập nhật trạng thái consent khi khởi động và hiển thị biểu mẫu khi Google xác định cần thiết. Ứng dụng chỉ gửi yêu cầu quảng cáo khi UMP cho phép. Không phải người dùng ở mọi khu vực đều thấy cùng một biểu mẫu.</p>
+        <p>Khi UMP yêu cầu điểm truy cập lựa chọn quyền riêng tư, bạn có thể mở <strong>Tài khoản → Quyền riêng tư quảng cáo</strong> để xem lại hoặc thay đổi lựa chọn. Bạn cũng có thể quản lý mã nhận dạng quảng cáo trong cài đặt Android và cookie trong trình duyệt. Việc từ chối cá nhân hóa không đồng nghĩa mọi quảng cáo đều bị tắt; loại quảng cáo khả dụng được xác định theo tín hiệu consent và quy định của Google.</p>
+        <p>Luồng yêu cầu quảng cáo của GradeFlow không chủ động đính kèm email tài khoản, ảnh phiếu, tên học sinh hoặc điểm số vào yêu cầu AdMob. Đọc thêm <a href="https://policies.google.com/privacy?hl=vi" rel="noopener noreferrer">Chính sách quyền riêng tư của Google</a> và <a href="https://policies.google.com/technologies/partner-sites?hl=vi" rel="noopener noreferrer">cách Google sử dụng thông tin từ ứng dụng và website đối tác</a>.</p>
+        <p>Trang chính sách này không tải mã quảng cáo hoặc biểu mẫu yêu cầu consent.</p>
+      </section>
+      <section class="guide-section" id="chia-se">
+        <h2>05 / Bên cung cấp dịch vụ và truy cập dữ liệu</h2>
+        <p>Dữ liệu được xử lý bởi bên vận hành GradeFlow và các nhà cung cấp phục vụ chức năng liên quan: hạ tầng máy chủ, Cloudflare cho kết nối và bảo vệ website, dịch vụ gửi email khi được cấu hình, Google khi bạn dùng đăng nhập Google hoặc dịch vụ quảng cáo. Mỗi nhà cung cấp xử lý dữ liệu theo vai trò, cấu hình dịch vụ và chính sách riêng.</p>
+        <p>Dữ liệu có thể được truyền hoặc xử lý ngoài Việt Nam thông qua hạ tầng của nhà cung cấp. Người quản trị được cấp quyền có thể truy cập dữ liệu khi cần hỗ trợ, vận hành, kiểm tra bảo mật hoặc xử lý yêu cầu của bạn. Dữ liệu cũng có thể được cung cấp theo yêu cầu hợp pháp của cơ quan có thẩm quyền.</p>
+        <p>Ảnh và kết quả chấm bài được bảo vệ bằng kiểm tra quyền truy cập; không được công khai cho khách truy cập thông thường. Khi bạn tải hoặc chia sẻ file xuất kết quả, hãy cân nhắc người nhận và thông tin học sinh trong file.</p>
+      </section>
+      <section class="guide-section" id="luu-tru">
+        <h2>06 / Lưu trữ và bảo vệ dữ liệu</h2>
+        <p>Tài khoản, đề thi và kết quả được giữ để cung cấp dịch vụ cho đến khi được xóa hoặc có yêu cầu xử lý phù hợp. Cài đặt lưu ảnh bài làm mặc định là <strong>30 ngày</strong>; bạn có thể chọn 7, 30, 90, 180 ngày hoặc không tự xóa. Việc dọn ảnh phụ thuộc vào cơ chế dọn dữ liệu được vận hành trên máy chủ; bạn có thể dùng chức năng dọn ảnh trong Cài đặt.</p>
+        <p>Dọn ảnh không đồng nghĩa xóa tài khoản, đề thi, điểm số hoặc mẫu huấn luyện đã đóng góp. Nhật ký, dữ liệu đối soát và bản sao lưu có thể có thời gian lưu khác để bảo vệ hệ thống, khôi phục sự cố hoặc thực hiện nghĩa vụ áp dụng. Liên hệ để biết phạm vi dữ liệu cần xóa trong trường hợp cụ thể.</p>
+        <p>GradeFlow sử dụng xác thực, phân quyền, băm mật khẩu và HTTPS trên tên miền công khai để hạn chế truy cập trái phép. Không có phương thức lưu trữ hoặc truyền dữ liệu nào bảo đảm an toàn tuyệt đối. Hãy bảo vệ mật khẩu, token và thiết bị; không gửi dữ liệu học sinh tới máy chủ không tin cậy.</p>
+      </section>
+      <section class="guide-section" id="quyen">
+        <h2>07 / Lựa chọn và yêu cầu xóa dữ liệu</h2>
+        <p>Bạn có thể cập nhật hồ sơ, quản lý đề thi, xuất kết quả, thay đổi thời gian lưu ảnh, tắt đóng góp huấn luyện và quản lý quyền camera hoặc lựa chọn quảng cáo bằng các chức năng hiện có.</p>
+        <p>Để yêu cầu truy cập, chỉnh sửa, xuất, hạn chế xử lý hoặc xóa tài khoản/dữ liệu, gửi email tới <a href="mailto:zephuyaa@gmail.com">zephuyaa@gmail.com</a> với tiêu đề <strong>GradeFlow – Yêu cầu quyền riêng tư</strong>. Nêu email tài khoản, yêu cầu cụ thể và thông tin cần tìm, chẳng hạn tên đề hoặc thời gian chấm. Không gửi mật khẩu, token hoặc toàn bộ dữ liệu học sinh trong email đầu tiên.</p>
+        <p>Bên vận hành có thể cần xác minh quyền sở hữu tài khoản và phạm vi yêu cầu trước khi xử lý. Một số dữ liệu có thể cần giữ lại để đối soát, bảo mật hoặc thực hiện nghĩa vụ pháp lý; nếu có giới hạn, bên vận hành sẽ giải thích khi phản hồi. Gỡ ứng dụng khỏi điện thoại không tự xóa dữ liệu trên máy chủ.</p>
+      </section>
+      <section class="guide-section" id="hoc-sinh">
+        <h2>08 / Thông tin học sinh và trẻ em</h2>
+        <p>GradeFlow được thiết kế cho giáo viên và người quản lý hoạt động chấm bài, không nhằm yêu cầu học sinh hoặc trẻ em tự tạo tài khoản. Tuy vậy, phiếu và kết quả do giáo viên tải lên có thể chứa dữ liệu của người chưa thành niên.</p>
+        <p>Người tải dữ liệu cần có quyền xử lý phù hợp, chỉ cung cấp thông tin cần thiết và tuân thủ quy định của nhà trường cùng các yêu cầu áp dụng. Khi có thể, hãy dùng mã học sinh/số báo danh thay cho thông tin nhận dạng không cần thiết. Đừng bật đóng góp ảnh huấn luyện nếu chưa có quyền sử dụng dữ liệu cho mục đích đó.</p>
+        <p>Nếu bạn là phụ huynh, người giám hộ hoặc người có dữ liệu trong phiếu và muốn được hỗ trợ, hãy liên hệ qua email ở trên, kèm thông tin đủ để xác định yêu cầu.</p>
+      </section>
+      <section class="guide-section" id="cap-nhat">
+        <h2>09 / Thay đổi chính sách</h2>
+        <p>Chính sách có thể được cập nhật khi tính năng, nhà cung cấp dịch vụ hoặc cách xử lý dữ liệu thay đổi. Phiên bản hiện hành và ngày cập nhật được công bố tại trang này. Khi thay đổi cần lựa chọn hoặc sự đồng ý mới, GradeFlow sẽ sử dụng thông báo hay biểu mẫu phù hợp thay vì coi việc tiếp tục sử dụng là sự đồng ý cho mọi mục đích.</p>
+        <p><strong>Liên hệ quyền riêng tư:</strong> <a href="mailto:zephuyaa@gmail.com">zephuyaa@gmail.com</a>.</p>
+      </section>
+    </div>
+  </div>
+</div>
+{% endblock %}

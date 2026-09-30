@@ -256,34 +256,10 @@ def compute_weighted_score(result, scoring_config, correct_answers=None):
     }
 
 
-def grade_image(image_path, answer_key_str='', template_code='', corners=None, parts_config=None):
+def grade_image(image_path, answer_key_str='', template_code='', corners=None, parts_config=None, fast_mode=False,
+                live_bubble_mode=False, live_answer_key_resolver=None, live_validation=False):
     """
     Chấm 1 ảnh phiếu thi.
-
-    Args:
-        image_path: Đường dẫn tuyệt đối tới ảnh
-        answer_key_str: Đáp án (JSON string hoặc CSV)
-        template_code: Mã template phiếu (VD: '30-04-06-TL')
-        corners: Tọa độ 4 góc từ client truyền lên (nếu có)
-        parts_config: [p1_count, p2_count, p3_count] — giới hạn số câu quét.
-                      Nếu None, tự lấy từ answer_key_str JSON (key 'parts').
-
-    Returns:
-        dict {
-            'success': True/False,
-            'sbd': '001234',
-            'made': '002',
-            'score': 42,
-            'max_score': 54,
-            'scores': {'part1': 36, 'part2': 4, 'part3': 2},
-            'part1': {1: 'A', 2: 'B', ...},
-            'part2': {1: {'a': 'Dung', ...}, ...},
-            'part3': {1: '1234', ...},
-            'detail_json': '...',           # JSON chi tiết
-            'result_image_path': '...',     # Ảnh kết quả (nếu có)
-            'processing_time': 2.3,
-            'error': '',
-        }
     """
     start_time = time.time()
 
@@ -317,12 +293,21 @@ def grade_image(image_path, answer_key_str='', template_code='', corners=None, p
         sys.stdout = io.TextIOWrapper(captured_out, encoding='utf-8', errors='replace')
         sys.stderr = io.TextIOWrapper(captured_err, encoding='utf-8', errors='replace')
 
+        live_options = {}
+        if live_bubble_mode:
+            if live_validation:
+                live_options['live_validation'] = True
+            if live_answer_key_resolver is not None:
+                live_options['live_answer_key_resolver'] = live_answer_key_resolver
         result = engine.process_sheet(
             str(image_path),
             correct_answers=correct,
             debug=True,
             provided_corners=corners,
             parts_config=parts_config,
+            fast_mode=fast_mode,
+            live_bubble_mode=live_bubble_mode,
+            **live_options,
         )
     except Exception as e:
         logger.error(f"Grading failed: {e}", exc_info=True)
@@ -368,6 +353,8 @@ def grade_image(image_path, answer_key_str='', template_code='', corners=None, p
         'part2_detail': engine_details.get('part2', {}),
         'part3_detail': engine_details.get('part3', {}),
     }
+    if live_bubble_mode and live_validation:
+        detail['part1_live'] = engine_details.get('part1_live', {})
 
     # Handle case where no answer key → score is None
     score = result.get('score')
