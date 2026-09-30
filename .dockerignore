@@ -51,6 +51,7 @@ media
 staticfiles
 scratch
 artifacts
+tests/test_ketqua
 releases
 duan_clone
 anh_san_pham

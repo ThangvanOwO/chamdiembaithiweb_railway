@@ -483,6 +483,15 @@ def grade_api(request):
         except (json.JSONDecodeError, ValueError):
             provided_corners = None
 
+    # A separate debug build opts in. A client header alone never enables a
+    # different scoring algorithm for ordinary accounts or Upload requests.
+    live_background_trial = (
+        live_bubble_mode and fast_mode and provided_corners is not None
+        and getattr(request.user, 'is_staff', False)
+        and request.headers.get('X-GradeFlow-Background-Trial') == 'box5'
+        and os.environ.get('LIVE_FAST_BACKGROUND') == '1'
+    )
+
     # Resolve exam
     selected_exam = None
     if exam_id:
@@ -530,6 +539,8 @@ def grade_api(request):
         from django.conf import settings as latency_settings
         if live_bubble_mode:
             live_options['live_validation'] = True
+            if live_background_trial:
+                live_options['fast_background_trial'] = True
             if not selected_exam or not exam_variants:
                 return Response({'success': False,
                     'error': 'Hãy chọn đề thi có mã đề và bảng đáp án đã khai báo trước khi quét.'})
@@ -576,6 +587,8 @@ def grade_api(request):
                     retry_options = {'live_validation': True, 'live_answer_key_resolver':
                         LiveAnswerKeySelection(answer_key_str,
                             [(matched_variant.variant_code, answer_key_str)], parse_answer_key, strict=True).resolve}
+                    if live_options.get('fast_background_trial'):
+                        retry_options['fast_background_trial'] = True
                 result = grade_image(tmp_path, answer_key_str, template_code, corners=provided_corners,
                                      fast_mode=fast_mode, live_bubble_mode=live_bubble_mode, **retry_options)
                 if not result or not result.get('success'):
@@ -698,6 +711,32 @@ def grade_api(request):
                 logger.info(f"Saved overlay image to {dst_ov}")
         except Exception as e_kq:
             logger.warning(f"Could not copy to tests/ketqua: {e_kq}")
+
+        if live_background_trial and result_img_path and os.path.isfile(result_img_path):
+            try:
+                from pathlib import Path
+                import shutil
+                from uuid import uuid4
+
+                capture_dir = Path(settings.BASE_DIR) / 'tests' / 'test_ketqua' / 'camera_captures'
+                capture_dir.mkdir(parents=True, exist_ok=True)
+                prefix = f"{timezone.now():%Y%m%d_%H%M%S_%f}_{uuid4().hex[:8]}"
+                shutil.copy2(tmp_path, capture_dir / f'{prefix}_input.jpg')
+                if result_img_path and os.path.isfile(result_img_path):
+                    shutil.copy2(result_img_path, capture_dir / f'{prefix}_result.jpg')
+                if os.path.isfile(overlay_path):
+                    shutil.copy2(overlay_path, capture_dir / f'{prefix}_overlay.jpg')
+                metadata = {key: result.get(key) for key in (
+                    'success', 'sbd', 'made', 'score', 'max_score', 'processing_time',
+                    'part1', 'part2', 'part3', 'offsets', 'scan_quality',
+                    'validation_warnings', 'preprocess_mode',
+                )}
+                (capture_dir / f'{prefix}_result.json').write_text(
+                    json.dumps(metadata, ensure_ascii=False, indent=2, default=str),
+                    encoding='utf-8',
+                )
+            except Exception:
+                logger.exception('Could not save Live background trial evidence')
 
         # Encode name crop image
         name_image_b64 = ''

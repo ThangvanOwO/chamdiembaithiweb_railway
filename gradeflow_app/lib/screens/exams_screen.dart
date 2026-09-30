@@ -81,10 +81,15 @@ class _ExamsScreenState extends State<ExamsScreen> {
     if (TutorialFlow.instance.step.value != TutorialFlow.stepClickImport) {
       return;
     }
+    // The list initially shows a loader; the button does not exist yet.
+    if (_loading || _importBtnKey.currentContext == null) return;
     await CoachMarkService.show(
       context: context,
       screenKey: 'flow_step2_import_btn',
       force: true,
+      onTargetTap: (_) {
+        if (mounted) _importFromFile();
+      },
       targets: [
         CoachMarkService.buildTarget(
           identify: 'import',
@@ -111,7 +116,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) => _onFlowStepChanged());
+      }
     }
   }
 
@@ -262,9 +270,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
         // ── Two buttons: Import + Manual ──
         Row(
           children: [
-            Expanded(
+          Expanded(
+            child: SizedBox(
               key: _importBtnKey,
-              child: SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
                   onPressed: _importFromFile,

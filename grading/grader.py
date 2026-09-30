@@ -257,7 +257,8 @@ def compute_weighted_score(result, scoring_config, correct_answers=None):
 
 
 def grade_image(image_path, answer_key_str='', template_code='', corners=None, parts_config=None, fast_mode=False,
-                live_bubble_mode=False, live_answer_key_resolver=None, live_validation=False):
+                live_bubble_mode=False, live_answer_key_resolver=None, live_validation=False,
+                fast_background_trial=False):
     """
     Chấm 1 ảnh phiếu thi.
     """
@@ -299,6 +300,8 @@ def grade_image(image_path, answer_key_str='', template_code='', corners=None, p
                 live_options['live_validation'] = True
             if live_answer_key_resolver is not None:
                 live_options['live_answer_key_resolver'] = live_answer_key_resolver
+            if fast_background_trial:
+                live_options['fast_background_trial'] = True
         result = engine.process_sheet(
             str(image_path),
             correct_answers=correct,

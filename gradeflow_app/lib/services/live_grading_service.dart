@@ -18,6 +18,9 @@ Future<GradeResult> gradeLiveCapture({
   final request = http.MultipartRequest(
       'POST', Uri.parse('${ApiConfig.baseUrl}${ApiConfig.grade}'));
   request.headers['Authorization'] = 'Token $token';
+  if (const bool.fromEnvironment('LIVE_BACKGROUND_TRIAL')) {
+    request.headers['X-GradeFlow-Background-Trial'] = 'box5';
+  }
   request.fields.addAll({
     'corners': jsonEncode(capture.corners),
     'capture_pipeline': 'live_capture_v3',

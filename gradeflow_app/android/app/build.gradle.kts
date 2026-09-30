@@ -52,6 +52,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Keep camera trials alongside the store-signed GradeFlow app.
+            applicationIdSuffix = ".trial"
+        }
         release {
             signingConfig = signingConfigs.getByName("release")
         }

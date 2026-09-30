@@ -1930,7 +1930,17 @@ def _is_phone_camera(gray_img):
     return is_phone
 
 
-def preprocess(warped, enhance_camera=None, mode="fast"):
+def _live_box_background(gray):
+    """Experimental five-box approximation of the sigma=120 background."""
+    background = gray
+    for width in (185, 185, 185, 187, 187):
+        background = cv2.boxFilter(
+            background, -1, (width, width), borderType=cv2.BORDER_DEFAULT
+        )
+    return background
+
+
+def preprocess(warped, enhance_camera=None, mode="fast", fast_global_background=False):
     """
     Tiền xử lý: trả về ảnh xám (blur) cho detection.
 
@@ -2006,7 +2016,14 @@ def preprocess(warped, enhance_camera=None, mode="fast"):
         
         # Step 2: MULTI-SCALE illumination flattening
         # Pass 1: sigma=120 — loại gradient LỚN (bóng tay, đèn không đều)
-        bg_global = cv2.GaussianBlur(gray_denoised, (0, 0), sigmaX=120)
+        if fast_global_background:
+            try:
+                bg_global = _live_box_background(gray_denoised)
+            except cv2.error:
+                logger.exception("Fast Live background failed; using Gaussian")
+                bg_global = cv2.GaussianBlur(gray_denoised, (0, 0), sigmaX=120)
+        else:
+            bg_global = cv2.GaussianBlur(gray_denoised, (0, 0), sigmaX=120)
         gray_flat = cv2.divide(gray_denoised, bg_global, scale=255)
         # Pass 2: sigma=30 — loại gradient CỤC BỘ (bóng giấy, nếp nhăn)
         bg_local = cv2.GaussianBlur(gray_flat, (0, 0), sigmaX=30)
@@ -3591,7 +3608,8 @@ def draw_bubble_grid(warped_image, offsets=None):
 # ╚════════════════════════════════════════════════════════════════════════╝
 
 def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=False, provided_corners=None, parts_config=None, fast_mode=False,
-                  live_bubble_mode=False, live_answer_key_resolver=None, live_validation=False):
+                  live_bubble_mode=False, live_answer_key_resolver=None, live_validation=False,
+                  fast_background_trial=False):
     """
     Pipeline đầy đủ: phát hiện góc → warp → tiền xử lý → đọc đáp án → chấm điểm.
 
@@ -3744,7 +3762,14 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     import time as _time
     _t0 = _time.time()
     preprocess_mode = "fast"
-    gray, thresh, cleaned = preprocess(warped, mode="fast")
+    fast_global_background = (
+        os.environ.get("LIVE_FAST_BACKGROUND", "0") == "1"
+        and fast_background_trial and live_bubble_mode and live_validation and fast_mode
+        and method == "frontend_corners"
+    )
+    gray, thresh, cleaned = preprocess(
+        warped, mode="fast", fast_global_background=fast_global_background
+    )
     print(f"[OK] Preprocess FAST ({_time.time()-_t0:.2f}s)")
 
     # --- Bước 3b: Detect marker offsets (bù ảnh phồng) ---

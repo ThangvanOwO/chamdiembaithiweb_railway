@@ -23,13 +23,19 @@ KEY_B = json.dumps({'part1': {'1': 'B'}})
 
 
 class SelectionTests(unittest.TestCase):
-    def test_recognition_functions_are_unchanged_from_checkpoint(self):
+    def test_other_recognition_functions_are_unchanged_from_checkpoint(self):
         root = Path(__file__).resolve().parents[1]
         backup = root / 'scratch/restore_points/before_live_latency_20260914/before/grading/engine/hi.py'
         def functions(path):
             return {node.name: ast.dump(node) for node in ast.parse(path.read_text(encoding='utf-8')).body
                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name != 'process_sheet'}
-        self.assertEqual(functions(backup), functions(root / 'grading/engine/hi.py'))
+        before = functions(backup)
+        current = functions(root / 'grading/engine/hi.py')
+        self.assertEqual(set(current) - set(before), {'_live_box_background'})
+        self.assertEqual(set(before) - set(current), set())
+        for name in before:
+            if name != 'preprocess':
+                self.assertEqual(before[name], current[name], name)
 
     def test_selection_leaves_reading_configuration_and_key_intact(self):
         select = LiveAnswerKeySelection(KEY_A, [('001', KEY_A), ('002', KEY_B)], grader.parse_answer_key)
@@ -84,7 +90,8 @@ class SelectionTests(unittest.TestCase):
 
 
 class ApiRoutingTests(unittest.TestCase):
-    def run_request(self, live, single=True, background=False, code='002', second=KEY_B, codes=('001', '002')):
+    def run_request(self, live, single=True, background=False, code='002', second=KEY_B,
+                    codes=('001', '002'), trial_header=False, staff=False, corners=False):
         variants = [SimpleNamespace(variant_code='001', answer_key_str=KEY_A),
                     SimpleNamespace(variant_code='002', answer_key_str=second)]
         variants = [v for v in variants if v.variant_code in codes]
@@ -104,9 +111,14 @@ class ApiRoutingTests(unittest.TestCase):
                   'save': '1' if live and code not in codes else '0', 'fast': '1'}
         if live:
             fields['capture_pipeline'] = 'live_capture_v3'
-        request = APIRequestFactory().post('/api/v1/grade/', fields, format='multipart')
-        force_authenticate(request, user=SimpleNamespace(is_authenticated=True, is_active=True))
-        with override_settings(LIVE_SINGLE_PASS_GRADING=single, LIVE_BACKGROUND_TRIAL=background), \
+        if corners:
+            fields['corners'] = json.dumps([[0, 0], [1, 0], [1, 1], [0, 1]])
+        request = APIRequestFactory().post('/api/v1/grade/', fields, format='multipart',
+            HTTP_X_GRADEFLOW_BACKGROUND_TRIAL='box5' if trial_header else '')
+        force_authenticate(request, user=SimpleNamespace(
+            is_authenticated=True, is_active=True, is_staff=staff))
+        with override_settings(LIVE_SINGLE_PASS_GRADING=single), \
+             patch.dict(os.environ, {'LIVE_FAST_BACKGROUND': '1' if background else '0'}), \
              patch.object(views.Exam.objects, 'get', return_value=exam), \
              patch.object(views.Submission.objects, 'create', side_effect=AssertionError('No DB writes')), \
              patch.object(views, 'grade_image', side_effect=fake_grade), \
@@ -134,17 +146,17 @@ class ApiRoutingTests(unittest.TestCase):
         self.assertEqual(result['scores']['part1'], 1)
 
     def test_upload_ignores_both_enabled_flags(self):
-        _, calls = self.run_request(False, background=True)
+        _, calls = self.run_request(False, background=True, trial_header=True, staff=True, corners=True)
         self.assertEqual(len(calls), 2)
         for _, options in calls:
             self.assertNotIn('live_answer_key_resolver', options)
-            self.assertNotIn('live_background_trial', options)
+            self.assertNotIn('fast_background_trial', options)
 
     def test_parts_mismatch_falls_back_without_experimental_filter(self):
         key = json.dumps({'part1': {'1': 'B'}, 'parts': [20, 4, 6]})
         _, calls = self.run_request(True, background=True, second=key)
         self.assertEqual(len(calls), 2)
-        self.assertNotIn('live_background_trial', calls[1][1])
+        self.assertNotIn('fast_background_trial', calls[1][1])
 
     def test_unknown_rejected_and_first_code_no_rerun(self):
         for code in ('???', '', '001'):
@@ -153,7 +165,25 @@ class ApiRoutingTests(unittest.TestCase):
 
     def test_rejected_background_trial_is_not_exposed(self):
         _, calls = self.run_request(True, single=False, background=True)
-        self.assertNotIn('live_background_trial', calls[0][1])
+        self.assertNotIn('fast_background_trial', calls[0][1])
+
+    def test_trial_requires_server_switch_staff_header_and_corners(self):
+        for overrides in ({'background': False}, {'staff': False},
+                          {'trial_header': False}, {'corners': False}):
+            options = dict(background=True, staff=True, trial_header=True, corners=True)
+            options.update(overrides)
+            _, calls = self.run_request(True, **options)
+            self.assertNotIn('fast_background_trial', calls[0][1], overrides)
+
+        _, calls = self.run_request(True, background=True, staff=True,
+                                    trial_header=True, corners=True)
+        self.assertTrue(calls[0][1]['fast_background_trial'])
+
+    def test_trial_flag_survives_live_variant_retry(self):
+        _, calls = self.run_request(True, single=False, background=True,
+                                    staff=True, trial_header=True, corners=True)
+        self.assertEqual(len(calls), 2)
+        self.assertTrue(all(call[1].get('fast_background_trial') for call in calls))
 
     def test_only_001_rejects_002_even_when_optimization_is_off(self):
         for single in (True, False):

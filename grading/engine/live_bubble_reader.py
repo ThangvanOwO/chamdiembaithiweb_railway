@@ -95,7 +95,7 @@ class InkEvidence:
         return round(self.contrast, 3) if self.state == 'marked' else 0.0
 
 
-def measure_ink(gray, cx, cy, radius=13):
+def measure_ink(gray, cx, cy, radius=13, *, row_background=False):
     """Use the inner half-radius and nearby real paper; exclude printed rim.
 
     An absolute local contrast, filled area and spatial support must agree.
@@ -114,8 +114,23 @@ def measure_ink(gray, cx, cy, radius=13):
     background = float(np.percentile(roi[ring], 75))
     if background < 45:
         return InkEvidence('invalid', 0.0, 0.0, 0)
-    contrast = float(np.clip(1 - roi[core].mean() / background, 0, 1))
-    dark = roi < background - max(12, background * .12)
+    if row_background:
+        # A curled bottom edge casts a horizontal shadow through digit rows.
+        # The annulus sees brighter paper above/below it. Measure paper on both
+        # sides at the same scanline, outside the printed rim. The brighter side
+        # prevents a neighboring rim from hiding faint ink; keep all thresholds.
+        side = (abs(xx[0]) >= radius * 1.25) & (abs(xx[0]) <= radius * 1.55)
+        left = np.percentile(roi[:, side & (xx[0] < 0)], 75, axis=1)
+        right = np.percentile(roi[:, side & (xx[0] > 0)], 75, axis=1)
+        core_rows = np.any(core, axis=1)
+        if min(left[core_rows].min(), right[core_rows].min()) < 45:
+            return InkEvidence('invalid', 0.0, 0.0, 0)
+        paper = np.broadcast_to(np.maximum(left, right)[:, None], roi.shape)
+        contrast = float(np.clip(1 - np.mean(roi[core] / paper[core]), 0, 1))
+        dark = roi < paper - np.maximum(12, paper * .12)
+    else:
+        contrast = float(np.clip(1 - roi[core].mean() / background, 0, 1))
+        dark = roi < background - max(12, background * .12)
     coverage = float(dark[core].mean())
     quarters = [(xx < 0) & (yy < 0), (xx >= 0) & (yy < 0),
                 (xx < 0) & (yy >= 0), (xx >= 0) & (yy >= 0)]
@@ -227,7 +242,8 @@ def read_part3(gray, blocks, sign_y, comma_y, digit_y, digit_step,
         uncertain |= sign.state in ('uncertain', 'invalid')
         digits, digit_scores, evidence = [], [], []
         for x in xs:
-            ev = [measure_ink(gray, x, y, radius) for y in ys]
+            ev = [measure_ink(gray, x, y, radius,
+                             row_background=local_symbols and aligned) for y in ys]
             picked, ambiguous = _select(ev)
             uncertain |= ambiguous
             digits.append(picked)

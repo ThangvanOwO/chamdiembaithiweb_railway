@@ -23,6 +23,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  bool _step4Queued = false;
 
   @override
   void initState() {
@@ -66,18 +67,28 @@ class _MainShellState extends State<MainShell> {
               'Nhấn vào mục "Bài thi" ở thanh dưới để bắt đầu tạo đề thi đầu tiên.',
           align: ContentAlign.top,
           shape: ShapeLightFocus.Circle,
+          contentTop: MediaQuery.sizeOf(context).height * 0.40,
         ),
       ],
+      onTargetTap: (_) {
+        if (mounted) _onTabTap(1);
+      },
     );
   }
 
   void _maybeShowStep4() async {
     if (!mounted) return;
+    if (_step4Queued || _currentIndex != 1) return;
     if (TutorialFlow.instance.step.value != TutorialFlow.stepClickChamDiem) {
       return;
     }
+    _step4Queued = true;
     await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
+    if (!mounted || _currentIndex != 1 ||
+        TutorialFlow.instance.step.value != TutorialFlow.stepClickChamDiem) {
+      _step4Queued = false;
+      return;
+    }
     // Show note first
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -89,7 +100,11 @@ class _MainShellState extends State<MainShell> {
       ),
     );
     await Future.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
+    if (!mounted || _currentIndex != 1 ||
+        TutorialFlow.instance.step.value != TutorialFlow.stepClickChamDiem) {
+      _step4Queued = false;
+      return;
+    }
     await CoachMarkService.show(
       context: context,
       screenKey: 'flow_step4_cham_diem',
@@ -103,8 +118,12 @@ class _MainShellState extends State<MainShell> {
               'Sau khi có đề thi, nhấn "Chấm điểm" để quét phiếu học sinh.',
           align: ContentAlign.top,
           shape: ShapeLightFocus.Circle,
+          contentTop: MediaQuery.sizeOf(context).height * 0.40,
         ),
       ],
+      onTargetTap: (_) {
+        if (mounted) _onTabTap(2);
+      },
     );
   }
 
@@ -141,6 +160,7 @@ class _MainShellState extends State<MainShell> {
     return ValueListenableBuilder<int>(
       valueListenable: TutorialFlow.instance.step,
       builder: (context, step, _) {
+        if (step != TutorialFlow.stepClickChamDiem) _step4Queued = false;
         // React to external changes (e.g., import screen popped)
         if (step == TutorialFlow.stepClickChamDiem && _currentIndex == 1) {
           WidgetsBinding.instance

@@ -11,6 +11,7 @@ import '../config/theme.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../services/exam_import_service.dart';
+import '../services/answer_key_completeness.dart';
 import '../widgets/academic_ui.dart';
 import '../widgets/answer_key_review.dart';
 import '../services/coach_mark_service.dart';
@@ -64,6 +65,11 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
       context: context,
       screenKey: 'flow_step3_import_options',
       force: true,
+      onTargetTap: (target) {
+        if (mounted && !_uploading && target.identify == 'scan_sheet') {
+          _scanAnswerSheet();
+        }
+      },
       targets: [
         CoachMarkService.buildTarget(
           identify: 'drop_zone',
@@ -185,6 +191,16 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
   Future<void> _saveExam() async {
     final auth = context.read<AuthService>();
     if (auth.token == null) return;
+    final missing = _parsedData?['source'] == 'image'
+        ? missingImportedAnswers(_parsedData!) : <String>[];
+    if (missing.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Chưa thể lưu: còn ${missing.length} ô đáp án chưa xác nhận. '
+            'Hãy tô lại phiếu đáp án mẫu rồi quét lại.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
     if (_titleCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -473,6 +489,8 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
     final p2Count = data['part2Count'] ?? 0;
     final p3Count = data['part3Count'] ?? 0;
     final totalQ = data['totalQuestions'] ?? 0;
+    final missing = data['source'] == 'image'
+        ? missingImportedAnswers(data) : <String>[];
 
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -537,6 +555,13 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
           const SizedBox(height: 12),
           const AcademicNotice(title: 'Đọc rõ trạng thái đáp án',
             message: 'Ô “—” chưa có đáp án xác nhận. Ô X hoặc ? cần kiểm tra lại trên phiếu.'),
+          if (missing.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            AcademicNotice(title: 'Chưa thể lưu đáp án thiếu',
+              message: 'Còn ${missing.length} ô chưa xác nhận: '
+                  '${missing.take(8).join(', ')}${missing.length > 8 ? ', …' : ''}. '
+                  'Hãy tô đúng phiếu đáp án mẫu và quét lại.'),
+          ],
           if ((data['warnings'] as List? ?? []).isNotEmpty)
             ExpansionTile(title: Text('${(data['warnings'] as List).length} cảnh báo cần đối chiếu'),
               leading: const Icon(Icons.info_outline, color: AcademicStyle.amber),
@@ -584,6 +609,44 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
         // Answer display for active variant
         if (variants.isNotEmpty) ...[
           _buildAnswerReview(variants[_activeVariantIdx], p1Count, p2Count, p3Count),
+          if (data['source'] == 'image' && p3Count > 0) ...[
+            const SizedBox(height: 16),
+            AcademicCard(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Xác nhận đáp án Phần III',
+                  style: GoogleFonts.manrope(fontSize: 17, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                Text('Nếu máy đọc thiếu hoặc sai, nhập số theo đáp án chuẩn của đề. '
+                    'Dùng dấu chấm cho số thập phân, ví dụ -0.2.',
+                  style: GoogleFonts.dmSans(fontSize: 13,
+                    color: GradeFlowTheme.onSurfaceVariant)),
+                const SizedBox(height: 16),
+                LayoutBuilder(builder: (context, constraints) {
+                  final width = (constraints.maxWidth - 12) / 2;
+                  final p3 = variants[_activeVariantIdx]['p3'] as Map? ?? {};
+                  return Wrap(spacing: 12, runSpacing: 12, children: [
+                    for (var q = 1; q <= p3Count; q++)
+                      SizedBox(width: width, child: TextFormField(
+                        key: ValueKey('p3_${_activeVariantIdx}_$q'),
+                        initialValue: '${p3['$q'] ?? ''}',
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true, signed: true),
+                        decoration: InputDecoration(labelText: 'Câu $q',
+                          hintText: 'Nhập đáp án', isDense: true),
+                        onChanged: (value) => setState(() {
+                          final current = (_parsedData!['variants'] as List)
+                              [_activeVariantIdx] as Map;
+                          final answers = current['p3'] as Map? ?? {};
+                          answers['$q'] = value.trim().replaceAll(',', '.');
+                          current['p3'] = answers;
+                        }),
+                      )),
+                  ]);
+                }),
+              ],
+            )),
+          ],
         ],
 
         const SizedBox(height: 24),
@@ -591,6 +654,7 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _titleCtrl.text.trim().isEmpty ||
+                    missing.isNotEmpty ||
                     (data['source'] == 'image' &&
                         (variants.isEmpty || !RegExp(r'^\d{3}$').hasMatch('${variants[0]['code']}')))
                 ? null
@@ -605,6 +669,10 @@ class _ExamImportScreenState extends State<ExamImportScreen> {
           const Padding(padding: EdgeInsets.only(top: 12),
             child: Text('Nhập tên đề thi ở phía trên để tiếp tục.', textAlign: TextAlign.center,
               style: TextStyle(color: AcademicStyle.muted, fontSize: 13)))
+        else if (missing.isNotEmpty)
+          const Padding(padding: EdgeInsets.only(top: 12),
+            child: Text('Hãy quét lại phiếu đáp án mẫu đã tô đủ trước khi lưu.',
+              textAlign: TextAlign.center))
         else if (data['source'] == 'image' &&
             (variants.isEmpty || !RegExp(r'^\d{3}$').hasMatch('${variants[0]['code']}')))
           const Padding(padding: EdgeInsets.only(top: 12),

@@ -119,6 +119,9 @@ void main() {
       expect(body, contains('name="capture_pipeline"'));
       expect(body, contains('live_capture_v3'));
       expect(request.headers['Authorization'], 'Token test-token');
+      expect(
+          request.headers['X-GradeFlow-Background-Trial'],
+          const bool.fromEnvironment('LIVE_BACKGROUND_TRIAL') ? 'box5' : null);
       return http.Response('{"success":false,"error":"fixture"}', 200);
     });
     await gradeLiveCapture(

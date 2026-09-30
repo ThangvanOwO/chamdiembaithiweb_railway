@@ -98,7 +98,8 @@ def main():
                           file=sys.__stdout__)
                     return
         result = engine.process_sheet(sys.argv[1], correct_answers=None, debug=False,
-            provided_corners=options.get('corners'), fast_mode=bool(options), live_bubble_mode=True)
+            provided_corners=options.get('corners'), fast_mode=bool(options), live_bubble_mode=True,
+            live_validation=bool(options))
         # Parent only needs recognition data, not renderer/NumPy internals.
         payload = None if not result else {
             key: result.get(key) for key in ('part1', 'part2', 'part3', 'made',
