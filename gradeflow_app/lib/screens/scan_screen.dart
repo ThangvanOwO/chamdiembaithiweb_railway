@@ -265,6 +265,8 @@ class _ScanScreenState extends State<ScanScreen> {
               imageBytes: _scannedBytes!,
               examTitle: _selectedExam?.title,
               isAdmin: context.read<AuthService>().isAdmin,
+              templateCode: _selectedExam?.templateCode ?? '40-08-06',
+              trainingCorners: live != null && identical(live.bytes, _scannedBytes) ? live.corners : null,
             ),
           ),
         ).then((_) {

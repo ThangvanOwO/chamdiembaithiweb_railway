@@ -198,6 +198,7 @@ class _BatchScanScreenState extends State<BatchScanScreen> {
           imageBytes: batch.imageBytes,
           examTitle: _selectedExam?.title,
           isAdmin: context.read<AuthService>().isAdmin,
+          templateCode: _selectedExam?.templateCode ?? '40-08-06',
         ),
       ),
     );

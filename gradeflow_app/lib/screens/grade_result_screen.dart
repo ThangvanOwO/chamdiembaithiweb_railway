@@ -8,12 +8,15 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../config/theme.dart';
 import '../models/grade_result.dart';
 import '../widgets/academic_ui.dart';
+import 'training_correction_screen.dart';
 
 class GradeResultScreen extends StatefulWidget {
   final GradeResult result;
   final Uint8List imageBytes;
   final String? examTitle;
   final bool isAdmin;
+  final String templateCode;
+  final List<List<double>>? trainingCorners;
 
   const GradeResultScreen({
     super.key,
@@ -21,6 +24,8 @@ class GradeResultScreen extends StatefulWidget {
     required this.imageBytes,
     this.examTitle,
     this.isAdmin = false,
+    this.templateCode = '40-08-06',
+    this.trainingCorners,
   });
 
   @override
@@ -142,6 +147,16 @@ class _GradeResultScreenState extends State<GradeResultScreen> {
         const SizedBox(height: 20),
 
         // ── Actions ──
+        if (isAdmin) ...[
+          OutlinedButton.icon(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) =>
+              TrainingCorrectionScreen(imageBytes: imageBytes, result: result,
+                templateCode: widget.templateCode, corners: widget.trainingCorners))),
+            icon: const Icon(Icons.psychology_outlined, size: 18),
+            label: const Text('Training AI · Chọn câu cần sửa'),
+          ),
+          const SizedBox(height: 12),
+        ],
         Row(
           children: [
             Expanded(

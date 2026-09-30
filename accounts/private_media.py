@@ -6,7 +6,7 @@ from django.http import FileResponse, Http404
 from rest_framework.decorators import api_view
 
 from accounts.models import TeacherProfile
-from grading.models import Submission, TrainingSample
+from grading.models import Submission, TrainingSample, TrainingCorrection
 
 
 IMAGE_TYPES = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
@@ -39,6 +39,8 @@ def private_media(request, path):
         owner_id = record['teacher_id'] if record else None
     elif path.startswith('training/'):
         owner_id = TrainingSample.objects.filter(image=path).values_list('teacher_id', flat=True).first()
+    elif path.startswith('training_corrections/'):
+        owner_id = TrainingCorrection.objects.filter(image=path).values_list('teacher_id', flat=True).first()
     elif path.startswith('avatars/'):
         owner_id = TeacherProfile.objects.filter(avatar=path).values_list('user_id', flat=True).first()
 

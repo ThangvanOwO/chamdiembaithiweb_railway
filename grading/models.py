@@ -295,3 +295,36 @@ class TrainingSample(models.Model):
 
     def __str__(self):
         return f"Sample#{self.id} by {self.teacher.username} ({self.made}/{self.sbd})"
+
+
+class TrainingCorrection(models.Model):
+    """Human-labelled question crops; automatic predictions are never ground truth."""
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='training_corrections')
+    image = models.ImageField(upload_to='training_corrections/%Y/%m/')
+    source_hash = models.CharField(max_length=64, db_index=True)
+    template_code = models.CharField(max_length=30)
+    part = models.PositiveSmallIntegerField()
+    question = models.PositiveSmallIntegerField()
+    subquestion = models.CharField(max_length=1, blank=True)
+    detected = models.CharField(max_length=40, blank=True)
+    answer = models.CharField(max_length=40, blank=True)
+    cells = models.JSONField(default=list)
+    labels = models.JSONField(default=dict)
+    geometry = models.JSONField(default=dict)
+    status = models.CharField(max_length=10, default='pending', choices=[
+        ('pending', 'Chờ duyệt'), ('approved', 'Đã duyệt'), ('rejected', 'Loại')])
+    reviewed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL,
+                                   related_name='reviewed_training_corrections')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [models.UniqueConstraint(
+            fields=['teacher', 'source_hash', 'template_code', 'part', 'question', 'subquestion'],
+            name='unique_training_question_source')]
+        verbose_name = 'Câu huấn luyện đã gán nhãn'
+        verbose_name_plural = 'Dữ liệu huấn luyện theo câu'
+
+    def __str__(self):
+        return f'Phần {self.part} · Câu {self.question}{self.subquestion} · {self.get_status_display()}'

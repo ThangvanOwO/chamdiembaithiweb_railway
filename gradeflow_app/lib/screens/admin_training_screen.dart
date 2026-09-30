@@ -1,332 +1,298 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-
-import '../config/theme.dart';
+import '../config/api_config.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/academic_ui.dart';
 
-/// Admin-only screen: shows training-sample stats and lets the admin
-/// download the collected dataset as a ZIP file to the device Downloads dir.
 class AdminTrainingScreen extends StatefulWidget {
   const AdminTrainingScreen({super.key});
-
   @override
   State<AdminTrainingScreen> createState() => _AdminTrainingScreenState();
 }
 
 class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
-  bool _loading = true;
-  bool _downloading = false;
+  Map<String, dynamic>? _data;
+  String _status = 'pending';
+  int _page = 1;
+  bool _busy = false;
   String? _error;
-  Map<String, dynamic>? _stats;
-  String? _lastSavedPath;
+  final Set<int> _loadedImages = {};
+  ApiService get _api => ApiService(token: context.read<AuthService>().token!);
+  static const _titles = {
+    'pending': 'Chờ duyệt',
+    'approved': 'Đã duyệt',
+    'rejected': 'Đã loại'
+  };
 
   @override
   void initState() {
     super.initState();
-    _loadStats();
+    _load();
   }
 
-  Future<void> _loadStats() async {
-    final auth = context.read<AuthService>();
-    if (auth.token == null) return;
+  Future<void> _load() async {
+    if (context.read<AuthService>().token == null) return;
     setState(() {
-      _loading = true;
+      _busy = true;
       _error = null;
     });
     try {
-      final api = ApiService(token: auth.token!);
-      final data = await api.getTrainingStats();
-      if (!mounted) return;
-      setState(() {
-        _stats = data;
-        _loading = false;
-      });
+      final data =
+          await _api.getTrainingCorrections(status: _status, page: _page);
+      if (mounted) {
+        setState(() {
+          _data = data;
+          _loadedImages.clear();
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _review(Map<String, dynamic> sample, String status) async {
+    final agree = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+                title: Text(status == 'approved'
+                    ? 'Xác nhận nhãn đã kiểm tra'
+                    : 'Loại mẫu này'),
+                content: const Text(
+                    'Anh đã đối chiếu ảnh và từng nhãn vòng tròn? Ảnh cắt lệch hoặc nhãn sai cần được loại.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Quay lại')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Xác nhận'))
+                ]));
+    if (agree != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await _api.reviewTrainingQuestion(
+          sample['id'], status, sample['revision']);
+      if (mounted) await _load();
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.toString();
-          _loading = false;
+          _error = '$e';
+          _busy = false;
         });
       }
     }
   }
 
-  Future<void> _download() async {
-    final auth = context.read<AuthService>();
-    if (auth.token == null) return;
+  Future<void> _download({bool unverified = false}) async {
     setState(() {
-      _downloading = true;
-      _lastSavedPath = null;
+      _busy = true;
+      _error = null;
     });
     try {
-      final api = ApiService(token: auth.token!);
-      final bytes = await api.downloadTrainingZip();
-
-      // Save to app downloads dir (Android external, iOS docs)
-      Directory? baseDir;
-      if (Platform.isAndroid) {
-        baseDir = await getExternalStorageDirectory();
-      }
-      baseDir ??= await getApplicationDocumentsDirectory();
-
-      final ts = DateTime.now().millisecondsSinceEpoch;
-      final file = File('${baseDir.path}${Platform.pathSeparator}training_samples_$ts.zip');
+      final bytes = unverified
+          ? await _api.downloadTrainingZip()
+          : await _api.downloadReviewedTraining();
+      final directory =
+          Platform.isAndroid ? await getExternalStorageDirectory() : null;
+      final base = directory ?? await getApplicationDocumentsDirectory();
+      final file = File(
+          '${base.path}/training_${unverified ? "unverified" : "reviewed"}_${DateTime.now().millisecondsSinceEpoch}.zip');
       await file.writeAsBytes(bytes, flush: true);
-
-      if (!mounted) return;
-      setState(() {
-        _downloading = false;
-        _lastSavedPath = file.path;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã lưu: ${file.path}'),
-          backgroundColor: GradeFlowTheme.success,
-          duration: const Duration(seconds: 6),
-        ),
-      );
-    } catch (e) {
       if (mounted) {
-        setState(() => _downloading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Đã lưu: ${file.path}')));
       }
-    }
-  }
-
-  String _formatTime(String? iso) {
-    if (iso == null || iso.isEmpty) return '—';
-    try {
-      final dt = DateTime.parse(iso).toLocal();
-      final diff = DateTime.now().difference(dt);
-      if (diff.inMinutes < 1) return 'vừa xong';
-      if (diff.inMinutes < 60) return '${diff.inMinutes} phút trước';
-      if (diff.inHours < 24) return '${diff.inHours} giờ trước';
-      if (diff.inDays < 30) return '${diff.inDays} ngày trước';
-      return '${dt.day}/${dt.month}/${dt.year}';
-    } catch (_) {
-      return iso;
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final counts = (_data?['counts'] as Map?) ?? {};
+    final total = counts.values.fold<int>(0, (sum, v) => sum + (v as int));
+    final samples = (_data?['samples'] as List?) ?? [];
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Quản trị training data'),
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.refreshCw, size: 18),
-            onPressed: _loadStats,
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildError()
-              : _buildContent(),
-    );
-  }
-
-  Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(LucideIcons.shieldOff,
-                size: 48, color: GradeFlowTheme.onSurfaceVariant),
-            const SizedBox(height: 12),
-            Text(_error ?? '',
-                style: GoogleFonts.dmSans(fontSize: 13),
-                textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContent() {
-    final count = _stats?['count'] ?? 0;
-    final totalMb = _stats?['total_mb'] ?? 0;
-    final contributors = _stats?['contributors'] ?? 0;
-    final lastUploaded = _stats?['last_uploaded'] as String?;
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Banner
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [GradeFlowTheme.primary, GradeFlowTheme.tertiary],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              const Icon(LucideIcons.shieldCheck,
-                  color: Colors.white, size: 28),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Chế độ quản trị viên',
-                        style: GoogleFonts.manrope(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white)),
-                    Text('Chỉ admin mới thấy trang này',
-                        style: GoogleFonts.dmSans(
-                            fontSize: 12,
-                            color: Colors.white.withOpacity(0.9))),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Stat grid
-        Row(
-          children: [
+      appBar: AppBar(title: const Text('Dữ liệu huấn luyện'), actions: [
+        IconButton(
+            onPressed: _busy ? null : _load, icon: const Icon(Icons.refresh))
+      ]),
+      body: ListView(padding: const EdgeInsets.all(20), children: [
+        const AcademicNotice(
+            title: 'Nhãn do admin xác nhận',
+            message:
+                'Training AI lưu ảnh câu và dấu tô thực tế. Mẫu đã duyệt mới được xuất cho huấn luyện/kiểm thử; '
+                'không tự thay mô hình đang chấm bài.'),
+        const SizedBox(height: 18),
+        Row(children: [
+          for (final status in _titles.keys)
             Expanded(
-              child: _statCard(
-                LucideIcons.image,
-                'Tổng số mẫu',
-                '$count',
-                GradeFlowTheme.primary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _statCard(
-                LucideIcons.hardDrive,
-                'Dung lượng',
-                '$totalMb MB',
-                GradeFlowTheme.tertiary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _statCard(
-                LucideIcons.users,
-                'Người đóng góp',
-                '$contributors',
-                GradeFlowTheme.success,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _statCard(
-                LucideIcons.clock,
-                'Lần cuối',
-                _formatTime(lastUploaded),
-                GradeFlowTheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        // Download button
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: ElevatedButton.icon(
-            onPressed: (_downloading || count == 0) ? null : _download,
-            icon: _downloading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
-                : const Icon(LucideIcons.download, size: 20),
-            label: Text(
-              _downloading ? 'Đang tải...' : 'Tải gói training (.zip)',
-              style: GoogleFonts.dmSans(
-                  fontSize: 15, fontWeight: FontWeight.w700),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: GradeFlowTheme.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
-        ),
-
-        if (_lastSavedPath != null) ...[
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
+                child: Card(
+                    child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(children: [
+                          Text('${counts[status] ?? 0}',
+                              style: Theme.of(context).textTheme.headlineSmall),
+                          Text(_titles[status]!,
+                              style: Theme.of(context).textTheme.bodySmall),
+                          const SizedBox(height: 8),
+                          LinearProgressIndicator(
+                              value: total == 0
+                                  ? 0
+                                  : (counts[status] ?? 0) / total,
+                              color: status == 'approved'
+                                  ? Colors.teal
+                                  : status == 'rejected'
+                                      ? Colors.redAccent
+                                      : Colors.orange),
+                        ]))))
+        ]),
+        const SizedBox(height: 18),
+        FilledButton.icon(
+            onPressed: _busy || (counts['approved'] ?? 0) == 0
+                ? null
+                : () => _download(),
+            icon: const Icon(Icons.download),
+            label: const Text('Tải mẫu đã duyệt (.zip)')),
+        const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Text(
+                'Trên máy Windows, chạy scripts/sync_training.ps1 để đồng bộ về thư mục Traing.',
+                style: TextStyle(fontSize: 12))),
+        Wrap(spacing: 8, children: [
+          for (final s in _titles.keys)
+            ChoiceChip(
+                label: Text(_titles[s]!),
+                selected: _status == s,
+                onSelected: _busy
+                    ? null
+                    : (_) {
+                        setState(() {
+                          _status = s;
+                          _page = 1;
+                        });
+                        _load();
+                      })
+        ]),
+        if (_busy)
+          const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator())),
+        if (_error != null)
+          Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Icon(LucideIcons.fileCheck,
-                      size: 18, color: GradeFlowTheme.success),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(_lastSavedPath!,
-                        style: GoogleFonts.dmSans(fontSize: 12),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-
-        const SizedBox(height: 24),
+              child: Text(_error!, style: const TextStyle(color: Colors.red))),
+        if (!_busy && samples.isEmpty)
+          const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text(
+                  'Chưa có mẫu ở nhóm này. Sau khi quét, chọn “Training AI” trên màn hình kết quả.')),
+        for (final raw in samples) _sampleCard(Map<String, dynamic>.from(raw)),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          TextButton(
+              onPressed: _busy || _page == 1
+                  ? null
+                  : () {
+                      setState(() => _page--);
+                      _load();
+                    },
+              child: const Text('Trang trước')),
+          Text('Trang $_page'),
+          TextButton(
+              onPressed: _busy || _page * 20 >= (_data?['count'] ?? 0)
+                  ? null
+                  : () {
+                      setState(() => _page++);
+                      _load();
+                    },
+              child: const Text('Trang sau'))
+        ]),
+        const Divider(height: 28),
         Text(
-          'Gói ZIP chứa folder images/ và labels.json với các trường: '
-          'id, file, teacher, made, sbd, template_code, confidence, '
-          'uploaded_at, answers.',
-          style: GoogleFonts.dmSans(
-              fontSize: 12, color: GradeFlowTheme.onSurfaceVariant),
-        ),
-      ],
+            'Ảnh tự động cũ: ${_data?["unverified"] ?? 0} mẫu chưa được xác minh'),
+        const Text(
+            'Nhãn cũ là kết quả máy tự đọc; không sử dụng như đáp án chuẩn.',
+            style: TextStyle(fontSize: 12)),
+        TextButton.icon(
+            onPressed: _busy ? null : () => _download(unverified: true),
+            icon: const Icon(Icons.archive_outlined),
+            label: const Text('Tải kho ảnh cũ để kiểm tra')),
+      ]),
     );
   }
 
-  Widget _statCard(IconData icon, String label, String value, Color color) {
+  Widget _sampleCard(Map<String, dynamic> sample) {
+    final labels = (sample['labels'] as Map)
+        .entries
+        .map((e) =>
+            '${e.key}: ${e.value == "filled" ? "Tô" : e.value == "empty" ? "Trống" : "Bỏ qua"}')
+        .join(' · ');
+    final token = context.read<AuthService>().token!;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(height: 8),
-            Text(value,
-                style: GoogleFonts.manrope(
-                    fontSize: 20, fontWeight: FontWeight.w800, color: color)),
-            const SizedBox(height: 2),
-            Text(label,
-                style: GoogleFonts.dmSans(
-                    fontSize: 11, color: GradeFlowTheme.onSurfaceVariant)),
-          ],
-        ),
-      ),
-    );
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        child: Padding(
+            padding: const EdgeInsets.all(16),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                  'Phần ${sample["part"]} · Câu ${sample["question"]}${sample["subquestion"]} · #${sample["id"]}',
+                  style: Theme.of(context).textTheme.titleMedium),
+              Text('Phiếu ${sample["template_code"]}'),
+              const SizedBox(height: 12),
+              SizedBox(
+                  height: sample['part'] == 3 ? 260 : 120,
+                  width: double.infinity,
+                  child: InteractiveViewer(
+                      maxScale: 5,
+                      child: Image.network(
+                          '${ApiConfig.baseUrl}${sample["image_url"]}',
+                          headers: {'Authorization': 'Token $token'},
+                          fit: BoxFit.contain,
+                          frameBuilder: (context, child, frame, synchronous) {
+                            if (frame != null &&
+                                !_loadedImages.contains(sample['id'])) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) {
+                                  setState(
+                                      () => _loadedImages.add(sample['id']));
+                                }
+                              });
+                            }
+                            return child;
+                          },
+                          errorBuilder: (_, error, stack) => const Center(
+                              child: Text(
+                                  'Không tải được ảnh; chưa thể duyệt.'))))),
+              const SizedBox(height: 12),
+              Text(
+                  'Máy đọc: ${sample["detected"] == "" ? "Trống" : sample["detected"]} → '
+                  'Nhãn xác nhận: ${sample["answer"] == "" ? "Trống" : sample["answer"]}'),
+              ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text('Đối chiếu từng vòng tròn'),
+                  children: [Text(labels)]),
+              Row(children: [
+                TextButton.icon(
+                    onPressed: _busy ? null : () => _review(sample, 'rejected'),
+                    icon: const Icon(Icons.close),
+                    label: const Text('Loại')),
+                const Spacer(),
+                FilledButton.icon(
+                    onPressed: _busy ||
+                            !_loadedImages.contains(sample['id']) ||
+                            sample['status'] == 'approved'
+                        ? null
+                        : () => _review(sample, 'approved'),
+                    icon: const Icon(Icons.check),
+                    label: const Text('Duyệt nhãn')),
+              ]),
+            ])));
   }
 }

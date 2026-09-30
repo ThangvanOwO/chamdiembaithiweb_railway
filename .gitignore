@@ -54,6 +54,7 @@ test_scan_output/
 test_*.py
 !tests/test_part3_shadow.py
 !tests/test_live_cpu.py
+!tests/test_training_corrections.py
 test_*.txt
 find_cameras.py
 gen_calibration.py
@@ -102,6 +103,7 @@ gradeflow_app/test/*
 !gradeflow_app/test/server_config_dialog_test.dart
 !gradeflow_app/test/answer_key_completeness_test.dart
 !gradeflow_app/test/coach_mark_service_test.dart
+!gradeflow_app/test/training_correction_test.dart
 
 # Agent skills
 agent/
@@ -136,6 +138,7 @@ grading/engine/overlay_demo.py
 *.aab
 
 # Android release signing secrets
+Traing/
 gradeflow_app/android/key.properties
 gradeflow_app/android/app/src/debug/google-services.json
 *.jks

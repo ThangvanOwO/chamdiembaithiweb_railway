@@ -3,6 +3,7 @@ API v1 URL Configuration — Mobile App Backend
 """
 from django.urls import path, re_path
 from . import views
+from . import training_views
 from .credit_views import wallet_api, reward_ticket_api, reward_status_api, admob_callback
 from grading import chamtn_api
 
@@ -50,6 +51,11 @@ urlpatterns = [
     path('v1/training/upload/', views.training_upload_api, name='training_upload'),
     path('v1/training/stats/', views.training_stats_api, name='training_stats'),
     path('v1/training/download/', views.training_download_api, name='training_download'),
+    path('v1/training/corrections/preview/', training_views.preview_api, name='training_preview'),
+    path('v1/training/corrections/save/', training_views.save_api, name='training_save'),
+    path('v1/training/corrections/', training_views.list_api, name='training_corrections'),
+    path('v1/training/corrections/<int:sample_id>/review/', training_views.review_api, name='training_review'),
+    path('v1/training/corrections/export/', training_views.export_api, name='training_export'),
 
     # Admin
     path('v1/admin/users/', views.admin_users_api, name='admin_users'),

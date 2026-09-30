@@ -14,6 +14,45 @@ class ApiService {
 
   ApiService({required this.token});
 
+  static const _corrections = '/api/v1/training/corrections/';
+
+  Map<String, dynamic> _trainingResponse(http.Response response) {
+    final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    if (response.statusCode >= 200 && response.statusCode < 300) return data;
+    throw Exception(data['error'] ?? data['detail'] ?? 'Không tải được dữ liệu training.');
+  }
+
+  Future<Map<String, dynamic>> previewTrainingQuestion({required Uint8List imageBytes,
+    required String templateCode, required int part, required int question,
+    String subquestion = '', List<List<double>>? corners}) async {
+    final request = http.MultipartRequest('POST', Uri.parse('${ApiConfig.baseUrl}${_corrections}preview/'));
+    request.headers['Authorization'] = 'Token $token';
+    request.fields.addAll({'template_code': templateCode, 'part': '$part',
+      'question': '$question', 'subquestion': subquestion,
+      if (corners != null) 'corners': jsonEncode(corners)});
+    // Keep exact bytes: the corner coordinates belong to this image.
+    request.files.add(http.MultipartFile.fromBytes('image', imageBytes, filename: 'source.jpg'));
+    return _trainingResponse(await http.Response.fromStream(await request.send().timeout(const Duration(seconds: 90))));
+  }
+
+  Future<Map<String, dynamic>> saveTrainingQuestion(String previewToken, Map<String, String> labels) async =>
+    _trainingResponse(await http.post(Uri.parse('${ApiConfig.baseUrl}${_corrections}save/'),
+      headers: _headers, body: jsonEncode({'preview_token': previewToken, 'labels': labels, 'confirmed': true})));
+
+  Future<Map<String, dynamic>> getTrainingCorrections({String status = 'pending', int page = 1}) async =>
+    _trainingResponse(await http.get(Uri.parse('${ApiConfig.baseUrl}$_corrections?status=$status&page=$page'), headers: _headers));
+
+  Future<void> reviewTrainingQuestion(int id, String status, String revision) async {
+    _trainingResponse(await http.post(Uri.parse('${ApiConfig.baseUrl}$_corrections$id/review/'),
+      headers: _headers, body: jsonEncode({'status': status, 'revision': revision, 'confirmed': true})));
+  }
+
+  Future<Uint8List> downloadReviewedTraining() async {
+    final response = await http.get(Uri.parse('${ApiConfig.baseUrl}${_corrections}export/'), headers: _headers);
+    if (response.statusCode != 200) { _trainingResponse(response); }
+    return response.bodyBytes;
+  }
+
   /// Compress image for upload: resize + JPEG encode.
   /// Default: 2000px wide, q90 — balances quality vs upload speed.
   /// For OMR grading, use maxWidth=2400, quality=92 to preserve bubble detail.
