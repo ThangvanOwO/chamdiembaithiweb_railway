@@ -1,6 +1,7 @@
 """Raw question crops, explicit human labels, permissions and reviewed export."""
 import base64
 import io
+import hashlib
 import json
 import tempfile
 import zipfile
@@ -16,7 +17,7 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from grading.models import TrainingCorrection
-from grading.training_data import question_preview, labelled_answer, validate_labels, write_dataset
+from grading.training_data import question_preview, sheet_preview, labelled_answer, validate_labels, write_dataset
 from api.training_views import sample_revision
 
 ROOT = '/api/v1/training/corrections/'
@@ -184,3 +185,142 @@ class TrainingCorrectionTests(TestCase):
         self.assertEqual(response.status_code,409)
         sample.refresh_from_db()
         self.assertEqual(sample.status,'pending')
+
+
+class TrainingSheetTests(TrainingCorrectionTests):
+    """Use isolated DB/media; never seed synthetic labels into production."""
+    def batch(self, entries=None, approve=True, raw=None, **overrides):
+        raw = self.png if raw is None else raw
+        self.data['source_hash'] = hashlib.sha256(self.png).hexdigest()
+        self.data.setdefault('needs_review', False)
+        items = entries if entries is not None else [
+            {'preview_token':self.token(), 'labels':self.labels, 'review_confirmed':False}]
+        fields = {'items':json.dumps(items), 'confirmed':'true', 'approve':str(approve).lower(),
+                  'image':SimpleUploadedFile('source.png',raw), **overrides}
+        return self.client.post(ROOT+'sheet/save/',fields,format='multipart')
+
+    def test_bulk_export_has_original_once_and_confirmed_bubble_labels(self):
+        response = self.batch()
+        self.assertEqual(response.status_code,200,response.data)
+        sample = TrainingCorrection.objects.get()
+        self.assertEqual(sample.status,'approved')
+        self.assertEqual(sample.reviewed_by,self.admin)
+        with sample.image.storage.open(sample.geometry['source_image']) as original:
+            self.assertEqual(original.read(),self.png)
+        out = io.BytesIO()
+        self.assertEqual(write_dataset(out,TrainingCorrection.objects.all()),1)
+        with zipfile.ZipFile(out) as archive:
+            manifest = json.loads(archive.read('manifest.json'))
+            self.assertEqual(manifest['schema_version'],2)
+            row = manifest['samples'][0]
+            self.assertEqual(archive.read(row['source_file']),self.png)
+            self.assertEqual(row['labels'],self.labels)
+            self.assertNotIn('source_image',row['geometry'])
+        again = self.batch()
+        self.assertEqual(again.data['duplicates'],1)
+        self.assertEqual(TrainingCorrection.objects.count(),1)
+
+    def test_yellow_requires_manual_review_before_bulk_approval(self):
+        self.data['source_hash'] = hashlib.sha256(self.png).hexdigest()
+        self.data['needs_review'] = True
+        self.assertEqual(self.batch().status_code,400)
+        self.assertEqual(TrainingCorrection.objects.count(),0)
+        entries = [{'preview_token':self.token(),'labels':self.labels,'review_confirmed':True}]
+        self.assertEqual(self.batch(entries=entries).status_code,200)
+
+    def test_bulk_all_validated_before_writes_and_rejects_cross_sheet(self):
+        self.data['source_hash'] = hashlib.sha256(self.png).hexdigest()
+        first = {'preview_token':self.token(),'labels':self.labels}
+        self.data['question'] = 7
+        second = {'preview_token':self.token(),'labels':{'Dung':'filled'}}
+        self.assertEqual(self.batch(entries=[first,second]).status_code,400)
+        self.assertEqual(TrainingCorrection.objects.count(),0)
+        self.assertEqual(self.batch(entries=[first,first]).status_code,400)
+        self.assertEqual(self.batch(confirmed='false').status_code,400)
+        self.assertEqual(self.batch(raw=b'changed').status_code,400)
+        self.assertEqual(TrainingCorrection.objects.count(),0)
+
+    def test_bulk_permissions_and_signed_preview_security(self):
+        self.data['source_hash'] = hashlib.sha256(self.png).hexdigest()
+        for user in (self.teacher, None):
+            self.client.force_authenticate(user)
+            self.assertIn(self.batch().status_code,(401,403))
+            self.assertIn(self.client.post(ROOT+'sheet/preview/',{}).status_code,(401,403))
+        self.client.force_authenticate(self.admin)
+        wrong = [{'preview_token':self.token(self.other_admin),'labels':self.labels}]
+        self.assertEqual(self.batch(entries=wrong).status_code,403)
+        tampered = [{'preview_token':self.token()+'x','labels':self.labels}]
+        self.assertEqual(self.batch(entries=tampered).status_code,400)
+        self.data['geometry']['aligned'] = False
+        self.assertEqual(self.batch().status_code,400)
+
+    def test_original_photo_access_is_private_and_revision_edit_resets_review(self):
+        self.batch()
+        sample = TrainingCorrection.objects.get()
+        url = '/media/'+sample.geometry['source_image']
+        self.client.force_authenticate(self.teacher)
+        self.assertEqual(self.client.get(url).status_code,404)
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(url)
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(b''.join(response.streaming_content),self.png)
+        path = ROOT+f'{sample.pk}/correct/'
+        old_revision = sample_revision(sample)
+        changed = {'revision':old_revision,'labels':{'Dung':'empty','Sai':'filled'},'confirmed':True}
+        self.assertEqual(self.client.post(path,changed,format='json').status_code,200)
+        sample.refresh_from_db()
+        self.assertEqual((sample.answer,sample.status,sample.reviewed_by),('Sai','pending',None))
+        self.assertEqual(self.client.post(path,changed,format='json').status_code,409)
+        self.client.force_authenticate(self.teacher)
+        self.assertEqual(self.client.post(path,changed,format='json').status_code,403)
+
+    def test_whole_sheet_crops_all_parts_using_one_photo_decode(self):
+        from grading.grader import engine
+        import grading.training_data as data_module
+        engine.load_template('grading/engine/templates/template_default.json')
+        image = np.full((1920,1400,3),245,np.uint8)
+        for x,y in engine.ALL_BUBBLE_CENTERS:
+            cv2.circle(image,(int(x),int(y)),engine.BUBBLE_RADIUS,(80,80,80),2)
+        raw = cv2.imencode('.jpg',image)[1].tobytes()
+        with patch('grading.training_data.decode_photo',wraps=data_module.decode_photo) as decode:
+            crops = sheet_preview(raw,'40-08-06',[[0,0],[1399,0],[1399,1919],[0,1919]])
+        self.assertEqual(decode.call_count,1)
+        self.assertEqual(len(crops),78)
+        self.assertEqual(sum(len(d['cells']) for d,_ in crops),494)
+        for data,png in crops:
+            self.assertEqual(set(data['candidate_labels']),{c['id'] for c in data['cells']})
+            self.assertEqual(data['source_hash'],hashlib.sha256(raw).hexdigest())
+            self.assertLess(cv2.imdecode(np.frombuffer(png,np.uint8),0).shape[0],500)
+
+    def test_sheet_preview_flags_scan_mismatch_without_using_answer_key(self):
+        self.data['detected'] = 'Dung'
+        self.data['needs_review'] = False
+        self.data['candidate_labels'] = self.labels
+        with patch('api.training_views.sheet_preview',return_value=[(self.data,self.png)]):
+            response = self.client.post(ROOT+'sheet/preview/',{
+                'image':SimpleUploadedFile('source.png',self.png),
+                'scan_answers':json.dumps({'part2':{'6':{'c':''}}}),
+                'correct_answers':json.dumps({'part2':{'6':{'c':'Sai'}}}),
+            },format='multipart')
+        self.assertEqual(response.status_code,200)
+        row = response.data['samples'][0]
+        self.assertTrue(row['needs_review'])
+        self.assertEqual(row['candidate_labels'],self.labels)
+
+    def test_bulk_database_failure_rolls_back_labels_and_new_image_files(self):
+        from api.training_views import persist_question
+        self.data['source_hash'] = hashlib.sha256(self.png).hexdigest()
+        first = {'preview_token':self.token(),'labels':self.labels}
+        self.data['question'] = 7
+        second = {'preview_token':self.token(),'labels':self.labels}
+        calls = []
+        def fail_second(*args,**kwargs):
+            calls.append(1)
+            if len(calls) == 2:
+                raise RuntimeError('simulated database failure')
+            return persist_question(*args,**kwargs)
+        with patch('api.training_views.persist_question',side_effect=fail_second):
+            with self.assertRaises(RuntimeError):
+                self.batch(entries=[first,second])
+        self.assertEqual(TrainingCorrection.objects.count(),0)
+        self.assertEqual(list(__import__('pathlib').Path(self.media.name).rglob('*.png')),[])

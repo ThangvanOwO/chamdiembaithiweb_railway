@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../widgets/training_label_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -106,6 +107,33 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Đã lưu: ${file.path}')));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _correct(Map<String, dynamic> sample) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final bytes = await _api.getTrainingImage(sample['image_url']);
+      if (!mounted) return;
+      final labels = await editTrainingLabels(context,
+          title:
+              'Sửa Phần ${sample['part']} · Câu ${sample['question']}${sample['subquestion']}',
+          image: bytes,
+          cells: sample['cells'],
+          geometry: Map<String, dynamic>.from(sample['geometry']),
+          labels: Map<String, String>.from(sample['labels']));
+      if (labels != null) {
+        await _api.correctTrainingQuestion(
+            sample['id'], sample['revision'], labels);
+        if (mounted) await _load();
       }
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
@@ -279,6 +307,10 @@ class _AdminTrainingScreenState extends State<AdminTrainingScreen> {
                   title: const Text('Đối chiếu từng vòng tròn'),
                   children: [Text(labels)]),
               Row(children: [
+                IconButton(
+                    tooltip: 'Sửa dấu tô thực tế',
+                    onPressed: _busy ? null : () => _correct(sample),
+                    icon: const Icon(Icons.edit_outlined)),
                 TextButton.icon(
                     onPressed: _busy ? null : () => _review(sample, 'rejected'),
                     icon: const Icon(Icons.close),

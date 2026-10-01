@@ -26,19 +26,15 @@ def decode_photo(raw):
         raise ValueError('Không đọc được ảnh gốc.') from exc
 
 
-@serialized_grading
-def question_preview(raw, template_code, part, question, subquestion='', corners=None):
-    # The same lock protects the template globals used by the grading pipeline.
+def _prepare_photo(raw, template_code, corners):
     from grading.grader import engine, TEMPLATES_DIR
-    from grading.engine import live_bubble_reader as reader
-
     if not re.fullmatch(r'[A-Za-z0-9-]{1,30}', template_code):
         raise ValueError('Mã phiếu không hợp lệ.')
     path = TEMPLATES_DIR / ('template_default.json' if template_code == '40-08-06'
                             else f'template_{template_code.replace("-", "_")}.json')
     if not path.is_file():
         raise ValueError('Chọn đúng mẫu phiếu trước khi gán nhãn.')
-    template = engine.load_template(str(path))
+    engine.load_template(str(path))
     photo = decode_photo(raw)
     if corners is not None:
         points = np.asarray(corners, dtype=np.float32)
@@ -54,57 +50,67 @@ def question_preview(raw, template_code, part, question, subquestion='', corners
         detection = engine.detect_paper_and_warp(photo, debug=False)
         if not detection['success']:
             raise ValueError('Không tìm được phiếu; hãy chụp lại đủ bốn góc.')
-        warped = detection['warped']
-        method = detection['method']
-    gray = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-    cells = []
+        warped, method = detection['warped'], detection['method']
+    return cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY), engine, method, hashlib.sha256(path.read_bytes()).hexdigest()
 
-    def cell(key, x, y):
-        cells.append({'id': key, 'x': float(x), 'y': float(y)})
 
+def _read_part(gray, engine, part):
+    from grading.engine import live_bubble_reader as reader
+    if part == 1:
+        answers, _, details = reader.read_part1(gray, engine.PART1_COLS, engine.PART1_CHOICES, engine.BUBBLE_RADIUS)
+    elif part == 2:
+        answers, details = reader.read_part2(gray, engine.PART2_BLOCKS, engine.PART2_STEP_X,
+            engine.PART2_STEP_Y, engine.PART2_ROWS, engine.BUBBLE_RADIUS, align=True)
+    elif part == 3:
+        answers, details = reader.read_part3(gray, engine.PART3_BLOCKS, engine.PART3_SIGN_Y,
+            engine.PART3_COMMA_Y, engine.PART3_DIGIT_START_Y, engine.PART3_DIGIT_STEP_Y,
+            engine.BUBBLE_RADIUS, local_symbols=True)
+    else:
+        raise ValueError('Phần không hợp lệ.')
+    return answers, details
+
+
+def _crop_question(gray, engine, part, question, subquestion, answers, details,
+                   source_hash, template_code, method, template_hash):
+    cells, evidence = [], []
+    def cell(key, point, ink):
+        cells.append({'id': key, 'x': float(point[0]), 'y': float(point[1])})
+        evidence.append(ink)
     radius = engine.BUBBLE_RADIUS
     try:
         if part == 1:
-            if subquestion or not 1 <= question <= len(engine.PART1_COLS) * 10:
-                raise ValueError('Câu Phần I không hợp lệ.')
-            answers, _, details = reader.read_part1(gray, engine.PART1_COLS, engine.PART1_CHOICES, radius)
+            if subquestion:
+                raise ValueError('Phần I chọn cả câu.')
             detail = details[question]
-            for choice, (x, y) in zip(engine.PART1_CHOICES, detail['points']):
-                cell(choice, x, y)
+            for choice, point, ink in zip(engine.PART1_CHOICES, detail['points'], detail['evidence']):
+                cell(choice, point, ink)
             detected, aligned = answers[question], detail['aligned']
+            needs_review = detail['needs_review']
         elif part == 2:
-            if subquestion not in 'abcd' or len(subquestion) != 1:
+            if subquestion not in ('a', 'b', 'c', 'd'):
                 raise ValueError('Chọn ý a, b, c hoặc d.')
-            answers, details = reader.read_part2(gray, engine.PART2_BLOCKS, engine.PART2_STEP_X,
-                engine.PART2_STEP_Y, engine.PART2_ROWS, radius, align=True)
             detail = details[question][subquestion]
-            for choice, (x, y) in zip(('Dung', 'Sai'), detail['points']):
-                cell(choice, x, y)
+            for choice, point, ink in zip(('Dung', 'Sai'), detail['points'], detail['live_evidence']):
+                cell(choice, point, ink)
             detected, aligned = answers[question][subquestion], detail['aligned']
-        elif part == 3:
+            needs_review = detected in ('', 'X')
+        else:
             if subquestion:
                 raise ValueError('Phần III chọn cả câu.')
-            answers, details = reader.read_part3(gray, engine.PART3_BLOCKS, engine.PART3_SIGN_Y,
-                engine.PART3_COMMA_Y, engine.PART3_DIGIT_START_Y, engine.PART3_DIGIT_STEP_Y,
-                radius, local_symbols=True)
-            grid = details[question]['live_grid']
-            cell('sign', *grid['sign'])
-            for c, point in enumerate(grid['commas']):
-                cell(f'comma_{c}', *point)
+            detail = details[question]
+            grid, ev = detail['live_grid'], detail['live_evidence']
+            cell('sign', grid['sign'], ev['sign'])
+            for c, (point, ink) in enumerate(zip(grid['commas'], ev['comma'])):
+                cell(f'comma_{c}', point, ink)
             for c, x in enumerate(grid['columns']):
                 for digit, y in enumerate(grid['rows']):
-                    cell(f'digit_{c}_{digit}', x, y)
-            detected, aligned = answers[question], grid['aligned']
-        else:
-            raise ValueError('Phần không hợp lệ.')
+                    cell(f'digit_{c}_{digit}', (x, y), ev['digits'][c][digit])
+            detected, aligned, needs_review = answers[question], grid['aligned'], ev['needs_review']
     except KeyError as exc:
         raise ValueError('Câu không có trên mẫu phiếu này.') from exc
-    # Only the requested answer region is retained, never name/SBD/header.
     pad = max(18, radius + 5)
-    x0 = max(0, int(min(c['x'] for c in cells)) - pad)
-    y0 = max(0, int(min(c['y'] for c in cells)) - pad)
-    x1 = min(gray.shape[1], int(max(c['x'] for c in cells)) + pad + 1)
-    y1 = min(gray.shape[0], int(max(c['y'] for c in cells)) + pad + 1)
+    x0, y0 = max(0, int(min(c['x'] for c in cells)) - pad), max(0, int(min(c['y'] for c in cells)) - pad)
+    x1, y1 = min(gray.shape[1], int(max(c['x'] for c in cells)) + pad + 1), min(gray.shape[0], int(max(c['y'] for c in cells)) + pad + 1)
     for c in cells:
         c['x'], c['y'] = c['x'] - x0, c['y'] - y0
     crop = gray[y0:y1, x0:x1]
@@ -113,11 +119,37 @@ def question_preview(raw, template_code, part, question, subquestion='', corners
     ok, png = cv2.imencode('.png', crop)
     if not ok:
         raise ValueError('Không tạo được ảnh câu.')
-    return dict(source_hash=hashlib.sha256(raw).hexdigest(), template_code=template_code,
-                part=part, question=question, subquestion=subquestion, detected=str(detected),
-                cells=cells, geometry={'bbox': [x0, y0, x1, y1], 'width': x1-x0, 'height': y1-y0,
-                                      'radius': radius, 'aligned': bool(aligned), 'method': method,
-                                      'template_hash': hashlib.sha256(path.read_bytes()).hexdigest()}), png.tobytes()
+    suggested = {c['id']: {'marked':'filled', 'blank':'empty'}.get(e['state'], 'skip')
+                 for c, e in zip(cells, evidence)}
+    needs_review = bool(needs_review or not aligned or 'skip' in suggested.values() or detected == 'X')
+    return dict(source_hash=source_hash, template_code=template_code, part=part, question=question,
+        subquestion=subquestion, detected=str(detected), cells=cells, candidate_labels=suggested,
+        needs_review=needs_review,
+        geometry={'bbox':[x0,y0,x1,y1], 'width':x1-x0, 'height':y1-y0, 'radius':radius,
+                  'aligned':bool(aligned), 'method':method, 'template_hash':template_hash,
+                  'machine_labels':suggested, 'needs_review':needs_review}), png.tobytes()
+
+
+@serialized_grading
+def question_preview(raw, template_code, part, question, subquestion='', corners=None):
+    gray, engine, method, template_hash = _prepare_photo(raw, template_code, corners)
+    answers, details = _read_part(gray, engine, part)
+    return _crop_question(gray, engine, part, question, subquestion, answers, details,
+                          hashlib.sha256(raw).hexdigest(), template_code, method, template_hash)
+
+
+@serialized_grading
+def sheet_preview(raw, template_code, corners=None):
+    """One decode/warp and one read per part; suggestions always require a human."""
+    gray, engine, method, template_hash = _prepare_photo(raw, template_code, corners)
+    source_hash, crops = hashlib.sha256(raw).hexdigest(), []
+    for part in (1, 2, 3):
+        answers, details = _read_part(gray, engine, part)
+        for question in sorted(answers):
+            for sub in ('abcd' if part == 2 else ('',)):
+                crops.append(_crop_question(gray, engine, part, question, sub, answers, details,
+                                           source_hash, template_code, method, template_hash))
+    return crops
 
 
 def validate_labels(cells, labels):
@@ -156,7 +188,8 @@ def labelled_answer(part, labels):
 
 def write_dataset(output, queryset):
     """Stream a versioned ZIP; source hash keeps a photograph in one split."""
-    manifest = []
+    from django.core.files.storage import default_storage
+    manifest, exported_sources = [], set()
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as archive:
         for sample in queryset.filter(status='approved').order_by('id').iterator():
             validate_labels(sample.cells, sample.labels)
@@ -169,6 +202,15 @@ def write_dataset(output, queryset):
                 raise ValueError(f'Ảnh mẫu #{sample.pk} không đọc được.')
             case = f'questions/{sample.pk}.png'
             archive.writestr(case, raw)
+            geometry = dict(sample.geometry)
+            original = geometry.pop('source_image', None)
+            source_file = None
+            if original:
+                source_file = f'sources/{sample.source_hash}{Path(original).suffix}'
+                if source_file not in exported_sources:
+                    with default_storage.open(original, 'rb') as source:
+                        archive.writestr(source_file, source.read())
+                    exported_sources.add(source_file)
             radius = int(sample.geometry['radius'])
             bubble_files = []
             for cell in sample.cells:
@@ -188,9 +230,11 @@ def write_dataset(output, queryset):
                 'part': sample.part, 'question': sample.question, 'subquestion': sample.subquestion,
                 'template_code': sample.template_code, 'detected': sample.detected,
                 'answer': sample.answer, 'labels': sample.labels, 'cells': sample.cells,
-                'geometry': sample.geometry, 'bubbles': bubble_files})
-        archive.writestr('manifest.json', json.dumps({'schema_version': 1, 'samples': manifest},
+                'geometry': geometry, 'source_file': source_file,
+                'label_origin': 'human_confirmed', 'bubbles': bubble_files})
+        archive.writestr('manifest.json', json.dumps({'schema_version': 2, 'samples': manifest},
                                                   ensure_ascii=False, indent=2))
         archive.writestr('README.txt', 'Human-reviewed crops only. No model weights are changed.\n'
+                          'sources/ contains private original photos; do not publish student identifiers.\n'
                           'Use manifest split/group_id; never split bubbles from one photo across train/validation.\n')
     return len(manifest)

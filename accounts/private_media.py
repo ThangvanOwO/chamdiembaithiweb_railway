@@ -41,6 +41,8 @@ def private_media(request, path):
         owner_id = TrainingSample.objects.filter(image=path).values_list('teacher_id', flat=True).first()
     elif path.startswith('training_corrections/'):
         owner_id = TrainingCorrection.objects.filter(image=path).values_list('teacher_id', flat=True).first()
+        if owner_id is None and path.startswith('training_corrections/sources/'):
+            owner_id = TrainingCorrection.objects.filter(geometry__source_image=path).values_list('teacher_id', flat=True).first()
     elif path.startswith('avatars/'):
         owner_id = TeacherProfile.objects.filter(avatar=path).values_list('user_id', flat=True).first()
 

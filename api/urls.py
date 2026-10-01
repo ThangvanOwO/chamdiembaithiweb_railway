@@ -52,9 +52,12 @@ urlpatterns = [
     path('v1/training/stats/', views.training_stats_api, name='training_stats'),
     path('v1/training/download/', views.training_download_api, name='training_download'),
     path('v1/training/corrections/preview/', training_views.preview_api, name='training_preview'),
+    path('v1/training/corrections/sheet/preview/', training_views.sheet_preview_api, name='training_sheet_preview'),
+    path('v1/training/corrections/sheet/save/', training_views.sheet_save_api, name='training_sheet_save'),
     path('v1/training/corrections/save/', training_views.save_api, name='training_save'),
     path('v1/training/corrections/', training_views.list_api, name='training_corrections'),
     path('v1/training/corrections/<int:sample_id>/review/', training_views.review_api, name='training_review'),
+    path('v1/training/corrections/<int:sample_id>/correct/', training_views.correct_api, name='training_correct'),
     path('v1/training/corrections/export/', training_views.export_api, name='training_export'),
 
     # Admin

@@ -7,6 +7,8 @@ import '../models/grade_result.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/academic_ui.dart';
+import '../widgets/training_label_editor.dart';
+import 'training_sheet_screen.dart';
 
 /// Explicit labels of the marks on paper, independent of the exam answer key.
 class TrainingCorrectionScreen extends StatefulWidget {
@@ -173,6 +175,21 @@ class _TrainingCorrectionScreenState extends State<TrainingCorrectionScreen> {
             message:
                 'Chỉ chọn câu cần sửa. Nhãn là vòng tròn được tô trên phiếu, không phải đáp án đúng của đề. '
                 'Lưu mẫu không thay đổi điểm hoặc huấn luyện mô hình ngay.'),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+            onPressed: _busy
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => TrainingSheetScreen(
+                            imageBytes: widget.imageBytes,
+                            result: widget.result,
+                            templateCode: widget.templateCode,
+                            corners: widget.corners,
+                            api: _api))),
+            icon: const Icon(Icons.library_add_check),
+            label: const Text('Lấy toàn bộ phiếu / kiểm tra vùng vàng')),
         const SizedBox(height: 18),
         Row(children: [
           Expanded(
@@ -351,6 +368,25 @@ class _TrainingCorrectionScreenState extends State<TrainingCorrectionScreen> {
                       ],
                       onChanged: _busy ? null : (s) => _setDigit(c, s!))),
           ],
+          if (_preview!['geometry']['width'] != null)
+            ExpansionTile(
+                title: const Text('Chọn trực tiếp từng vòng tròn / nhiều ô'),
+                children: [
+                  TrainingLabelEditor(
+                      image: base64Decode(_preview!['image_base64']),
+                      cells: _preview!['cells'],
+                      geometry:
+                          Map<String, dynamic>.from(_preview!['geometry']),
+                      labels: {
+                        for (final c in _preview!['cells'])
+                          c['id'] as String: _labels[c['id']] ?? 'skip'
+                      },
+                      onChanged: (labels) => setState(() {
+                            _labels = labels;
+                            _confirmed = false;
+                            _choice = null;
+                          })),
+                ]),
           CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               value: _confirmed,

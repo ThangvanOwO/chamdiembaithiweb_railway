@@ -153,7 +153,7 @@ class _GradeResultScreenState extends State<GradeResultScreen> {
               TrainingCorrectionScreen(imageBytes: imageBytes, result: result,
                 templateCode: widget.templateCode, corners: widget.trainingCorners))),
             icon: const Icon(Icons.psychology_outlined, size: 18),
-            label: const Text('Training AI · Chọn câu cần sửa'),
+            label: const Text('Training AI · Lấy phiếu / sửa dấu tô'),
           ),
           const SizedBox(height: 12),
         ],
