@@ -63,10 +63,10 @@
                     {% csrf_token %}
                     
                     <div class="form-group">
-                        <label for="login-email" class="form-label">Email</label>
-                        <input type="email" name="email" id="login-email"
+                        <label for="login-email" class="form-label">Tên tài khoản hoặc email</label>
+                        <input type="text" name="email" id="login-email" autocomplete="username"
                                class="form-input" 
-                               placeholder="email@truonghoc.edu.vn"
+                               placeholder="nguyenvanan hoặc email@truonghoc.edu.vn"
                                value="{{ form.email.value|default:'' }}"
                                autofocus required>
                         {% if form.email.errors %}

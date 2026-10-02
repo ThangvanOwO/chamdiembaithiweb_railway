@@ -23,6 +23,9 @@ TURNSTILE_SITE_KEY = os.environ.get('TURNSTILE_SITE_KEY', '')
 TURNSTILE_SECRET_KEY = os.environ.get('TURNSTILE_SECRET_KEY', '')
 TURNSTILE_HOSTNAMES = os.environ.get('TURNSTILE_HOSTNAMES', 'gradeflow.io.vn').split(',')
 TRUST_PROXY_CLIENT_IP = os.environ.get('TRUST_PROXY_CLIENT_IP', '0') == '1'
+# Explicitly enable username/password signup for the closed-testing period.
+# No email is claimed or marked verified by this registration method.
+ALLOW_USERNAME_SIGNUP = os.environ.get('ALLOW_USERNAME_SIGNUP', '0') == '1'
 
 # No pricing or reward amount is assumed. These remain inactive until configured.
 CREDIT_PAYMENT_PROVIDER = os.environ.get('CREDIT_PAYMENT_PROVIDER', '')

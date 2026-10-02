@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.dispatch import receiver
 from allauth.account.signals import user_logged_in
-from .forms import LoginForm, RegisterForm, ProfileForm
+from .forms import LoginForm, RegisterForm, UsernameRegisterForm, ProfileForm
 from .models import TeacherProfile
 from .credits import ensure_wallet
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -20,7 +20,7 @@ def ensure_teacher_profile(sender, request, user, **kwargs):
 
 
 def login_view(request):
-    """Login page — email/password only, no registration."""
+    """Login using a username or existing email/password."""
     if request.user.is_authenticated:
         return redirect('dashboard:index')
     
@@ -31,9 +31,8 @@ def login_view(request):
         if form.is_valid():
             email = form.cleaned_data['email']
             password = form.cleaned_data['password']
-            from django.contrib.auth.models import User
-            user_obj = User.objects.filter(email__iexact=email).first()
-            user = authenticate(request, username=user_obj.username if user_obj else email, password=password)
+            from .registration import password_login_username
+            user = authenticate(request, username=password_login_username(email), password=password)
 
             if user is not None:
                 login(request, user)
@@ -41,21 +40,41 @@ def login_view(request):
                 next_url = safe_next_url(request)
                 return redirect(next_url)
             else:
-                messages.error(request, 'Email hoặc mật khẩu không đúng.')
+                messages.error(request, 'Tên tài khoản/email hoặc mật khẩu không đúng.')
     
     return render(request, 'accounts/login.html', {'form': form})
 
 
 def register_view(request):
-    """Registration page — email/password, or via Google."""
+    """Username signup during closed testing; preserve verified email signup."""
     if request.user.is_authenticated:
         return redirect('dashboard:index')
 
-    form = RegisterForm()
+    from django.conf import settings
+    username_signup = settings.ALLOW_USERNAME_SIGNUP
+    # Preserve the verified-email POST contract for existing clients.
+    if request.method == 'POST':
+        username_signup = 'username' in request.POST
+    form_class = UsernameRegisterForm if username_signup else RegisterForm
+    form = form_class()
 
     if request.method == 'POST':
-        form = RegisterForm(request.POST)
+        form = form_class(request.POST)
         if form.is_valid():
+            if username_signup:
+                from .registration import create_username_account
+                from django.core.exceptions import ValidationError
+                try:
+                    create_username_account(form.cleaned_data)
+                except ValidationError as exc:
+                    form.add_error(None, exc)
+                else:
+                    messages.success(request, 'Đăng ký thành công. Vui lòng đăng nhập bằng tên tài khoản vừa tạo.')
+                    return redirect('accounts:login')
+                return render(request, 'accounts/register.html', {
+                    'form': form, 'username_signup': True,
+                    'signup_ready': settings.ALLOW_USERNAME_SIGNUP,
+                })
             full_name = form.cleaned_data['full_name']
             email = form.cleaned_data['email']
             password = form.cleaned_data['password']
@@ -75,9 +94,10 @@ def register_view(request):
                 return redirect('accounts:login')
 
     from .registration import signup_ready
-    from django.conf import settings
     return render(request, 'accounts/register.html', {
-        'form': form, 'signup_ready': signup_ready(), 'turnstile_site_key': settings.TURNSTILE_SITE_KEY,
+        'form': form, 'username_signup': username_signup,
+        'signup_ready': settings.ALLOW_USERNAME_SIGNUP if username_signup else signup_ready(),
+        'turnstile_site_key': settings.TURNSTILE_SITE_KEY,
     })
 
 

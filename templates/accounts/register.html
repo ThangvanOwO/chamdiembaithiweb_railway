@@ -79,6 +79,14 @@
                     </div>
 
                     <div class="form-group">
+                        {% if username_signup %}
+                        <label for="reg-username" class="form-label">Tên tài khoản</label>
+                        <input type="text" name="username" id="reg-username" class="form-input"
+                               placeholder="nguyenvanan" autocomplete="username" minlength="3" maxlength="30"
+                               value="{{ form.username.value|default:'' }}" required>
+                        <p class="form-hint">3–30 ký tự: chữ không dấu, số, dấu chấm hoặc gạch dưới.</p>
+                        {% if form.username.errors %}<span class="form-error">{{ form.username.errors.0 }}</span>{% endif %}
+                        {% else %}
                         <label for="reg-email" class="form-label">Email</label>
                         <input type="email" name="email" id="reg-email"
                                class="form-input"
@@ -87,6 +95,7 @@
                                required>
                         {% if form.email.errors %}
                         <span class="form-error">{{ form.email.errors.0 }}</span>
+                        {% endif %}
                         {% endif %}
                     </div>
 
@@ -113,7 +122,7 @@
                         {% endif %}
                     </div>
 
-                    {% if signup_ready %}
+                    {% if signup_ready and not username_signup %}
                     <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-action="signup"></div>
                     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
                     {% endif %}
@@ -121,6 +130,9 @@
                         Đăng ký
                     </button>
                 </form>
+                {% if username_signup %}
+                <p class="form-hint">Hãy lưu tên tài khoản và mật khẩu. Nếu quên mật khẩu, vui lòng liên hệ quản trị viên để được hỗ trợ.</p>
+                {% endif %}
 
                 <script>
                     document.getElementById('register-form').addEventListener('submit', function() {

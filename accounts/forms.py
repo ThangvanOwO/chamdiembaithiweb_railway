@@ -2,15 +2,18 @@ from django import forms
 from django.contrib.auth.models import User
 from .models import TeacherProfile
 from django.contrib.auth.password_validation import validate_password
+from django.core.validators import RegexValidator
 
 
 class LoginForm(forms.Form):
-    """Login form — email/password only."""
-    email = forms.EmailField(
-        label='Email',
-        widget=forms.EmailInput(attrs={
+    """Keep the email field name compatible; also accept a username."""
+    email = forms.CharField(
+        label='Tên tài khoản hoặc email',
+        max_length=254,
+        widget=forms.TextInput(attrs={
             'class': 'form-input',
-            'placeholder': 'email@truonghoc.edu.vn',
+            'placeholder': 'nguyenvanan hoặc email@truonghoc.edu.vn',
+            'autocomplete': 'username',
             'autofocus': True,
             'id': 'login-email',
         })
@@ -80,6 +83,38 @@ class RegisterForm(forms.Form):
         if pw and pw2 and pw != pw2:
             self.add_error('password_confirm', 'Mật khẩu không khớp.')
         return cleaned_data
+
+
+class UsernameRegisterForm(RegisterForm):
+    """A username is not an email identity; never auto-link an OAuth account."""
+    email = None
+    username = forms.CharField(
+        label='Tên tài khoản', min_length=3, max_length=30,
+        validators=[RegexValidator(r'^[a-z0-9][a-z0-9._]{2,29}$',
+            'Tên tài khoản gồm 3–30 ký tự: chữ không dấu, số, dấu chấm hoặc gạch dưới.')],
+        widget=forms.TextInput(attrs={'class': 'form-input', 'autocomplete': 'username'}),
+    )
+
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        if User.objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError('Tên tài khoản đã được sử dụng. Vui lòng chọn tên khác.')
+        return username
+
+    def clean_password(self):
+        password = self.cleaned_data['password']
+        parts = self.cleaned_data.get('full_name', '').split()
+        validate_password(password, User(username=self.data.get('username', ''),
+            first_name=' '.join(parts[:-1]), last_name=parts[-1] if parts else ''))
+        return password
+
+    def __init__(self, data=None, *args, **kwargs):
+        if data is not None:
+            data = data.copy()
+            raw = data.get('username', '')
+            if isinstance(raw, str):
+                data['username'] = raw.strip().lower()
+        super().__init__(data, *args, **kwargs)
 
 
 class ProfileForm(forms.ModelForm):

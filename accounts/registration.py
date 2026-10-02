@@ -8,7 +8,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.mail import send_mail
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.urls import reverse
@@ -22,6 +22,30 @@ from .security import client_ip
 
 def signup_ready():
     return bool(settings.EMAIL_HOST and settings.TURNSTILE_SITE_KEY and settings.TURNSTILE_SECRET_KEY)
+
+
+def create_username_account(data):
+    if not settings.ALLOW_USERNAME_SIGNUP:
+        raise ValidationError('Đăng ký bằng tên tài khoản hiện chưa mở.')
+    parts = data['full_name'].split()
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(username=data['username'], password=data['password'],
+                first_name=' '.join(parts[:-1]) if len(parts) > 1 else parts[0],
+                last_name=parts[-1] if len(parts) > 1 else '')
+            TeacherProfile.objects.get_or_create(user=user)
+    except IntegrityError as exc:
+        raise ValidationError('Tên tài khoản đã được sử dụng. Vui lòng chọn tên khác.') from exc
+    return user
+
+
+def password_login_username(identity):
+    """Resolve exactly one username/email without affecting Google linking."""
+    query = {'email__iexact': identity} if '@' in identity else {'username__iexact': identity}
+    try:
+        return User.objects.get(**query).username
+    except (User.DoesNotExist, User.MultipleObjectsReturned):
+        return identity
 
 
 def verify_challenge(request, token):

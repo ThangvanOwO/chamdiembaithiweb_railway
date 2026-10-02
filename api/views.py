@@ -50,16 +50,36 @@ logger = logging.getLogger(__name__)
 def register_api(request):
     """
     POST /api/v1/auth/register/
+    Username mode: {"username": "...", "password": "...", "full_name": "..."} -> 201 + token
     Body: {"email": "...", "password": "...", "first_name": "...", "last_name": "..."}
     """
-    from accounts.forms import RegisterForm
-    from accounts.registration import start_signup
+    from accounts.forms import RegisterForm, UsernameRegisterForm
+    from accounts.registration import start_signup, create_username_account
     from django.core.exceptions import ValidationError
     if not isinstance(request.data, dict):
         return Response({'error': 'Dữ liệu đăng ký không hợp lệ.'}, status=400)
-    fields = ('email', 'password', 'first_name', 'last_name', 'turnstile_token')
+    fields = ('username', 'full_name', 'email', 'password', 'first_name', 'last_name', 'turnstile_token')
     if any(not isinstance(request.data.get(field, ''), str) for field in fields):
         return Response({'error': 'Dữ liệu đăng ký không hợp lệ.'}, status=400)
+    if 'username' in request.data:
+        form = UsernameRegisterForm({
+            'username': request.data.get('username', ''),
+            'full_name': request.data.get('full_name', ''),
+            'password': request.data.get('password', ''),
+            'password_confirm': request.data.get('password', ''),
+        })
+        if not form.is_valid():
+            return Response({'error': ' '.join(str(error) for errors in form.errors.values() for error in errors)}, status=400)
+        try:
+            user = create_username_account(form.cleaned_data)
+        except ValidationError as exc:
+            return Response({'error': ' '.join(exc.messages)}, status=400)
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response({'token': token.key, 'user': {
+            'id': user.id, 'username': user.username, 'email': user.email,
+            'full_name': user.get_full_name(), 'first_name': user.first_name,
+            'last_name': user.last_name, 'is_admin': False,
+        }}, status=201)
     form = RegisterForm({'email': request.data.get('email', ''),
         'password': request.data.get('password', ''),
         'password_confirm': request.data.get('password', ''),
@@ -81,7 +101,7 @@ def register_api(request):
 def login_api(request):
     """
     POST /api/v1/auth/login/
-    Body: {"email": "...", "password": "..."}
+    Body: {"email": "username or email", "password": "..."}
     Returns: {"token": "...", "user": {...}}
     """
     if not isinstance(request.data, dict) or any(not isinstance(request.data.get(key, ''), str) for key in ('email', 'password')):
@@ -91,22 +111,17 @@ def login_api(request):
 
     if not email or not password:
         return Response(
-            {'error': 'Email và mật khẩu là bắt buộc'},
+            {'error': 'Tên tài khoản/email và mật khẩu là bắt buộc'},
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # Django allauth uses email as username
-    from django.contrib.auth.models import User
-    try:
-        user_obj = User.objects.get(email__iexact=email)
-        username = user_obj.username
-    except (User.DoesNotExist, User.MultipleObjectsReturned):
-        username = email
+    from accounts.registration import password_login_username
+    username = password_login_username(email)
 
     user = authenticate(request, username=username, password=password)
     if user is None:
         return Response(
-            {'error': 'Email hoặc mật khẩu không đúng'},
+            {'error': 'Tên tài khoản/email hoặc mật khẩu không đúng'},
             status=status.HTTP_401_UNAUTHORIZED
         )
 
@@ -120,8 +135,9 @@ def login_api(request):
         'token': token.key,
         'user': {
             'id': user.id,
+            'username': user.username,
             'email': user.email,
-            'full_name': user.get_full_name() or user.email,
+            'full_name': user.get_full_name() or user.email or user.username,
             'first_name': user.first_name,
             'last_name': user.last_name,
             'is_admin': user.is_superuser,
@@ -145,8 +161,9 @@ def me_api(request):
     user = request.user
     return Response({
         'id': user.id,
+        'username': user.username,
         'email': user.email,
-        'full_name': user.get_full_name() or user.email,
+        'full_name': user.get_full_name() or user.email or user.username,
         'first_name': user.first_name,
         'last_name': user.last_name,
         'is_admin': user.is_superuser,

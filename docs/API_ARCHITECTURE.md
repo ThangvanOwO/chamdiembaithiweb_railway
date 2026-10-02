@@ -95,3 +95,16 @@ JSON Response Format:
 - `ExamVariant`: Lưu đáp án đúng của từng mã đề cụ thể (`variant_code`, `answers_json`).
 - `Submission`: Lưu kết quả chấm bài thi của học sinh (`image`, `status`, `score`, `answers_detected`, `detail_json`, `error_message`).
 - `TrainingSample`: Lưu thông tin ảnh mẫu "sạch" được giáo viên tự nguyện đóng góp để huấn luyện lại CNN.
+
+## 6. Closed-testing username registration (02/10/2026)
+
+Enable explicitly with `ALLOW_USERNAME_SIGNUP=1`. No database migration is needed.
+
+- `POST /api/v1/auth/register/` accepts `{username, password, full_name}` and returns HTTP 201 with the existing `{token, user}` session shape. `user.username` is additive.
+- Username: normalized lowercase, 3–30 ASCII characters (`a-z`, `0-9`, `.`, `_`); the first character must be a letter or number. Names containing `@` are rejected. Full name is required (100 characters maximum).
+- Password: existing Django validators and hashing. Role/credit fields are never accepted from clients. The existing signup limit remains 5 POST attempts per IP per hour, including unsuccessful attempts.
+- This mode creates no email address and does not claim or verify an email identity. Google OAuth linking and verified-email registration remain separate.
+- Legacy `{email, password, first_name, last_name, turnstile_token}` registration still returns HTTP 202 and requires email verification. It is not opened by the username flag.
+- Login retains `{email, password}`: the `email` field accepts a username or an existing email address. Disabled users cannot log in.
+- Web registration displays full name, username, password and password confirmation when enabled. Web login accepts username or email and retains CSRF protection.
+- Set `ALLOW_USERNAME_SIGNUP=0` and recreate the web service to close new username registrations. Existing accounts continue to log in. Users without an email need administrator assistance for password recovery.
