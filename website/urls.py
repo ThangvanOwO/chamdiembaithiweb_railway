@@ -8,6 +8,7 @@ app_name = "website"
 
 urlpatterns = [
     path("ads.txt", TemplateView.as_view(template_name="website/ads.txt", content_type="text/plain; charset=utf-8"), name="ads_txt"),
+    path("app-ads.txt", TemplateView.as_view(template_name="website/ads.txt", content_type="text/plain; charset=utf-8"), name="app_ads_txt"),
     path("robots.txt", TemplateView.as_view(template_name="website/robots.txt", content_type="text/plain; charset=utf-8"), name="robots_txt"),
     path("sitemap.xml", TemplateView.as_view(template_name="website/sitemap.xml", content_type="application/xml; charset=utf-8"), name="sitemap"),
     path("", views.home, name="home"),

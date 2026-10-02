@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ImproperlyConfigured
 from django.http import FileResponse
 from django.template.loader import render_to_string
@@ -33,6 +34,25 @@ class PublicWebsiteTests(SimpleTestCase):
         ("account_deletion", "/xoa-tai-khoan/", "website/account_deletion.html"),
         ("download", "/tai-ung-dung/", "website/download.html"),
     )
+
+    def test_app_ads_is_public_plain_text_and_matches_authorized_seller(self):
+        response = self.client.get(reverse("website:app_ads_txt"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
+        self.assertEqual(response.content.strip(),
+                         b"google.com, pub-6695808615282253, DIRECT, f08c47fec0942fa0")
+        self.assertEqual(response.content,
+                         self.client.get(reverse("website:ads_txt")).content)
+        head = self.client.head(reverse("website:app_ads_txt"))
+        self.assertEqual(head.status_code, 200)
+        self.assertEqual(head.content, b"")
+
+    def test_public_ad_code_is_limited_to_home_and_guide(self):
+        for name, url, _ in self.pages:
+            with self.subTest(page=name):
+                response = self.client.get(url)
+                self.assertEqual("adsbygoogle.js" in response.content.decode(),
+                                 name in {"home", "guide"})
 
     def test_crawler_files_list_only_public_pages(self):
         robots = self.client.get(reverse("website:robots_txt"))
@@ -259,6 +279,15 @@ class PublicWebsiteTests(SimpleTestCase):
 
 @override_settings(STORAGES=TEST_STORAGES)
 class AuthenticatedAppTemplateTests(SimpleTestCase):
+    def test_login_and_registration_do_not_load_ads(self):
+        request = RequestFactory().get("/accounts/login/")
+        request.user = AnonymousUser()
+        for template in ("accounts/login.html", "accounts/register.html"):
+            with self.subTest(template=template):
+                html = render_to_string(template, {}, request=request)
+                self.assertNotIn("adsbygoogle.js", html)
+                self.assertNotIn("googlesyndication", html)
+
     def test_existing_app_templates_render_with_authenticated_context(self):
         user = get_user_model()(username="template-teacher", email="teacher@example.com",
                                 first_name="Template", last_name="Teacher")
@@ -285,3 +314,4 @@ class AuthenticatedAppTemplateTests(SimpleTestCase):
                 self.assertIn(reverse("grading:upload"), html)
                 self.assertNotIn("grading:live_camera", html)
                 self.assertNotIn("getUserMedia", html)
+                self.assertNotIn("adsbygoogle.js", html)
