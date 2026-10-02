@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 def register_api(request):
     """
     POST /api/v1/auth/register/
-    Username mode: {"username": "...", "password": "...", "full_name": "..."} -> 201 + token
+    Username mode: {"username": "...", "password": "...", "full_name": "...", "email": "optional contact"} -> 201 + token
     Body: {"email": "...", "password": "...", "first_name": "...", "last_name": "..."}
     """
     from accounts.forms import RegisterForm, UsernameRegisterForm
@@ -65,6 +65,7 @@ def register_api(request):
         form = UsernameRegisterForm({
             'username': request.data.get('username', ''),
             'full_name': request.data.get('full_name', ''),
+            'email': request.data.get('email', ''),
             'password': request.data.get('password', ''),
             'password_confirm': request.data.get('password', ''),
         })

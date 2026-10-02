@@ -87,7 +87,9 @@ class RegisterForm(forms.Form):
 
 class UsernameRegisterForm(RegisterForm):
     """A username is not an email identity; never auto-link an OAuth account."""
-    email = None
+    # Optional for older clients. Mobile now asks for a contact email, but this
+    # field alone does not prove ownership or authorize a Google account link.
+    email = forms.EmailField(label='Địa chỉ email', max_length=150, required=False)
     username = forms.CharField(
         label='Tên tài khoản', min_length=3, max_length=30,
         validators=[RegexValidator(r'^[a-z0-9][a-z0-9._]{2,29}$',
@@ -100,6 +102,14 @@ class UsernameRegisterForm(RegisterForm):
         if User.objects.filter(username__iexact=username).exists():
             raise forms.ValidationError('Tên tài khoản đã được sử dụng. Vui lòng chọn tên khác.')
         return username
+
+    def clean_email(self):
+        from allauth.account.models import EmailAddress
+        email = self.cleaned_data.get('email', '').strip().lower()
+        if email and (User.objects.filter(email__iexact=email).exists()
+                      or EmailAddress.objects.filter(email__iexact=email).exists()):
+            raise forms.ValidationError('Email đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.')
+        return email
 
     def clean_password(self):
         password = self.cleaned_data['password']

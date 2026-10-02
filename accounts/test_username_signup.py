@@ -2,6 +2,7 @@ import json
 from unittest.mock import patch
 
 from allauth.account.models import EmailAddress
+from allauth.socialaccount.models import SocialAccount, SocialLogin
 from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -40,14 +41,71 @@ class UsernameSignupTests(TestCase):
         self.assertNotIn(self.password, response.content.decode())
         self.assertFalse(me.json()['is_admin'])
 
-    def test_new_account_cannot_grant_admin_or_claim_an_email(self):
-        self.assertEqual(self.signup(email='owner@example.com', is_staff=True,
+    def test_contact_email_is_saved_but_not_verified_and_cannot_grant_admin(self):
+        self.assertEqual(self.signup(email=' OWNER@example.com ', is_staff=True,
             is_superuser=True, is_admin=True).status_code, 201)
         user = User.objects.get(username='teacher_test')
         self.assertFalse(user.is_staff)
         self.assertFalse(user.is_superuser)
-        self.assertEqual(user.email, '')
-        self.assertFalse(EmailAddress.objects.filter(user=user).exists())
+        self.assertEqual(user.email, 'owner@example.com')
+        address = EmailAddress.objects.get(user=user)
+        self.assertEqual(address.email, user.email)
+        self.assertFalse(address.verified)
+        self.assertTrue(address.primary)
+
+    def test_new_contact_email_can_be_used_for_password_login(self):
+        self.assertEqual(self.signup(email='teacher@example.com').status_code, 201)
+        response = self.client.post(reverse('api:login'),
+            json.dumps({'email': 'TEACHER@example.com', 'password': self.password}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['user']['email'], 'teacher@example.com')
+
+    def test_invalid_email_does_not_create_a_user(self):
+        for email in ('not-an-email', 'a' * 150 + '@example.com', []):
+            self.assertEqual(self.signup(email=email).status_code, 400)
+        self.assertFalse(User.objects.exists())
+
+    def test_existing_email_cannot_be_claimed_by_another_username(self):
+        owner = User.objects.create_user('owner', 'OWNER@example.com', self.password)
+        response = self.signup(email='owner@example.com')
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(User.objects.filter(username='teacher_test').exists())
+        owner.refresh_from_db()
+        self.assertTrue(owner.check_password(self.password))
+
+    def test_duplicate_allauth_email_is_also_rejected(self):
+        owner = User.objects.create_user('owner', password=self.password)
+        EmailAddress.objects.create(user=owner, email='owner@example.com', verified=True)
+        self.assertEqual(self.signup(email='OWNER@example.com').status_code, 400)
+        self.assertEqual(User.objects.count(), 1)
+
+    @patch('allauth.socialaccount.adapter.DefaultSocialAccountAdapter.can_authenticate_by_email', return_value=True)
+    def test_google_email_lookup_cannot_auto_link_unverified_contact(self, _allowed):
+        self.signup(email='owner@example.com')
+        social = SocialLogin(user=User(email='owner@example.com'),
+            account=SocialAccount(provider='google', uid='qa-google-owner'),
+            email_addresses=[EmailAddress(email='owner@example.com', verified=True)])
+        social._lookup_by_email()
+        self.assertIsNone(social.user.pk)
+
+    @patch('allauth.socialaccount.adapter.DefaultSocialAccountAdapter.can_authenticate_by_email', return_value=True)
+    def test_google_email_lookup_keeps_verified_account_linking(self, _allowed):
+        owner = User.objects.create_user('owner', 'owner@example.com', self.password)
+        EmailAddress.objects.create(user=owner, email=owner.email, verified=True, primary=True)
+        social = SocialLogin(user=User(email=owner.email),
+            account=SocialAccount(provider='google', uid='qa-google-owner'),
+            email_addresses=[EmailAddress(email=owner.email, verified=True)])
+        social._lookup_by_email()
+        self.assertEqual(social.user.pk, owner.pk)
+
+    def test_existing_google_account_still_logs_in_by_provider_id(self):
+        owner = User.objects.create_user('owner', 'owner@example.com', self.password)
+        SocialAccount.objects.create(user=owner, provider='google', uid='qa-google-owner')
+        social = SocialLogin(user=User(email=owner.email),
+            account=SocialAccount(provider='google', uid='qa-google-owner'))
+        social.lookup()
+        self.assertEqual(social.user.pk, owner.pk)
 
     def test_username_is_normalized_and_duplicate_cannot_change_password(self):
         data = self.payload()
@@ -134,15 +192,19 @@ class UsernameSignupTests(TestCase):
     def test_web_form_signup_and_username_login(self):
         response = self.client.get(reverse('accounts:register'))
         self.assertContains(response, 'name="username"')
+        self.assertContains(response, 'name="email"')
         self.assertNotContains(response, 'style="display:none"')
         self.assertNotContains(response, 'adsbygoogle.js')
-        data = self.payload(password_confirm=self.password)
+        data = self.payload(password_confirm=self.password, email='webteacher@example.com')
         response = self.client.post(reverse('accounts:register'), data)
         self.assertRedirects(response, reverse('accounts:login'), fetch_redirect_response=False)
         response = self.client.post(reverse('accounts:login'),
             {'email': 'teacher_test', 'password': self.password})
         self.assertRedirects(response, '/dashboard/', fetch_redirect_response=False)
         self.assertIn('_auth_user_id', self.client.session)
+        user = User.objects.get(username='teacher_test')
+        self.assertEqual(user.email, 'webteacher@example.com')
+        self.assertFalse(EmailAddress.objects.get(user=user).verified)
 
     def test_web_mismatched_password_does_not_create_user(self):
         response = self.client.post(reverse('accounts:register'),

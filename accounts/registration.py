@@ -31,9 +31,12 @@ def create_username_account(data):
     try:
         with transaction.atomic():
             user = User.objects.create_user(username=data['username'], password=data['password'],
+                email=data.get('email', ''),
                 first_name=' '.join(parts[:-1]) if len(parts) > 1 else parts[0],
                 last_name=parts[-1] if len(parts) > 1 else '')
             TeacherProfile.objects.get_or_create(user=user)
+            if user.email:
+                EmailAddress.objects.create(user=user, email=user.email, verified=False, primary=True)
     except IntegrityError as exc:
         raise ValidationError('Tên tài khoản đã được sử dụng. Vui lòng chọn tên khác.') from exc
     return user

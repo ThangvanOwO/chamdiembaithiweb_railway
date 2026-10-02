@@ -99,6 +99,16 @@
                         {% endif %}
                     </div>
 
+                    {% if username_signup %}
+                    <div class="form-group">
+                        <label for="reg-email" class="form-label">Địa chỉ email</label>
+                        <input type="email" name="email" id="reg-email" class="form-input"
+                               placeholder="ban@gmail.com" maxlength="150" autocomplete="email"
+                               value="{{ form.email.value|default:'' }}" required>
+                        {% if form.email.errors %}<span class="form-error">{{ form.email.errors.0 }}</span>{% endif %}
+                    </div>
+                    {% endif %}
+
                     <div class="form-group">
                         <label for="reg-password" class="form-label">Mật khẩu</label>
                         <input type="password" name="password" id="reg-password"

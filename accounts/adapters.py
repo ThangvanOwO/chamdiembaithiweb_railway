@@ -26,6 +26,12 @@ class GoogleSocialAdapter(DefaultSocialAccountAdapter):
     def is_open_for_signup(self, request, sociallogin):
         return True
 
+    def can_authenticate_by_email(self, login, email):
+        """A contact email entered at signup cannot grant access via Google."""
+        from allauth.account.models import EmailAddress
+        return (super().can_authenticate_by_email(login, email)
+                and EmailAddress.objects.filter(email__iexact=email, verified=True).exists())
+
     def on_authentication_error(self, request, provider_id, error=None, exception=None, extra_context=None):
         logger.error(f'[SOCIAL] auth error: provider={provider_id}, error={error}, exception={exception}')
 
