@@ -10,12 +10,12 @@
 
 ## Hành vi
 
-- Banner inline adaptive nằm giữa các widget và cuộn cùng nội dung: giữa thống kê và bài chấm gần đây ở Tổng quan, sau thẻ thứ ba của danh sách Bài thi/Lịch sử khi có ít nhất bốn thẻ, giữa cấu hình kết nối và thông tin ứng dụng ở Tài khoản. Bài thi có ít thẻ đặt banner trước danh sách. Không đặt banner trong màn hình quét phiếu.
+- Banner inline adaptive cuộn cùng nội dung: ở Tổng quan khi đã có đề hoặc kết quả; ở cuối danh sách Bài thi/Lịch sử khi có nội dung khớp bộ lọc. Không có banner trên trang trống, tìm kiếm không có kết quả, Tài khoản hoặc màn hình quét phiếu.
 - Banner dùng chiều rộng thực tế sau padding/safe area, giới hạn chiều cao yêu cầu 120dp và lấy kích thước thực tế từ SDK sau khi tải. Có khoảng cách 24dp phía trên/dưới. Chỉ tab đang mở được tải banner; tab ẩn hủy quảng cáo. Banner ẩn khi bàn phím mở hoặc chưa tải được. Các trang mở đè lên MainShell, bao gồm camera, không có banner.
 - Một bộ đếm dùng chung cho đổi tab khác, mở trang, quay lại trang và thay thế trang hiện tại. Không tính trang đầu tiên, bấm lại tab hiện tại, dialog, bottom sheet hoặc quay về từ nền.
-- Sau 5 lần chuyển màn hình, interstitial hiển thị khi chuyển cảnh kết thúc. Bộ đếm đặt lại khi SDK xác nhận đã hiển thị; cần thêm 5 lần chuyển để hiện tiếp.
-- Hoãn quảng cáo ở camera, khi trả ảnh về để xử lý, khi vào/quay về màn hình chấm hàng loạt, trong hướng dẫn hoặc khi ứng dụng không ở foreground. Lượt quảng cáo chờ tới lần chuyển trang phù hợp tiếp theo.
-- Nếu chưa có quảng cáo hoặc mất mạng: tiếp tục sử dụng ứng dụng bình thường, giữ tối đa một lượt chờ. Tải thành công muộn không tự bật quảng cáo; chỉ lần chuyển tiếp theo mới có thể hiển thị. Tải lỗi được thử lại sau 60 giây.
+- Sau ít nhất 5 lần chuyển màn hình, interstitial đã tải sẵn chỉ được phép hiện **sau khi lưu đề mới thành công và trước khi trở về danh sách**. Trang lưu đề phải vẫn đang mở, ứng dụng ở foreground và không trong hướng dẫn. Chờ đóng quảng cáo rồi mới trở về danh sách. SDK xác nhận hiển thị mới đặt lại bộ đếm. Chuyển tab, mở trang hoặc quay lại không tự hiện quảng cáo.
+- Không có lời gọi hiển thị interstitial trong camera, trả ảnh, chấm bài, phiên liên tục, trang tài khoản, cài đặt hoặc kết quả. Không thay đổi luồng camera/chấm để tạo điểm hiển thị quảng cáo.
+- Nếu chưa có quảng cáo hoặc mất mạng: tiếp tục sử dụng ứng dụng bình thường, giữ tối đa một lượt chờ. Tải thành công muộn không tự bật quảng cáo; chỉ lần lưu đề thành công tiếp theo mới có thể hiển thị nếu các điều kiện cho phép. Tải lỗi được thử lại sau 60 giây.
 - Đăng xuất xóa bộ đếm và quảng cáo tải sẵn.
 
 ## Quyền riêng tư và chế độ thử
@@ -73,14 +73,18 @@ Bản release dùng quảng cáo thật:
 & C:\flutter\bin\flutter.bat test --no-pub test/admob_test.dart
 ```
 
-18 test dùng mock kênh SDK, bao gồm thứ tự đăng ký thiết bị thử trước SDK/yêu cầu quảng cáo, tần suất 5/10, push/pop, loại trừ dialog/sheet, hoãn ở camera, tải muộn/no-fill, consent, đăng xuất, background/hướng dẫn và bố cục banner trong nội dung cuộn/bàn phím/tab ẩn. Phân tích các màn hình tích hợp vẫn báo các cảnh báo có sẵn (import/field không dùng, API deprecated, context sau async); không thay đổi các phần này trong phạm vi AdMob.
+Ngày 02/10/2026: 24 kiểm thử AdMob dùng mock SDK đạt, gồm consent, quảng cáo thử, bộ đếm, điều hướng không tự hiện quảng cáo, điểm lưu đề thành công, chờ đóng quảng cáo, trang không còn hiện tại, lỗi SDK, tải muộn/no-fill, camera, background/hướng dẫn, banner ẩn/tab ẩn/Tổng quan trống và nhận thưởng. Chạy cùng các kiểm thử lưu đề và điều hướng ví: tổng 41 kiểm thử đạt. Mock SDK không thay thế kiểm thử quảng cáo thử trên thiết bị và không xác nhận Google đã phê duyệt.
 
-Kiểm tra trên điện thoại với quảng cáo thử: đăng nhập, chuyển 4 tab khác nhau (chưa có interstitial), chuyển lần thứ 5, đóng quảng cáo rồi lặp lại; mở bàn phím và camera để kiểm tra vùng banner; thử khi mất mạng.
+Kiểm tra trên điện thoại bằng quảng cáo thử: đăng nhập và chuyển tab nhiều lần, xác nhận không tự hiện xen kẽ; tạo và lưu một đề thành công khi đã đủ 5 lượt chuyển, đóng quảng cáo rồi mới thấy danh sách. Lưu lỗi/hủy đề không được hiện quảng cáo. Xem Tài khoản, Tổng quan trống, camera, bàn phím và tab ẩn để kiểm tra không có banner. Thử mất mạng và SDK không có quảng cáo: đề vẫn lưu bình thường. Không dùng quảng cáo thật để tự tạo lượt xem hoặc lượt nhấp thử.
 
-Ngày 2026-09-29: bộ test chạy bằng Flutter 3.41.7 / Dart 3.11.5. Đã khôi phục Android SDK tại `D:\AndroidSdk`, cấu hình Flutter dùng SDK này và JDK 17. Build debug arm64 phiên bản 4010 thành công và cài cập nhật lên điện thoại, giữ dữ liệu. Bộ đệm Gradle/tệp tạm đặt tại `D:\GradeFlowBuildCache`; script `build-admob.ps1` tại đó dùng bộ đệm riêng và giới hạn plugin native ở arm64 cho điện thoại thử. Release thật chưa được kiểm tra. Cấu hình ký release hiện có của dự án vẫn dùng debug key.
+Ngày 2026-09-29: bộ test chạy bằng Flutter 3.41.7 / Dart 3.11.5. Đã khôi phục Android SDK tại `D:\AndroidSdk`, cấu hình Flutter dùng SDK này và JDK 17. Build debug arm64 phiên bản 4010 thành công và cài cập nhật lên điện thoại, giữ dữ liệu. Bộ đệm Gradle/tệp tạm đặt tại `D:\GradeFlowBuildCache`; script `build-admob.ps1` tại đó dùng bộ đệm riêng và giới hạn plugin native ở arm64 cho điện thoại thử. Release thật chưa được kiểm tra. Đây là ghi nhận lịch sử; cấu hình hiện tại ký release bằng upload keystore riêng, không được fallback về debug key.
 
-Log UMP trên điện thoại báo `Publisher misconfiguration ... no form(s) configured for the input app ID`. Cần tạo/publish thông báo phù hợp trong **AdMob → Privacy & messaging** cho App ID này. Không bỏ kiểm tra `canRequestAds()` để xử lý lỗi cấu hình tài khoản.
+Log UMP lịch sử ngày 29/09 trên điện thoại báo `Publisher misconfiguration ... no form(s) configured for the input app ID`. Cần tạo/publish thông báo phù hợp trong **AdMob → Privacy & messaging** cho App ID này. Không bỏ kiểm tra `canRequestAds()` để xử lý lỗi cấu hình tài khoản.
 
-Tích hợp chỉ thay đổi Flutter/Android, không thay đổi website/backend nên không cần rebuild Docker cho thay đổi này.
+Bản sửa ngày 02/10/2026 có thay đổi website/backend: phục vụ `/app-ads.txt` cùng seller với `/ads.txt`, loại AdSense khỏi trang xác thực và ứng dụng riêng tư, chỉ cho phép mã ở Trang chủ/Hướng dẫn. Sau sửa phải rebuild `docker-compose.local.yml` theo quy tắc dự án. Địa chỉ website nhà phát triển trên Google Play phải trỏ về `https://gradeflow.io.vn/`; kiểm tra xác minh app-ads.txt trong AdMob sau khi crawler cập nhật. Không tự suy ra lỗi từ chối tài khoản là do tệp này.
+
+Firebase Analytics đã được gỡ khỏi dependency Android và có cờ `firebase_analytics_collection_deactivated=true` để giữ thu thập tắt nếu SDK được thêm gián tiếp về sau. Không thay UMP bằng cờ này: AdMob vẫn đi qua consent. Các bản cũ trên thiết bị chưa tự được cập nhật; khai báo An toàn dữ liệu trên Play phải tính đến bản đang phân phối thực tế.
 
 Tài liệu SDK: [Khởi tạo](https://developers.google.com/admob/flutter/quick-start), [banner](https://developers.google.com/admob/flutter/banner), [interstitial](https://developers.google.com/admob/flutter/interstitial), [UMP](https://developers.google.com/admob/flutter/privacy).
+
+Ngày 02/10/2026: APK Trial debug 2103 và AAB release 2103 đã build; manifest debug/release xác nhận tắt Analytics, dependency tree không còn firebase-analytics. AAB được ký bằng cấu hình upload keystore hiện có, chưa tải lên Play. Xem báo cáo `docs/ADMOB_POLICY_FIX_20261002.md` và artifact trong `tests/test_ketqua/admob_policy_20261002/`.
