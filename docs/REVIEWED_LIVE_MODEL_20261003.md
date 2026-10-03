@@ -17,7 +17,9 @@
   - `python -X utf8 scratch/reviewed_original_controls_20261003.py`: bật mô hình mới và chạy 5 nhóm kiểm tra ảnh gốc sẵn có.
   - `python -X utf8 tools/training/audit_reviewed_live.py --dataset Traing/reviewed_20261003_130209 --output scratch/reviewed_live_local_20261003_b --repeats 3`.
   - Rebuild bằng `docker compose -f docker-compose.local.yml up -d --build`; kiểm tra container, `manage.py check` và các kiểm tra mới trong container.
-- **TEST RESULTS**: 14/14 kiểm tra mới đạt trên Windows và Docker. 5/5 nhóm ảnh gốc đạt khi bật mô hình: phiếu trống ở 3 mức sáng, tô kép Phần I/III, số âm/thập phân và các câu đã xác nhận trước đây. Bộ Live cũ chạy 53 test: 51 đạt; 1 lỗi setup và 1 thất bại vì thiếu 5 JPEG phiếu trống cũ đúng kích thước ghi trong fixture; không sửa hoặc bỏ assert. 4 ảnh gốc đã duyệt được căn chỉnh lại tự động rồi qua bộ đọc/chấm/vẽ ảnh Live: trước 307/312 vùng khớp, sau 312/312. Trung vị đọc/chấm/vẽ ở máy local khoảng 0,20–0,21 giây/phiếu; căn chỉnh ảnh gốc riêng khoảng 0,65–1,09 giây. Chưa tính camera, truyền ảnh hay hàng đợi. Kết quả đo trên VPS sẽ được bổ sung sau khi triển khai và chạy lại cùng phép kiểm tra.
+  - VPS: build image mới, chạy 14 kiểm tra và `manage.py check` trong container thử trước khi thay web; chờ web healthy rồi reload proxy.
+  - VPS: chạy lại audit 4 ảnh gốc, 3 lượt mỗi cấu hình; sau đó đo xen kẽ bật/tắt 5 lượt mỗi cấu hình trên từng phiếu để kiểm tra dao động thời gian và thời gian riêng của helper.
+- **TEST RESULTS**: 14/14 kiểm tra mới đạt trên Windows, Docker local và Docker VPS. 5/5 nhóm ảnh gốc đạt khi bật mô hình: phiếu trống ở 3 mức sáng, tô kép Phần I/III, số âm/thập phân và các câu đã xác nhận trước đây. Bộ Live cũ chạy 53 test: 51 đạt; 1 lỗi setup và 1 thất bại vì thiếu 5 JPEG phiếu trống cũ đúng kích thước ghi trong fixture; không sửa hoặc bỏ assert. 4 ảnh gốc đã duyệt được căn chỉnh lại tự động rồi qua bộ đọc/chấm/vẽ ảnh Live: trước 307/312 vùng khớp, sau 312/312, cả local và VPS. Trung vị đọc/chấm/vẽ ở máy local khoảng 0,20–0,21 giây/phiếu; căn chỉnh ảnh gốc riêng khoảng 0,65–1,09 giây. VPS đã triển khai commit code `f6aac46`: db/proxy/web healthy, mô hình `20261003-epoch4` bật và session inference tải được, HTTP nội bộ và HTTPS công khai `/ads.txt` đều 200. Không cần cài lại app cho thay đổi backend này.
 - **REGRESSION RISK**: Dữ liệu nhỏ, 4 ảnh gồm 3 ảnh train và 1 ảnh validation đã dùng chọn checkpoint; chưa có ảnh kiểm tra độc lập mới. 312/312 không chứng minh mọi ảnh thực tế đều đúng. Ô không đủ bằng chứng vẫn cần duyệt, không ép đoán. Giới hạn đúng mẫu phiếu, giữ nguyên trạng thái chắc chắn và công tắc tắt giúp giảm rủi ro.
 - **UNRELATED ISSUES FOUND**: 5 JPEG fixture phiếu trống cũ thiếu/khác bản gốc nên hai kiểm tra không thể xác minh đầy đủ. Các thay đổi giao diện mobile/auth và các công cụ train đang có trong working tree không thuộc bản tích hợp này.
 
@@ -32,6 +34,21 @@
 
 Ảnh kết quả và JSON local: `scratch/reviewed_live_local_20261003_b/`. Dữ liệu ảnh/nhãn được giữ ngoài Git. Audit dùng nhãn chỉ để chấm đối chiếu sau khi đọc ảnh; không dùng đáp án để chọn ô tô.
 
+## Đo thời gian trên VPS thực tế
+
+| Phiếu | Trung vị bản gốc | Trung vị bản mới | Thời gian helper mới |
+| --- | ---: | ---: | ---: |
+| 1 | 0,423 s | 0,460 s | 1,80 ms |
+| 2 | 0,423 s | 0,443 s | 1,05 ms |
+| 3 | 0,448 s | 0,442 s | 1,44 ms |
+| 4 | 0,431 s | 0,442 s | 1,70 ms |
+
+Phép đo xen kẽ 5 lượt/cấu hình/phiếu gồm đọc ảnh đã căn chỉnh, đọc đáp án, chấm đối chiếu và lưu ảnh kết quả. Helper tính cả các lần gọi không cần inference; chỉ 1–2 ô chưa rõ cần inference trên các phiếu 1/3/4. Tất cả 20 lượt bật mô hình đều khớp 78/78 vùng mỗi phiếu. Mô hình cải thiện nhận diện, không chứng minh chấm nhanh hơn; mức chênh thời gian toàn lượt nhỏ nhưng còn dao động.
+
+Audit đầu tiên có trung vị 0,408–1,036 giây, trong đó phiếu 3 có các lượt 0,789/1,036/1,351 giây. Kiểm tra xen kẽ sau đó trên đúng ảnh đó đạt trung vị 0,442 giây, helper khoảng 1,44 ms; không tái hiện mức tăng 0,6 giây của lượt trước. Chưa xác định được nguồn dao động, không quy cho CNN hay khẳng định đã loại bỏ mọi độ trễ. Căn chỉnh tự động từ ảnh gốc (không dùng góc app) trên VPS mất 2,50–4,60 giây. Các số đọc/chấm trên không tính camera, truyền ảnh, căn chỉnh lại từ ảnh gốc hoặc chờ xử lý; không phải cam kết toàn bộ thao tác dưới 1 giây.
+
+Ảnh và bằng chứng tải về: `tests/test_ketqua/reviewed_live_vps_20261003/` (`report.json`, `alternating_benchmark.json`, 4 ảnh `phieu_*_candidate_result.jpg`). Bản lưu trên VPS: `/home/ubuntu/gradeflow/scratch/reviewed_live_audit_20261003/`.
+
 ## Đường lui
 
 Không thay thế mô hình cũ. Bản trước sửa code local được lưu ở `scratch/reviewed_model_before_20261003/`. Có thể tắt riêng mô hình mới mà không thay đổi camera hoặc bộ đọc mực:
@@ -43,4 +60,11 @@ Không thay thế mô hình cũ. Bản trước sửa code local được lưu �
 docker compose --env-file .env.vps -f docker-compose.vps.yml up -d --no-deps --force-recreate web
 ```
 
-Kiểm tra `ps` và `/ads.txt` sau khi web khởi động. `LIVE_CPU_FAST` giữ nguyên. Nếu cần quay lại toàn bộ bản server, dùng image đã lưu `gradeflow-vps-web:reviewed-before-20261003` theo tệp backup trên VPS; không reset working tree hoặc xóa dữ liệu.
+Kiểm tra `ps` và `/ads.txt` sau khi web khởi động. `LIVE_CPU_FAST` giữ nguyên. Nếu cần quay lại toàn bộ bản server, image trước là `gradeflow-vps-web:reviewed-before-20261003`, commit `ef7ca63`; đã lưu thông tin image/commit và cấu hình riêng tư trong `/home/ubuntu/gradeflow/scratch/reviewed_model_before_20261003/` (quyền 700). Script `rollback.sh` trong đó đã kiểm tra cú pháp, chưa thực thi vì bản mới hoạt động tốt:
+
+```bash
+bash /home/ubuntu/gradeflow/scratch/reviewed_model_before_20261003/rollback.sh
+docker compose --env-file .env.vps -f docker-compose.vps.yml exec -T proxy nginx -s reload
+```
+
+Script đổi tag image và tạo lại web với image cũ; không reset working tree hoặc xóa database/media. Không đưa bản sao cấu hình chứa bí mật lên Git.
