@@ -1,0 +1,19 @@
+{
+  "version": "20261003-epoch4",
+  "file": "reviewed_20261003.onnx",
+  "sha256": "c2c6bdda1fcf98ecd4337a71e5cbf66bd8099ee5bef9788dcf87582166582a40",
+  "radius": 13,
+  "raw_crop_size": 27,
+  "model_input_size": 32,
+  "warp": [
+    1400,
+    1920
+  ],
+  "geometry_centres_sha256": "8c68f0ebef39f2ee57fb8a27b0bac64273abc98beb3d8e9c63cc7948b426fce6",
+  "training_photos": 3,
+  "validation_photos": 1,
+  "independent_test_photos": 0,
+  "checkpoint_epoch": 4,
+  "use": "aligned_uncertain_answer_cells_only",
+  "original_models_replaced": false
+}

@@ -1,7 +1,8 @@
 """Live-only OMR evidence from the unmodified, geometrically rectified JPEG.
 
 Never measure ink against an artificial white text-erasure mask. No CNN/argmax
-rescue can turn a blank raw bubble into a selected answer. Upload is not routed
+rescue can turn a blank raw bubble into a selected answer. Reviewed CNN may
+confirm uncertain ink only on aligned answer grids. Upload is not routed
 here; the caller must explicitly request live_capture_v3.
 """
 from dataclasses import asdict, dataclass
@@ -152,7 +153,8 @@ def _select(evidence):
     return -1, uncertain or len(marked) > 1
 
 
-def read_part1(gray, blocks, choices, radius=13, y_offset=0, limit=None):
+def read_part1(gray, blocks, choices, radius=13, y_offset=0, limit=None,
+               *, reviewed_model=False, reviewed_diagnostics=None):
     """Absolute raw-paper evidence; double marks never become a winning argmax."""
     answers, scores, details = {}, {}, {}
     for index, block in enumerate(blocks):
@@ -164,6 +166,10 @@ def read_part1(gray, blocks, choices, radius=13, y_offset=0, limit=None):
             if limit is not None and q > limit:
                 continue
             evidence = [measure_ink(gray, x, y, radius) for x in xs]
+            if reviewed_model:
+                from grading.engine.reviewed_bubble_model import refine_evidence
+                evidence = refine_evidence(gray, list(zip(xs, [y]*len(xs))), evidence,
+                    radius, aligned, reviewed_diagnostics)
             picked, review = _select(evidence)
             marked = sum(e.state == 'marked' for e in evidence)
             answers[q] = 'X' if marked > 1 else choices[picked] if picked >= 0 else ''
@@ -173,7 +179,8 @@ def read_part1(gray, blocks, choices, radius=13, y_offset=0, limit=None):
     return answers, scores, details
 
 
-def read_part2(gray, blocks, step_x, step_y, labels, radius=13, y_offset=0, limit=None, align=False):
+def read_part2(gray, blocks, step_x, step_y, labels, radius=13, y_offset=0, limit=None, align=False,
+               *, reviewed_model=False, reviewed_diagnostics=None):
     answers, details = {}, {}
     paired_grids = {}
     if align:
@@ -203,6 +210,10 @@ def read_part2(gray, blocks, step_x, step_y, labels, radius=13, y_offset=0, limi
             cy = ys[row]
             ev = [measure_ink(gray, xs[col], cy, radius)
                   for col in range(2)]
+            if reviewed_model:
+                from grading.engine.reviewed_bubble_model import refine_evidence
+                ev = refine_evidence(gray, list(zip(xs, [cy]*len(xs))), ev,
+                    radius, aligned, reviewed_diagnostics)
             picked, _ = _select(ev)
             answers[q][label] = ('Dung', 'Sai')[picked] if picked >= 0 else ''
             if all(e.state == 'marked' for e in ev):
@@ -215,7 +226,8 @@ def read_part2(gray, blocks, step_x, step_y, labels, radius=13, y_offset=0, limi
 
 
 def read_part3(gray, blocks, sign_y, comma_y, digit_y, digit_step,
-               radius=13, y_offset=0, limit=None, local_symbols=False):
+               radius=13, y_offset=0, limit=None, local_symbols=False,
+               *, reviewed_model=False, reviewed_diagnostics=None):
     answers, details = {}, {}
     for block in blocks:
         q = block['q']
@@ -238,12 +250,20 @@ def read_part3(gray, blocks, sign_y, comma_y, digit_y, digit_step,
                 comma_points = [[x, symbol_y(comma_y)] for x in xs]
         sign = measure_ink(gray, *sign_point, radius)
         commas = [measure_ink(gray, *point, radius) for point in comma_points]
+        if reviewed_model:
+            from grading.engine.reviewed_bubble_model import refine_evidence
+            refined = refine_evidence(gray, [sign_point]+comma_points, [sign]+commas,
+                radius, aligned, reviewed_diagnostics)
+            sign, commas = refined[0], refined[1:]
         comma_col, uncertain = _select(commas)
         uncertain |= sign.state in ('uncertain', 'invalid')
         digits, digit_scores, evidence = [], [], []
         for x in xs:
             ev = [measure_ink(gray, x, y, radius,
                              row_background=local_symbols and aligned) for y in ys]
+            if reviewed_model:
+                ev = refine_evidence(gray, list(zip([x]*len(ys), ys)), ev,
+                    radius, aligned, reviewed_diagnostics)
             picked, ambiguous = _select(ev)
             uncertain |= ambiguous
             digits.append(picked)

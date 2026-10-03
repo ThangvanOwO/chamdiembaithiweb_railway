@@ -3882,9 +3882,14 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     preprocess_mode = best_preprocess_mode
     p1_live_details = {}
     live_validation = live_bubble_mode and live_validation
+    reviewed_diagnostics = {}
 
     if live_bubble_mode:
         from grading.engine import live_bubble_reader as live_reader
+        from grading.engine.reviewed_bubble_model import supports_geometry
+        reviewed_options = ({'reviewed_model': True, 'reviewed_diagnostics': reviewed_diagnostics}
+            if live_validation and supports_geometry(BUBBLE_RADIUS, WARP_WIDTH, WARP_HEIGHT, ALL_BUBBLE_CENTERS)
+            else {})
         # Evidence must precede text whitening and contrast enhancement.
         # Upload/import defaults remain unchanged; the grading API explicitly
         # opts into the additional raw Part I validation below.
@@ -3893,14 +3898,16 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
             live_gray, SBD_COLS_X, MADE_COLS_X, SBD_MADE_DIGIT_Y)
         if live_validation:
             p1_ans, p1_det, p1_live_details = live_reader.read_part1(
-                live_gray, PART1_COLS, PART1_CHOICES, BUBBLE_RADIUS, offsets['part1'], p1_limit)
+                live_gray, PART1_COLS, PART1_CHOICES, BUBBLE_RADIUS, offsets['part1'], p1_limit,
+                **reviewed_options)
         p2_ans, p2_det = live_reader.read_part2(
             live_gray, PART2_BLOCKS, PART2_STEP_X, PART2_STEP_Y, PART2_ROWS,
-            BUBBLE_RADIUS, offsets["part2"], p2_limit, **({'align': True} if live_validation else {}))
+            BUBBLE_RADIUS, offsets["part2"], p2_limit, **({'align': True} if live_validation else {}),
+            **reviewed_options)
         p3_ans, p3_det = live_reader.read_part3(
             live_gray, PART3_BLOCKS, PART3_SIGN_Y, PART3_COMMA_Y,
             PART3_DIGIT_START_Y, PART3_DIGIT_STEP_Y, BUBBLE_RADIUS, offsets["part3"], p3_limit,
-            **({'local_symbols': True} if live_validation else {}))
+            **({'local_symbols': True} if live_validation else {}), **reviewed_options)
         if raw_live and not part3_grids_aligned(p3_det):
             logger.info('Live raw grid fit incomplete; falling back to legacy preprocessing')
             return process_sheet(
@@ -3915,6 +3922,9 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
         print("[LIVE OMR] IDs/P2/P3 raw-paper evidence; "
               f"ID grids aligned={sbd_det['sbd_live']['aligned']}/{sbd_det['made_live']['aligned']}; "
               "no CNN/argmax rescue of empty cells")
+        if reviewed_diagnostics:
+            print(f"[Reviewed CNN] {reviewed_diagnostics['inferred']} uncertain cells checked; "
+                  f"{reviewed_diagnostics['resolved']} resolved from raw ink")
     else:
         p2_ans, p2_det = extract_part2(gray, y_offset=offsets["part2"], num_questions=p2_limit, fast_mode=fast_mode)
         p3_ans, p3_det = extract_part3(gray, y_offset=offsets["part3"], num_questions=p3_limit, fast_mode=fast_mode)
@@ -4205,6 +4215,8 @@ def process_sheet(image_path, correct_answers=None, debug=False, pre_warped=Fals
     if not raw_live:
         _load_bubble_cnn()
     cnn_status = 'not_used_live' if raw_live else ("ready" if _CNN_READY else f"error:{_CNN_ERROR}")
+    if reviewed_diagnostics.get('inferred'):
+        cnn_status = 'reviewed_20261003'
 
     return {
         "sbd": sbd, "made": made,
