@@ -19,7 +19,8 @@ def digest(value):
 
 def visible_announcements():
     return Announcement.objects.filter(status='published').filter(
-        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
+        Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())).filter(
+        ~Q(kind='event') | Q(event_ends_at__gt=timezone.now()))
 
 
 def firebase_status():
@@ -42,6 +43,11 @@ def publish_announcement(pk):
         raise ValueError('Thông báo đã thu hồi. Hãy tạo bản nháp mới.')
     if notice.expires_at and notice.expires_at <= timezone.now():
         raise ValueError('Ngày hết hạn phải ở trong tương lai.')
+    if notice.kind == 'event':
+        if not notice.event_starts_at or not notice.event_ends_at or notice.event_ends_at <= notice.event_starts_at:
+            raise ValueError('Sự kiện cần có ngày giờ bắt đầu và kết thúc hợp lệ.')
+        if notice.event_ends_at <= timezone.now():
+            raise ValueError('Sự kiện đã kết thúc. Hãy cập nhật ngày giờ trước khi gửi.')
     notice.status = 'published'
     notice.published_at = timezone.now()
     notice.save(update_fields=['status', 'published_at'])
@@ -66,6 +72,8 @@ def send_fcm(notice, device):
             {'projectId': os.environ.get('FIREBASE_PROJECT_ID', 'gradeflow-19d58'),
              'httpTimeout': 20}, name='gradeflow_notifications')
     ttl = min(timedelta(days=7), notice.expires_at - timezone.now()) if notice.expires_at else timedelta(days=7)
+    if notice.kind == 'event' and notice.event_ends_at:
+        ttl = min(ttl, notice.event_ends_at - timezone.now())
     return messaging.send(messaging.Message(
         token=device.token,
         notification=messaging.Notification(title=notice.title, body=notice.body[:500]),
@@ -93,6 +101,7 @@ def dispatch_pending(limit=50, sender=None):
         notice, device = row.announcement, row.device
         token = Token.objects.filter(user_id=device.user_id).values_list('key', flat=True).first()
         valid = (notice.status == 'published' and (not notice.expires_at or notice.expires_at > timezone.now())
+                 and (notice.kind != 'event' or (notice.event_ends_at and notice.event_ends_at > timezone.now()))
                  and device.active and device.user.is_active and token and digest(token) == row.session_hash
                  and device.session_hash == row.session_hash and digest(device.token) == row.destination_hash)
         if not valid:

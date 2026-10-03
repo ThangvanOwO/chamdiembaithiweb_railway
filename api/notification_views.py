@@ -1,4 +1,5 @@
 import uuid
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
@@ -22,7 +23,18 @@ class AnnouncementInput(serializers.ModelSerializer):
     body = serializers.CharField(max_length=4000, trim_whitespace=True)
     class Meta:
         model = Announcement
-        fields = ['title', 'body', 'kind', 'push_enabled', 'expires_at']
+        fields = ['title', 'body', 'kind', 'push_enabled', 'expires_at', 'event_starts_at', 'event_ends_at']
+
+    def validate(self, attrs):
+        fields = ['kind', 'expires_at', 'event_starts_at', 'event_ends_at']
+        candidate = Announcement(**{key: attrs.get(key, getattr(self.instance, key, None)) for key in fields})
+        candidate.kind = candidate.kind or 'info'
+        try:
+            candidate.clean()
+        except ValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict)
+        attrs.update(event_starts_at=candidate.event_starts_at, event_ends_at=candidate.event_ends_at)
+        return attrs
 
     def validate_expires_at(self, value):
         if value and value <= timezone.now():
@@ -32,7 +44,8 @@ class AnnouncementInput(serializers.ModelSerializer):
 
 def serialize_notice(notice, read=False, admin=False):
     data = {'id': notice.pk, 'title': notice.title, 'body': notice.body, 'kind': notice.kind,
-            'published_at': notice.published_at, 'expires_at': notice.expires_at, 'is_read': read}
+            'published_at': notice.published_at, 'expires_at': notice.expires_at, 'is_read': read,
+            'event_starts_at': notice.event_starts_at, 'event_ends_at': notice.event_ends_at}
     if admin:
         data.update(status=notice.status, push_enabled=notice.push_enabled,
                     deliveries={item['state']: item['total'] for item in

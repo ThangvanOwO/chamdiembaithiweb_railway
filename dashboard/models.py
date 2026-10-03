@@ -1,13 +1,16 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 
 class Announcement(models.Model):
     title = models.CharField('Tiêu đề', max_length=120)
     body = models.TextField('Nội dung', max_length=4000)
     kind = models.CharField('Loại', max_length=12, default='info', choices=[
-        ('info', 'Thông tin'), ('reminder', 'Nhắc nhở'), ('update', 'Cập nhật')])
+        ('info', 'Thông tin'), ('reminder', 'Nhắc nhở'), ('update', 'Cập nhật'), ('event', 'Sự kiện')])
+    event_starts_at = models.DateTimeField('Bắt đầu sự kiện', null=True, blank=True)
+    event_ends_at = models.DateTimeField('Kết thúc sự kiện', null=True, blank=True)
     status = models.CharField('Trạng thái', max_length=12, default='draft', choices=[
         ('draft', 'Bản nháp'), ('published', 'Đã gửi'), ('archived', 'Đã thu hồi')])
     push_enabled = models.BooleanField('Gửi lên điện thoại', default=True)
@@ -23,6 +26,23 @@ class Announcement(models.Model):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        super().clean()
+        if self.kind != 'event':
+            self.event_starts_at = self.event_ends_at = None
+            return
+        errors = {}
+        if not self.event_starts_at:
+            errors['event_starts_at'] = 'Chọn ngày giờ bắt đầu sự kiện.'
+        if not self.event_ends_at:
+            errors['event_ends_at'] = 'Chọn ngày giờ kết thúc sự kiện.'
+        if self.event_starts_at and self.event_ends_at and self.event_ends_at <= self.event_starts_at:
+            errors['event_ends_at'] = 'Giờ kết thúc phải sau giờ bắt đầu.'
+        if self.expires_at and self.event_starts_at and self.expires_at <= self.event_starts_at:
+            errors['expires_at'] = 'Ngày hết hạn phải sau giờ bắt đầu sự kiện.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class AnnouncementRead(models.Model):

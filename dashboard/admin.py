@@ -5,7 +5,7 @@ from .announcements import publish_announcement
 
 @admin.register(Announcement)
 class AnnouncementAdmin(admin.ModelAdmin):
-    list_display = ['title', 'kind', 'status', 'push_enabled', 'published_at']
+    list_display = ['title', 'kind', 'status', 'push_enabled', 'event_starts_at', 'published_at']
     list_filter = ['status', 'kind']
     search_fields = ['title', 'body']
     actions = ['publish', 'archive']
@@ -22,7 +22,7 @@ class AnnouncementAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         fields = ['status', 'published_at', 'created_at', 'author']
-        return fields + (['title', 'body', 'kind', 'push_enabled', 'expires_at'] if obj and obj.status != 'draft' else [])
+        return fields + (['title', 'body', 'kind', 'push_enabled', 'expires_at', 'event_starts_at', 'event_ends_at'] if obj and obj.status != 'draft' else [])
 
     def save_model(self, request, obj, form, change):
         if not change:
