@@ -43,7 +43,10 @@ services:
       OPENBLAS_NUM_THREADS: "2"
       MKL_NUM_THREADS: "2"
       MALLOC_ARENA_MAX: "2"
+      GOOGLE_APPLICATION_CREDENTIALS: /run/gradeflow-secrets/firebase-admin.json
+      FIREBASE_PROJECT_ID: gradeflow-19d58
     volumes:
+      - ./.secrets:/run/gradeflow-secrets:ro
       - media:/app/media
       - static:/app/staticfiles
     expose:
@@ -69,6 +72,24 @@ services:
       timeout: 10s
       start_period: 120s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
+
+  notifications:
+    image: gradeflow-vps-web
+    restart: unless-stopped
+    env_file:
+      - ${GRADEFLOW_ENV_FILE:-.env.vps}
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      GOOGLE_APPLICATION_CREDENTIALS: /run/gradeflow-secrets/firebase-admin.json
+      FIREBASE_PROJECT_ID: gradeflow-19d58
+    volumes:
+      - ./.secrets:/run/gradeflow-secrets:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    command: ["python", "manage.py", "send_announcements", "--watch"]
     security_opt:
       - no-new-privileges:true
 

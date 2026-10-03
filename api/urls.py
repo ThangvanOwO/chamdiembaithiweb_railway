@@ -4,12 +4,19 @@ API v1 URL Configuration — Mobile App Backend
 from django.urls import path, re_path
 from . import views
 from . import training_views
+from . import notification_views as notices
 from .credit_views import wallet_api, reward_ticket_api, reward_status_api, admob_callback
 from grading import chamtn_api
 
 app_name = 'api'
 
 urlpatterns = [
+    path('v1/notifications/', notices.inbox_api, name='notifications'),
+    path('v1/notifications/<int:notice_id>/read/', notices.read_api, name='notification_read'),
+    path('v1/notifications/device/', notices.device_api, name='notification_device'),
+    path('v1/admin/notifications/', notices.admin_list_api, name='admin_notifications'),
+    path('v1/admin/notifications/<int:notice_id>/', notices.admin_detail_api, name='admin_notification_detail'),
+    path('v1/admin/notifications/<int:notice_id>/publish/', notices.publish_api, name='admin_notification_publish'),
     # Auth
     path('v1/auth/register/', views.register_api, name='register'),
     path('v1/auth/login/', views.login_api, name='login'),

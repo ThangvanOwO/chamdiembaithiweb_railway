@@ -13,7 +13,10 @@ services:
     environment:
       PORT: "8000"
       TRUST_PROXY_CLIENT_IP: "1"
+      GOOGLE_APPLICATION_CREDENTIALS: /run/gradeflow-secrets/firebase-admin.json
+      FIREBASE_PROJECT_ID: gradeflow-19d58
     volumes:
+      - ./.secrets:/run/gradeflow-secrets:ro
       - type: bind
         source: ./db.sqlite3
         target: /app/db.sqlite3
@@ -43,6 +46,22 @@ services:
       timeout: 10s
       start_period: 120s
       retries: 3
+
+  notifications:
+    image: gradeflow-local-web
+    restart: unless-stopped
+    env_file:
+      - .env.docker.local
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/gradeflow-secrets/firebase-admin.json
+      FIREBASE_PROJECT_ID: gradeflow-19d58
+    volumes:
+      - ./db.sqlite3:/app/db.sqlite3
+      - ./.secrets:/run/gradeflow-secrets:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    command: ["python", "manage.py", "send_announcements", "--watch"]
 
   proxy:
     image: nginx:1.27-alpine

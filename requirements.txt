@@ -101,3 +101,5 @@ openpyxl>=3.1                   # Xuất kết quả Excel
 # CNN BUBBLE CLASSIFIER — Phân loại bubble bằng deep learning
 # -----------------------------------------------------------------------------
 # torch được cài riêng trong railway.json buildCommand (CPU-only ~150MB)
+# Server-side push delivery only (credentials are mounted at runtime).
+firebase-admin>=7.0,<8

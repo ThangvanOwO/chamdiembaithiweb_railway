@@ -169,3 +169,7 @@ anh/*_thresh.jpg
 
 # Roo skills (agent-specific, not for repo)
 .roo/
+
+# Firebase server credentials must never be committed.
+.secrets/
+*firebase-adminsdk*.json

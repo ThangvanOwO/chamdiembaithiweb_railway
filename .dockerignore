@@ -85,6 +85,8 @@ backup_*.sql
 *.bak
 
 # ── Misc ─────────────────────────────────────────────────────────────────────
+.secrets
+*firebase-adminsdk*.json
 1234567
 .dockerignore
 Dockerfile

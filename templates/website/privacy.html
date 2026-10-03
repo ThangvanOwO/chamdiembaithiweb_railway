@@ -6,7 +6,7 @@
     <p class="eyebrow">QUYỀN RIÊNG TƯ CỦA BẠN</p>
     <h1>Chính sách bảo mật GradeFlow</h1>
     <p class="lead">Cách GradeFlow xử lý thông tin khi bạn quản lý đề thi, quét phiếu và xem kết quả chấm bài trên website hoặc ứng dụng Android.</p>
-    <p>Cập nhật và có hiệu lực: <time datetime="2026-10-02">02/10/2026</time></p>
+    <p>Cập nhật và có hiệu lực: <time datetime="2026-10-03">03/10/2026</time></p>
   </header>
   <div class="guide-layout">
     <nav class="guide-nav" aria-label="Mục lục chính sách bảo mật">
@@ -34,6 +34,7 @@
           <li><strong>Dữ liệu chấm bài:</strong> tên đề thi, mã đề, đáp án, file Excel, ảnh đáp án hoặc phiếu bài làm do bạn tải lên; tên, mã học sinh/số báo danh nếu có; đáp án nhận diện, điểm số, trạng thái xử lý và thời gian chấm.</li>
           <li><strong>Dữ liệu vận hành:</strong> địa chỉ IP, thời gian yêu cầu, thông tin trình duyệt/ứng dụng, nhật ký lỗi và dữ liệu chống lạm dụng. Nếu bạn dùng điểm tín dụng, hệ thống lưu số dư, lượt quét và lịch sử thay đổi điểm để đối soát.</li>
           <li><strong>Dữ liệu trên thiết bị:</strong> địa chỉ máy chủ, thông tin đăng nhập được lưu, cài đặt ứng dụng và lựa chọn quyền riêng tư. Website dùng cookie và bộ nhớ trình duyệt để duy trì phiên, bảo vệ thao tác và hỗ trợ giao diện.</li>
+          <li><strong>Thông báo trên Android:</strong> nếu bạn bật thông báo, ứng dụng dùng Firebase Cloud Messaging của Google. GradeFlow lưu mã nhận thông báo (FCM token), mã phiên bản cài đặt ngẫu nhiên gắn với tài khoản và thời điểm đăng ký để gửi nhắc nhở, hướng dẫn hoặc cập nhật ứng dụng. Trạng thái đã đọc của hộp thông báo được lưu riêng cho mỗi tài khoản. Mã này không phải mã nhận dạng quảng cáo và không được dùng để cá nhân hóa quảng cáo.</li>
           <li><strong>Dữ liệu quảng cáo:</strong> SDK quảng cáo của Google có thể xử lý địa chỉ IP, mã nhận dạng quảng cáo, thông tin thiết bị/ứng dụng, lượt hiển thị và tương tác quảng cáo, cùng tín hiệu consent theo chính sách của Google.</li>
           <li><strong>Phân tích sử dụng ở bản Android cũ:</strong> các bản có tích hợp Firebase Analytics có thể gửi mã nhận dạng phiên bản cài đặt, thông tin thiết bị/ứng dụng và sự kiện sử dụng được SDK tự động ghi nhận tới Google để đo lường việc sử dụng ứng dụng. Cấu hình Android mới từ ngày 02/10/2026 gỡ SDK Analytics và tắt thu thập của SDK này; thay đổi có hiệu lực trên thiết bị sau khi bạn cài bản ứng dụng tương ứng, không tự áp dụng cho bản cũ.</li>
         </ul>
@@ -71,6 +72,7 @@
       <section class="guide-section" id="quyen">
         <h2>07 / Lựa chọn và yêu cầu xóa dữ liệu</h2>
         <p>Bạn có thể cập nhật hồ sơ, quản lý đề thi, xuất kết quả, thay đổi thời gian lưu ảnh, tắt đóng góp huấn luyện và quản lý quyền camera hoặc lựa chọn quảng cáo bằng các chức năng hiện có.</p>
+        <p>Bạn có thể tắt thông báo điện thoại trong mục <strong>Thông báo</strong> của ứng dụng hoặc trong cài đặt Android; hộp thông báo trong app vẫn sử dụng được. Mã nhận thông báo được vô hiệu hóa khi tắt hoặc đăng xuất và bị xóa khi tài khoản bị xóa. Khi thiết bị đang mất mạng, lựa chọn sẽ được đồng bộ khi có kết nối trở lại. Firebase xử lý việc chuyển thông báo theo <a href="https://firebase.google.com/support/privacy" rel="noopener">thông tin quyền riêng tư của Firebase</a>. GradeFlow không sử dụng Firebase Analytics trong bản mới này.</p>
         <p>Để xóa tài khoản GradeFlow và dữ liệu liên quan, xem <a href="{% url 'website:account_deletion' %}">hướng dẫn yêu cầu xóa tài khoản</a>. Trang này công khai và dùng được ngay cả khi bạn đã gỡ ứng dụng.</p>
         <p>Để yêu cầu truy cập, chỉnh sửa, xuất, hạn chế xử lý hoặc xóa tài khoản/dữ liệu, gửi email tới <a href="mailto:zephuyaa@gmail.com">zephuyaa@gmail.com</a> với tiêu đề <strong>GradeFlow – Yêu cầu quyền riêng tư</strong>. Nêu email tài khoản, yêu cầu cụ thể và thông tin cần tìm, chẳng hạn tên đề hoặc thời gian chấm. Không gửi mật khẩu, token hoặc toàn bộ dữ liệu học sinh trong email đầu tiên.</p>
         <p>Bên vận hành có thể cần xác minh quyền sở hữu tài khoản và phạm vi yêu cầu trước khi xử lý. Một số dữ liệu có thể cần giữ lại để đối soát, bảo mật hoặc thực hiện nghĩa vụ pháp lý; nếu có giới hạn, bên vận hành sẽ giải thích khi phản hồi. Gỡ ứng dụng khỏi điện thoại không tự xóa dữ liệu trên máy chủ.</p>
