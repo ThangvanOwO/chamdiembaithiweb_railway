@@ -108,3 +108,28 @@ Enable explicitly with `ALLOW_USERNAME_SIGNUP=1`. No database migration is neede
 - Login retains `{email, password}`: the `email` field accepts a username or an existing email address. Disabled users cannot log in.
 - Web registration displays full name, username, email, password and password confirmation when enabled. Web login accepts username or email and retains CSRF protection.
 - Set `ALLOW_USERNAME_SIGNUP=0` and recreate the web service to close new username registrations. Existing accounts continue to log in. The new contact field does not activate automatic email verification or password-reset delivery; administrator assistance remains available.
+
+## 7. Mobile announcements and Firebase push (03/10/2026)
+
+Additive endpoints in `api/notification_views.py`, used by Flutter `NotificationService`. Existing authentication, grading and credit API contracts are unchanged. Mobile requests use `Authorization: Token <key>` and UTF-8 JSON; admin endpoints require an authenticated superuser.
+
+| Method | Path | Behavior |
+| :--- | :--- | :--- |
+| GET | `/api/v1/notifications/` | `{items, unread_count}`. Latest 100 published, nonexpired notices; unread count includes all visible notices. |
+| POST | `/api/v1/notifications/` | Mark all currently visible notices as read for this account; `{ok: true}`. |
+| POST | `/api/v1/notifications/<id>/read/` | Idempotent read receipt for one visible notice; `{ok: true}`. |
+| POST | `/api/v1/notifications/device/` | Register/update `{installation_id: UUID, token: FCM token}` for the current Token-authenticated session. |
+| DELETE | `/api/v1/notifications/device/` | Deactivate the current account's `{installation_id}`; other accounts' devices cannot be deactivated. |
+| GET | `/api/v1/admin/notifications/` | `{items, push_configured, active_devices}`. Latest 100 notices with status and delivery counts. `push_configured` checks credential/project configuration, not actual device delivery. |
+| POST | `/api/v1/admin/notifications/` | Create draft `{title, body, kind?, push_enabled?, expires_at?}`; returns notice, HTTP 201. |
+| PATCH | `/api/v1/admin/notifications/<id>/` | Update draft; editing a published/archived notice returns HTTP 409. |
+| DELETE | `/api/v1/admin/notifications/<id>/` | Archive notice and skip pending deliveries; `{ok: true}`. Does not withdraw a notification already received by Android. |
+| POST | `/api/v1/admin/notifications/<id>/publish/` | Publish draft and enqueue push deliveries once. Repeated publish calls do not create duplicate deliveries. |
+
+Public notice fields: `id`, `title`, `body`, `kind` (`info`, `reminder`, `update`), `published_at`, `expires_at`, `is_read`. Admin responses add `status` (`draft`, `published`, `archived`), `push_enabled`, `deliveries` (counts by state). Title/body are trimmed and required, maximum 120/4000 characters; expiry must be in the future when creating/editing/publishing.
+
+Models in `dashboard`: `Announcement`, `AnnouncementRead`, `PushDevice`, `PushDelivery`; migration `0001_initial` creates new tables only. Announcements are general notices visible to signed-in accounts, not private messages to selected recipients. Push recipients are active registered devices at publication time; later registrants still see the notice in the inbox.
+
+The separate `notifications` Compose service runs `manage.py send_announcements --watch` every 10 seconds. It lazily uses Firebase Admin credentials from a read-only `.secrets/firebase-admin.json` mount, project `gradeflow-19d58`. Credentials are excluded from Git and the Docker image. Outbox rows freeze destination/session hashes and skip changed or inactive sessions. Transient failures retry at most 5 times; invalid tokens are deactivated. Worker success means Firebase accepted the message, not proof of receipt or reading by the user.
+
+Flutter refreshes the inbox on login/resume, foreground FCM messages and once per minute while foregrounded. Android channel: `gradeflow_announcements`; notification payload data includes `announcement_id` and `kind`. Tapping opens the inbox/notice. The user may enable/disable push; inbox access does not require Android notification permission. Read receipts and late responses are isolated by account/session. See [implementation and validation report](MOBILE_NOTIFICATIONS_FONT_20261003.md).
