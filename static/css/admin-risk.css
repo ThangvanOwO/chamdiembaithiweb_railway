@@ -3,3 +3,23 @@
 #content .risk-hero h1{color:#fff!important}.risk-table table{min-width:650px}.risk-card pre{white-space:pre-wrap;max-width:400px}.risk-bar small{display:block}@media(max-width:600px){.risk-bar:nth-child(even) small{visibility:hidden}}
 
 .risk-hero{margin-bottom:20px}.risk-console:has(.risk-action) .risk-charts{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:1000px){.risk-console:has(.risk-action) .risk-charts{grid-template-columns:1fr}}
+
+/* Share the administration palette, including explicit dark mode. */
+.risk-console{--ink:var(--gf-ink);--muted:var(--gf-muted);--line:var(--gf-line);font-family:var(--font-family-primary)}
+.risk-hero{background:var(--gf-soft);color:var(--gf-ink);border:1px solid var(--gf-line);border-radius:12px;padding:28px}
+#content .risk-hero h1{color:var(--gf-ink)!important;font-size:28px;letter-spacing:-.5px}
+.risk-hero p{color:var(--gf-muted)}
+.risk-hero .eyebrow{color:var(--link-fg);letter-spacing:1.2px}
+.risk-hero .risk-button,.risk-console .risk-button{background:var(--button-bg);color:var(--button-fg);font-size:12px;border-radius:8px}
+.risk-nav a,.risk-metrics article,.risk-card{background:var(--gf-surface);border-radius:10px}
+.risk-nav a{color:var(--link-fg);font-size:12px}
+.risk-metrics span{font-size:12px}.risk-metrics small{font-size:11px}
+.risk-metrics strong{font-size:32px;font-variant-numeric:tabular-nums}
+.risk-card h2{font-size:17px}.risk-card p{font-size:13px}
+.risk-console input:not([type=checkbox]),.risk-console select,.risk-console textarea{background:var(--gf-surface);border-color:var(--gf-line);color:var(--gf-ink);font-size:13px}
+.risk-table td,.risk-table th{background:var(--gf-surface);color:var(--gf-ink);border-color:var(--gf-line)}
+.risk-table th,.risk-track{background:var(--gf-bg)}
+.risk-table th{text-transform:none;letter-spacing:0;font-size:12px}
+.risk-badge{background:var(--gf-soft);color:var(--link-fg);font-size:11px}
+.risk-table details{margin-top:6px;font-size:11px}.risk-pagination{font-size:12px;flex-wrap:wrap}
+@media(max-width:600px){.risk-hero{padding:20px}.risk-hero h1{font-size:24px!important}.risk-metrics strong{font-size:28px}}

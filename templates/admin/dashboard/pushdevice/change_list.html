@@ -1,0 +1,13 @@
+{% extends "admin/change_list.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Tổng quan</a> › Thiết bị nhận thông báo</div>
+{% endblock %}
+{% block content %}
+<section class="gf-device-note" aria-labelledby="device-note-title">
+    <h2 id="device-note-title">Dữ liệu thiết bị hiện có</h2>
+    <p>Mỗi dòng là một lượt cài đặt đã đăng ký nhận thông báo, gắn với tài khoản hiện tại. Mã cài đặt là mã ngẫu nhiên của ứng dụng; không phải IMEI hay mã phần cứng.</p>
+    <p>Hiện chưa thu thập hãng máy, model hoặc phiên bản Android. Thời gian cập nhật là lúc đăng ký thông báo, không phải thời gian sử dụng gần nhất. Thiết bị chưa bật thông báo có thể không xuất hiện.</p>
+    <div class="gf-note-footer"><strong>Kiểm thử khép kín 14 ngày</strong><span>Số người tham gia và thời gian đủ điều kiện cần đối chiếu trong Google Play Console. Danh sách này không xác nhận người dùng đã tham gia kiểm thử.</span></div>
+</section>
+{{ block.super }}
+{% endblock %}

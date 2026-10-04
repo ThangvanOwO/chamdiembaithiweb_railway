@@ -1,18 +1,35 @@
 {% extends "admin/base.html" %}
 {% load static %}
 
+{% block title %}{{ title }} | GradeFlow · Quản trị{% endblock %}
+{% block extrahead %}{{ block.super }}<meta charset="utf-8">{% endblock %}
+
 {% block extrastyle %}
     {{ block.super }}
-    <link rel="stylesheet" href="{% static 'css/admin-custom.css' %}">
     <link rel="icon" type="image/png" href="{% static 'img/gradeflow_logo.png' %}">
 {% endblock %}
+
+{% block responsive %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/admin-custom.css' %}">{% endblock %}
 
 {% block branding %}
     <h1 id="site-name">
         <a href="{% url 'admin:index' %}">
-            <img src="{% static 'img/gradeflow_logo.png' %}" alt="GradeFlow" 
-                 style="height: 28px; width: 28px; border-radius: 6px; vertical-align: middle; margin-right: 8px;">
-            {{ site_header|default:_('Django administration') }}
+            <img src="{% static 'img/gradeflow_logo_transparent.png' %}" alt="" width="36" height="36">
+            <span>GradeFlow <small>Trung tâm quản trị</small></span>
         </a>
     </h1>
+{% endblock %}
+
+{% block nav-global %}
+{% if user.is_authenticated and user.is_staff %}
+<nav class="gf-admin-nav" aria-label="Điều hướng quản trị">
+    <a href="{% url 'admin:index' %}" {% if request.resolver_match.url_name == 'index' %}aria-current="page"{% endif %}>Tổng quan</a>
+    {% if user.is_superuser %}
+    <a href="{% url 'admin:auth_user_changelist' %}">Người dùng</a>
+    <a href="{% url 'admin:dashboard_announcement_changelist' %}">Thông báo</a>
+    <a href="{% url 'admin:dashboard_pushdevice_changelist' %}">Thiết bị</a>
+    <a href="{% url 'risk_dashboard' %}">An toàn tài khoản</a>
+    {% endif %}
+</nav>
+{% endif %}
 {% endblock %}

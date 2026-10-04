@@ -1,0 +1,20 @@
+{% load i18n admin_dashboard %}
+{% if app_list %}
+{% for app in app_list %}
+<div class="app-{{ app.app_label }} module{% if app.app_url in request.path|urlencode %} current-app{% endif %}">
+<table>
+    <caption><a href="{{ app.app_url }}" class="section" title="Quản lý {{ app|admin_app_label }}">{{ app|admin_app_label }}</a></caption>
+    <thead class="visually-hidden"><tr><th scope="col">Dữ liệu</th><th scope="col">Thêm</th><th scope="col">Xem hoặc sửa</th></tr></thead>
+    {% for model in app.models %}{% with model_name=model.object_name|lower %}
+    <tr class="model-{{ model_name }}{% if model.admin_url in request.path|urlencode %} current-model{% endif %}">
+        <th scope="row" id="{{ app.app_label }}-{{ model_name }}">
+            {% if model.admin_url %}<a href="{{ model.admin_url }}"{% if model.admin_url in request.path|urlencode %} aria-current="page"{% endif %}>{{ model|admin_model_label }}</a>{% else %}{{ model|admin_model_label }}{% endif %}
+        </th>
+        <td>{% if model.add_url %}<a href="{{ model.add_url }}" class="addlink" aria-describedby="{{ app.app_label }}-{{ model_name }}">Thêm</a>{% endif %}</td>
+        {% if show_changelinks %}<td>{% if model.admin_url %}<a href="{{ model.admin_url }}" class="{% if model.view_only %}viewlink{% else %}changelink{% endif %}" aria-describedby="{{ app.app_label }}-{{ model_name }}">{% if model.view_only %}Xem{% else %}Sửa{% endif %}</a>{% endif %}</td>{% endif %}
+    </tr>
+    {% endwith %}{% endfor %}
+</table>
+</div>
+{% endfor %}
+{% else %}<p>Chưa được cấp quyền xem hoặc sửa dữ liệu.</p>{% endif %}

@@ -1,5 +1,56 @@
-{% extends "admin/index.html" %}
+{% extends "admin/base_site.html" %}
+{% load i18n static log admin_dashboard %}
+{% block bodyclass %}{{ block.super }} dashboard gf-dashboard{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+{% block content_title %}{% endblock %}
 {% block content %}
-{% if user.is_superuser %}<div style="padding:24px;margin-bottom:24px;border-radius:16px;background:#123d46;color:white"><h2 style="color:white">GradeFlow · Trung tâm quản trị</h2><p>Theo dõi tài khoản, tín dụng và các dấu hiệu cần kiểm tra.</p><a href="{% url 'risk_dashboard' %}" style="display:inline-block;background:#d4faed;color:#123d46;padding:12px 20px;border-radius:8px;font-weight:bold">Mở bảng điều khiển →</a></div>{% endif %}
-{{ block.super }}
+{% admin_overview as overview %}
+<header class="gf-page-header">
+    <div><p class="gf-eyebrow">BÀN ĐIỀU HÀNH</p><h1>Tổng quan hệ thống</h1><p>Quản lý GradeFlow, từ tài khoản đến từng lượt chấm.</p></div>
+    {% if user.is_superuser %}<a class="gf-button" href="{% url 'admin:dashboard_announcement_add' %}"><span aria-hidden="true">＋</span> Viết thông báo</a>{% endif %}
+</header>
+{% if overview %}
+<section class="gf-metrics" aria-label="Số liệu hệ thống">
+    <a class="gf-metric" href="{% url 'admin:auth_user_changelist' %}"><span>Người dùng</span><strong>{{ overview.users }}</strong><small>{{ overview.new_users }} tài khoản mới trong 14 ngày</small></a>
+    <a class="gf-metric" href="{% url 'admin:grading_submission_changelist' %}"><span>Lượt chấm · 14 ngày</span><strong>{{ overview.submissions }}</strong><small>Số bài đã gửi lên hệ thống</small></a>
+    <a class="gf-metric" href="{% url 'admin:grading_trainingcorrection_changelist' %}?status__exact=pending"><span>Mẫu huấn luyện chờ duyệt</span><strong>{{ overview.training_pending }}</strong><small>Đối chiếu ảnh trước khi duyệt nhãn</small></a>
+    <a class="gf-metric" href="{% url 'admin:dashboard_pushdevice_changelist' %}?active__exact=1"><span>Đăng ký nhận thông báo</span><strong>{{ overview.devices }}</strong><small>Gắn với {{ overview.device_users }} tài khoản đang mở</small></a>
+</section>
+<section class="gf-quick-section" aria-labelledby="quick-title">
+    <h2 id="quick-title">Công việc thường dùng</h2>
+    <div class="gf-quick-grid">
+        <a class="gf-quick" href="{% url 'admin:auth_user_changelist' %}"><span class="gf-quick-icon" aria-hidden="true">01</span><span><b>Người dùng</b><small>Hồ sơ, tài khoản và phân quyền</small></span><span aria-hidden="true">↗</span></a>
+        <a class="gf-quick" href="{% url 'admin:dashboard_announcement_changelist' %}"><span class="gf-quick-icon" aria-hidden="true">02</span><span><b>Thông báo & sự kiện</b><small>{{ overview.notice_drafts }} bản nháp · quản lý nội dung gửi</small></span><span aria-hidden="true">↗</span></a>
+        <a class="gf-quick" href="{% url 'admin:dashboard_pushdevice_changelist' %}"><span class="gf-quick-icon" aria-hidden="true">03</span><span><b>Thiết bị nhận thông báo</b><small>Xem tài khoản và cập nhật đăng ký</small></span><span aria-hidden="true">↗</span></a>
+        <a class="gf-quick" href="{% url 'risk_dashboard' %}"><span class="gf-quick-icon" aria-hidden="true">04</span><span><b>An toàn tài khoản</b><small>Kiểm tra bằng chứng và lịch sử xử lý</small></span><span aria-hidden="true">↗</span></a>
+    </div>
+</section>
+{% endif %}
+<div class="gf-dashboard-columns">
+<section aria-labelledby="catalog-title">
+    <div class="gf-section-heading"><h2 id="catalog-title">Quản lý dữ liệu</h2><span>Hiển thị theo quyền của anh/chị</span></div>
+    <div class="gf-app-grid">
+    {% for app in app_list %}
+    <article class="gf-app-card">
+        <h3>{{ app|admin_app_label }}</h3>
+        <ul>{% for model in app.models %}<li>
+            {% if model.admin_url %}<a class="gf-model-link" href="{{ model.admin_url }}">{{ model|admin_model_label }}<span aria-hidden="true">→</span></a>{% else %}<span class="gf-model-link">{{ model|admin_model_label }}</span>{% endif %}
+            {% if model.add_url %}<a class="gf-add-link" href="{{ model.add_url }}" aria-label="Thêm {{ model|admin_model_label }}">＋</a>{% endif %}
+        </li>{% endfor %}</ul>
+    </article>
+    {% empty %}<p class="gf-empty">Tài khoản chưa được cấp quyền quản lý dữ liệu.</p>{% endfor %}
+    </div>
+</section>
+<aside class="gf-activity" aria-labelledby="activity-title">
+    <h2 id="activity-title">Thao tác gần đây</h2><p class="gf-muted">Lịch sử thao tác của anh/chị</p>
+    {% get_admin_log 8 as admin_log for_user user %}
+    <ul>{% for entry in admin_log %}<li>
+        <span class="gf-activity-dot" aria-hidden="true"></span><div>
+        {% if entry.is_deletion or not entry.get_admin_url %}<b>{{ entry.object_repr }}</b>{% else %}<a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>{% endif %}
+        <small>{% if entry.is_addition %}Đã thêm{% elif entry.is_change %}Đã sửa{% elif entry.is_deletion %}Đã xóa{% endif %} · {{ entry.action_time|date:"d/m H:i" }}</small>
+        </div></li>{% empty %}<li class="gf-empty">Chưa có thao tác nào được ghi nhận.</li>{% endfor %}</ul>
+    {% if user.is_superuser %}<a class="gf-text-link" href="{% url 'admin:accounts_moderationevent_changelist' %}">Nhật ký xử lý tài khoản →</a>{% endif %}
+</aside>
+</div>
 {% endblock %}
