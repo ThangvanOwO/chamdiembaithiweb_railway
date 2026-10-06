@@ -345,7 +345,9 @@ def ticket_image(request, ticket_id):
     ticket = get_object_or_404(qs, pk=ticket_id)
     if not ticket.image:
         return Response({'message': 'Không có ảnh đính kèm.'}, status=404)
-    response = FileResponse(ticket.image.open('rb'), content_type='image/jpeg' if ticket.image.name.lower().endswith(('.jpg', '.jpeg')) else 'image/png')
+    image_type = 'image/webp' if ticket.image.name.lower().endswith('.webp') else (
+        'image/jpeg' if ticket.image.name.lower().endswith(('.jpg', '.jpeg')) else 'image/png')
+    response = FileResponse(ticket.image.open('rb'), content_type=image_type)
     response['Cache-Control'] = 'private, no-store'
     response['X-Content-Type-Options'] = 'nosniff'
     return response

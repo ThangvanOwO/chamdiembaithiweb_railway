@@ -26,7 +26,8 @@ def main():
     for url in ('http://127.0.0.1:8000/ads.txt', 'http://127.0.0.1:8000/api/v1/classrooms/',
                 'https://gradeflow.io.vn/api/v1/classrooms/'):
         try:
-            response = urllib.request.urlopen(url, timeout=15)
+            headers = {'X-Forwarded-Proto': 'https'} if '127.0.0.1' in url else {}
+            response = urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=15)
             audit['http'][url] = response.status
         except urllib.error.HTTPError as exc:
             audit['http'][url] = exc.code
