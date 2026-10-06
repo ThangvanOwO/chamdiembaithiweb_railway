@@ -148,7 +148,7 @@ EXAM_TEMPLATES = [
     },
     {
         'code': '40-08-06',
-        'folder': 'QM-2025-A4',
+        'folder': '40-08-06---QM-2025---A4',
         'label': '40 08 06 - QM 2025 - A4',
         'parts': [40, 8, 6],
         'total': 54,

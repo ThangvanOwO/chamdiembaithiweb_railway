@@ -96,6 +96,7 @@ opencv-python-headless>=4.8     # Computer vision: detect bubbles, warp paper (h
 numpy>=1.24                     # Array operations cho image processing
 scikit-image>=0.22              # Cân bằng sáng nâng cao (equalize_adapthist) cho ảnh camera
 openpyxl>=3.1                   # Xuất kết quả Excel
+reportlab==5.0.1                # PDF mẫu phiếu và báo cáo tiếng Việt
 
 # -----------------------------------------------------------------------------
 # CNN BUBBLE CLASSIFIER — Phân loại bubble bằng deep learning

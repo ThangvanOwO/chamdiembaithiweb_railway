@@ -114,6 +114,7 @@ INSTALLED_APPS = [
     'accounts.apps.AccountsConfig',
     'grading.apps.GradingConfig',
     'dashboard.apps.DashboardConfig',
+    'toolbox.apps.ToolboxConfig',
 ]
 
 SITE_ID = 1

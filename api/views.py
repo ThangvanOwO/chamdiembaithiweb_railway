@@ -840,18 +840,56 @@ def submissions_list_api(request):
     """
     GET /api/v1/submissions/?exam_id=X&limit=20
     """
-    exam_id = request.query_params.get('exam_id', '')
-    limit = int(request.query_params.get('limit', '20'))
+    from toolbox.views import positive_int
+    exam_id = positive_int(request.query_params.get('exam_id'), 'exam_id')
+    limit = min(positive_int(request.query_params.get('limit'), 'limit', 20), 200)
+    page = positive_int(request.query_params.get('page'), 'page', 1)
 
-    qs = Submission.objects.filter(teacher=request.user).select_related('exam')
+    qs = Submission.objects.filter(teacher=request.user).select_related('exam', 'toolbox_review__roster_entry')
     if exam_id:
         qs = qs.filter(exam_id=exam_id)
-
-    submissions = qs[:limit]
+    query = request.query_params.get('q', '').strip()[:200]
+    from django.db.models import Exists, OuterRef, Q
+    from toolbox.models import ExamRosterEntry
+    from toolbox.views import owned_class
+    classroom_id = positive_int(request.query_params.get('classroom_id'), 'classroom_id')
+    if classroom_id:
+        owned_class(request, classroom_id)
+        entries = ExamRosterEntry.objects.filter(exam_id=OuterRef('exam_id'), student_id=OuterRef('student_id'),
+                                                 classroom_id=classroom_id, active=True)
+        qs = qs.annotate(_in_roster_class=Exists(entries)).filter(Q(_in_roster_class=True, toolbox_review__roster_entry__isnull=True) |
+             Q(toolbox_review__roster_entry__classroom_id=classroom_id, toolbox_review__roster_entry__active=True))
+    if query:
+        named_entries = ExamRosterEntry.objects.filter(exam_id=OuterRef('exam_id'), student_id=OuterRef('student_id'),
+                                                       student_name__icontains=query, active=True)
+        qs = qs.annotate(_roster_name_match=Exists(named_entries)).filter(Q(student_id__icontains=query) |
+             Q(student_name__icontains=query) | Q(exam__title__icontains=query) |
+             Q(_roster_name_match=True, toolbox_review__roster_entry__isnull=True) |
+             Q(toolbox_review__roster_entry__student_name__icontains=query, toolbox_review__roster_entry__active=True))
+    state = request.query_params.get('status', '')
+    if state in ('completed', 'pending', 'processing', 'error'):
+        qs = qs.filter(status=state)
+    elif state == 'unfinished':
+        qs = qs.exclude(status='completed')
+    qs = qs.order_by('-uploaded_at', '-id')
+    count = qs.count()
+    start = (page - 1) * limit
+    submissions = list(qs[start:start + limit])
+    entries = {(r.exam_id, r.student_id): r for r in ExamRosterEntry.objects.filter(active=True,
+        exam__teacher=request.user, exam_id__in={s.exam_id for s in submissions},
+        student_id__in={s.student_id.strip() for s in submissions})}
+    from toolbox.reports import review_of
+    def roster_entry(sub):
+        review = review_of(sub)
+        if review and review.roster_entry_id:
+            return review.roster_entry if review.roster_entry.active else None
+        return entries.get((sub.exam_id, sub.student_id.strip()))
+    names = {s.pk: roster_entry(s) for s in submissions}
     data = [{
         'id': s.id,
         'student_id': s.student_id,
-        'student_name': s.student_name,
+        'student_name': s.student_name or (names[s.pk].student_name if names[s.pk] else ''),
+        'class_name': names[s.pk].class_name if names[s.pk] else '',
         'exam_id': s.exam_id,
         'exam_title': s.exam.title if s.exam else '',
         'status': s.status,
@@ -864,7 +902,7 @@ def submissions_list_api(request):
         'processing_time': s.processing_time,
     } for s in submissions]
 
-    return Response({'submissions': data})
+    return Response({'submissions': data, 'count': count, 'page': page, 'has_more': start + limit < count})
 
 
 @api_view(['GET'])

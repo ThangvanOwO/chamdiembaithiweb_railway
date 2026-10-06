@@ -1,7 +1,7 @@
 """
 API v1 URL Configuration — Mobile App Backend
 """
-from django.urls import path, re_path
+from django.urls import path, re_path, include
 from . import views
 from . import training_views
 from . import notification_views as notices
@@ -11,6 +11,7 @@ from grading import chamtn_api
 app_name = 'api'
 
 urlpatterns = [
+    path('v1/', include('toolbox.urls')),
     path('v1/notifications/', notices.inbox_api, name='notifications'),
     path('v1/notifications/<int:notice_id>/read/', notices.read_api, name='notification_read'),
     path('v1/notifications/device/', notices.device_api, name='notification_device'),
