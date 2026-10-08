@@ -487,6 +487,9 @@ def grade_api(request):
     fast_mode = (str(fast_param).lower() in ['1', 'true', 'yes'])
     # Explicit Live protocol opt-in; Upload also uses fast=1, so fast is NOT a source flag.
     live_bubble_mode = request.data.get('capture_pipeline') == 'live_capture_v3'
+    # Mobile Live never displays the duplicate diagnostic overlay. Keep the
+    # full legacy response unless the client explicitly opts out.
+    include_overlay = str(request.data.get('include_overlay', 'true')).lower() != 'false'
 
     # Parse corners from client (if live camera detected them)
     provided_corners = None
@@ -699,7 +702,7 @@ def grade_api(request):
         overlay_image_b64 = ''
         base_path = os.path.splitext(tmp_path)[0]
         overlay_path = f"{base_path}_overlay.jpg"
-        if os.path.exists(overlay_path):
+        if include_overlay and os.path.exists(overlay_path):
             try:
                 with open(overlay_path, 'rb') as f:
                     overlay_image_b64 = base64.b64encode(f.read()).decode('utf-8')
